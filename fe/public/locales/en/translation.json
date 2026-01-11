@@ -1,0 +1,22 @@
+{
+    "app": {
+        "name": "Tenant Management",
+        "themes": {
+            "light": "Light",
+            "dark": "Dark",
+            "system": "System"
+        }
+    },
+    "login": {
+        "signIn": "Sign in",
+        "email": "Email address",
+        "password": "Password",
+        "forgotPassword": "Forgot your password?",
+        "signUp": "Sign up",
+        "rememberMe": "Remember me",
+        "dontHaveAccount": "Don't have an account?",
+        "signInWithGoogle": "Sign in with Google",
+        "pleaseEnterAValidEmail": "Please enter a valid email address.",
+        "passwordMustBeAtLeast6Characters": "Password must be at least 6 characters long."
+    }
+}
