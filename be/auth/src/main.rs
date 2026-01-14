@@ -12,7 +12,7 @@ async fn main() {
     dotenv().ok();
 
     let app = axum::Router::new()
-        .nest("/", routes::auth_routes());
+        .merge(routes::auth_routes());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     let addr = format!("0.0.0.0:{port}");
 
