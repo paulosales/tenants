@@ -1,0 +1,122 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tenants_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_dev_secret_change_in_prod}
+      POSTGRES_DB: ${POSTGRES_DB:-tenants_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tenants_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - internal_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tenants_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+    networks:
+      - internal_network
+
+  migration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: tenants_migration
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_secret_change_in_prod}@postgres:5432/${POSTGRES_DB:-tenants_db}
+    volumes:
+      - ./backend/migrations:/app/migrations:ro
+    entrypoint: ["sqlx", "migrate", "run", "--source", "/app/migrations"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: tenants_backend
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      HOST: 0.0.0.0
+      APP_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_dev_secret_change_in_prod}@postgres:5432/${POSTGRES_DB:-tenants_db}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-super_secure_development_jwt_secret_must_be_changed_in_prod_12345}
+      JWT_ACCESS_EXPIRATION_SECONDS: 900
+      JWT_REFRESH_EXPIRATION_SECONDS: 604800
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder_key_for_dev}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder_secret_for_dev}
+      ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+      RUST_LOG: "info,backend=debug,tower_http=debug"
+    volumes:
+      # Bind mount code for live editing
+      - ./backend:/app
+      # Named volumes to isolate target and Cargo cache from host OS
+      - cargo_target:/app/target
+      - cargo_cache:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    networks:
+      - internal_network
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile.dev
+    container_name: tenants_web
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8080/api/v1
+    volumes:
+      - ./apps/web:/app
+      - web_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - internal_network
+
+networks:
+  internal_network:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  cargo_target:
+  cargo_cache:
+  cargo_git:
+  web_node_modules:

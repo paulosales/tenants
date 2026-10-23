@@ -1,0 +1,4 @@
+# Root Docker Compose (defaults to development configuration)
+# For production orchestration, deploy with specific production overlays or Kubernetes manifests.
+include:
+  - docker-compose.dev.yml

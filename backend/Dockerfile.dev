@@ -1,0 +1,27 @@
+# Multi-arch Rust Development Dockerfile with Sub-Second Hot Reloading
+FROM rust:bullseye
+
+WORKDIR /app
+
+# Install system dependencies (OpenSSL, PostgreSQL client for health checks, pkg-config)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    postgresql-client \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo-watch for live hot-reloading and sqlx-cli for migrations
+RUN cargo install cargo-watch --locked && \
+    cargo install sqlx-cli --no-default-features --features native-tls,postgres --locked
+
+# Expose Axum HTTP server port
+EXPOSE 8080
+
+# Environment defaults for development
+ENV RUST_LOG=info,backend=debug
+ENV RUST_BACKTRACE=1
+
+# Run with cargo-watch. Target and cargo registry will be volume-isolated via Docker Compose.
+CMD ["cargo", "watch", "-x", "run"]
