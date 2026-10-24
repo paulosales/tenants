@@ -1,20 +1,19 @@
 # Multi-arch Rust Development Dockerfile with Sub-Second Hot Reloading
-FROM rust:bullseye
+FROM rust:bookworm
 
 WORKDIR /app
 
-# Install system dependencies (OpenSSL, PostgreSQL client for health checks, pkg-config)
+# Install system dependencies (OpenSSL, pkg-config, ca-certificates, curl)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
-    postgresql-client \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install cargo-watch for live hot-reloading and sqlx-cli for migrations
-RUN cargo install cargo-watch --locked && \
-    cargo install sqlx-cli --no-default-features --features native-tls,postgres --locked
+# Install cargo-watch and sqlx-cli via cargo-binstall for near-instant multi-arch binary provisioning
+RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
+    cargo binstall -y cargo-watch sqlx-cli
 
 # Expose Axum HTTP server port
 EXPOSE 8080

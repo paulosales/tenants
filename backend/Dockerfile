@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Cargo Chef Planner
 # ==========================================
-FROM lukemathwalker/cargo-chef:latest-rust-1.80-bullseye AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.80-bookworm AS chef
 WORKDIR /app
 
 FROM chef AS planner

@@ -1,10 +1,18 @@
-# Vite React Web Development Dockerfile with Container HMR
+# Vite React Web Development Dockerfile with Container HMR in Monorepo
 FROM node:22-alpine
 
 WORKDIR /app
 
 # Enable pnpm
 RUN corepack enable || npm install -g pnpm
+
+# Copy workspace configuration and manifests
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages ./packages
+COPY apps/web ./apps/web
+
+# Install all monorepo dependencies
+RUN pnpm install --frozen-lockfile=false
 
 # Expose Vite dev server port
 EXPOSE 5173
@@ -13,5 +21,7 @@ EXPOSE 5173
 ENV CHOKIDAR_USEPOLLING=true
 ENV WATCHPACK_POLLING=true
 
-# Start Vite dev server bound to 0.0.0.0
-CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+WORKDIR /app
+
+# Ensure workspace packages link correctly on mount and start Vite dev server
+CMD ["sh", "-c", "pnpm install --prefer-offline && pnpm --filter @tenants/web run dev --host 0.0.0.0"]
