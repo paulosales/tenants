@@ -7,7 +7,7 @@ use axum::{
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::application::dtos::{AuthResponse, LoginRequest, RefreshTokenRequest, RegisterRequest};
+use crate::application::dtos::{LoginRequest, RefreshTokenRequest, RegisterRequest};
 use crate::domain::errors::{DomainError, DomainResult};
 use crate::domain::user::UserSummary;
 use crate::presentation::middleware::auth::{AppState, AuthenticatedUser};

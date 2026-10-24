@@ -19,6 +19,7 @@ pub struct PaymentService {
     payment_repo: Arc<dyn PaymentRepository>,
     reservation_repo: Arc<dyn ReservationRepository>,
     audit_repo: Arc<dyn AuditRepository>,
+    #[allow(dead_code)]
     stripe_secret_key: String,
     stripe_webhook_secret: String,
 }

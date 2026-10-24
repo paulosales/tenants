@@ -7,7 +7,7 @@ use crate::domain::{
     errors::{DomainError, DomainResult},
     parking::{
         GeometryCoordinates, ParkingLayoutResponse, ParkingSpot, ParkingSpotNode, ParkingZone,
-        ShapeType, SpotStatus, SpotType,
+        SpotStatus,
     },
     repository::ParkingRepository,
 };

@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::domain::{
     errors::{DomainError, DomainResult},
-    payment::{Payment, PaymentStatus},
+    payment::Payment,
     repository::PaymentRepository,
 };
 

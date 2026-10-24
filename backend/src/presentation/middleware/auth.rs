@@ -11,7 +11,7 @@ use crate::application::auth_service::JwtClaims;
 use crate::domain::{
     errors::DomainError,
     repository::UserRepository,
-    user::{Role, User},
+    user::User,
 };
 
 #[derive(Clone)]

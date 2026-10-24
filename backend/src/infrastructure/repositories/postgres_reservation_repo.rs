@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::domain::{
     errors::{DomainError, DomainResult},
     repository::ReservationRepository,
-    reservation::{Reservation, ReservationStatus, ReservationWithDetails},
+    reservation::{Reservation, ReservationWithDetails},
 };
 
 pub struct PostgresReservationRepository {
