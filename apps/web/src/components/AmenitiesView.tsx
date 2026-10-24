@@ -333,7 +333,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                   type="text"
                   {...register('name')}
                   placeholder="e.g. Skyline Rooftop Lounge"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name.message}</p>}
               </div>
@@ -344,7 +344,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                   rows={2}
                   {...register('description')}
                   placeholder="Panoramic view, sound system, and lounge seating."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 />
               </div>
 
@@ -354,7 +354,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                   <input
                     type="number"
                     {...register('capacity')}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.capacity && (
                     <p className="text-xs text-rose-600 mt-1">{errors.capacity.message}</p>
@@ -366,7 +366,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                     type="number"
                     step="0.01"
                     {...register('fee_dollars')}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
@@ -375,7 +375,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                     type="number"
                     step="0.01"
                     {...register('deposit_dollars')}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -386,7 +386,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                   rows={2}
                   {...register('rules')}
                   placeholder="Reservation required 24h in advance. Quiet hours after 10 PM."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                 />
               </div>
 

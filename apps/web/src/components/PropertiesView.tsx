@@ -351,7 +351,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                   type="text"
                   {...register('name')}
                   placeholder="e.g. Grandview Heights"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name.message}</p>}
               </div>
@@ -362,7 +362,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                   type="text"
                   {...register('address_line1')}
                   placeholder="e.g. 1200 Grandview Avenue"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 {errors.address_line1 && (
                   <p className="text-xs text-rose-600 mt-1">{errors.address_line1.message}</p>
@@ -377,7 +377,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                   type="text"
                   {...register('address_line2')}
                   placeholder="e.g. Suite 400 or Tower B"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -388,7 +388,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                     type="text"
                     {...register('city')}
                     placeholder="Seattle"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.city && <p className="text-xs text-rose-600 mt-1">{errors.city.message}</p>}
                 </div>
@@ -398,7 +398,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                     type="text"
                     {...register('state_province')}
                     placeholder="WA"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.state_province && (
                     <p className="text-xs text-rose-600 mt-1">{errors.state_province.message}</p>
@@ -410,7 +410,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                     type="text"
                     {...register('postal_code')}
                     placeholder="98101"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.postal_code && (
                     <p className="text-xs text-rose-600 mt-1">{errors.postal_code.message}</p>

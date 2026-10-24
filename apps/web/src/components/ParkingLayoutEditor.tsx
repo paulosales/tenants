@@ -642,7 +642,7 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                   type="text"
                   value={selectedSpot.spot_label}
                   onChange={(e) => updateSelectedSpot({ spot_label: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono font-bold"
+                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono font-bold"
                 />
               </div>
 
@@ -651,7 +651,7 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                 <select
                   value={selectedSpot.spot_type}
                   onChange={(e) => updateSelectedSpot({ spot_type: e.target.value as AdminSpotType })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="standard">Standard Vehicle</option>
                   <option value="compact">Compact Only</option>
@@ -667,7 +667,7 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                     type="number"
                     value={selectedSpot.width}
                     onChange={(e) => updateSelectedSpot({ width: Number(e.target.value) || 60 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
                 </div>
                 <div>
@@ -676,7 +676,7 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                     type="number"
                     value={selectedSpot.height}
                     onChange={(e) => updateSelectedSpot({ height: Number(e.target.value) || 120 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
                 </div>
               </div>
@@ -725,7 +725,7 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                       is_occupied: Boolean(val),
                     });
                   }}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="none">-- Unassigned --</option>
                   {tenants.map((t) => (

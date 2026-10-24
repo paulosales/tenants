@@ -210,7 +210,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search tenant name, email, or unit..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-900 placeholder:text-slate-400"
           />
         </div>
 
@@ -394,7 +394,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                     type="text"
                     {...register('first_name')}
                     placeholder="Marcus"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.first_name && (
                     <p className="text-xs text-rose-600 mt-1">{errors.first_name.message}</p>
@@ -406,7 +406,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                     type="text"
                     {...register('last_name')}
                     placeholder="Vance"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.last_name && (
                     <p className="text-xs text-rose-600 mt-1">{errors.last_name.message}</p>
@@ -421,7 +421,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                     type="email"
                     {...register('email')}
                     placeholder="marcus@example.com"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.email && <p className="text-xs text-rose-600 mt-1">{errors.email.message}</p>}
                 </div>
@@ -431,7 +431,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                     type="tel"
                     {...register('phone')}
                     placeholder="+1 (555) 0192"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   {errors.phone && <p className="text-xs text-rose-600 mt-1">{errors.phone.message}</p>}
                 </div>
@@ -443,7 +443,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                 </label>
                 <select
                   {...register('assigned_unit_id')}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="none">-- Unassigned --</option>
                   {availableUnits.map((u) => (
@@ -466,7 +466,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                     type="text"
                     {...register('emergency_contact_name')}
                     placeholder="Sandra Vance"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
@@ -477,7 +477,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                     type="tel"
                     {...register('emergency_contact_phone')}
                     placeholder="+1 (555) 0199"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -488,7 +488,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                   <input
                     type="date"
                     {...register('lease_start_date')}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
@@ -496,7 +496,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                   <input
                     type="date"
                     {...register('lease_end_date')}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -505,7 +505,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Status *</label>
                 <select
                   {...register('status')}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="active">Active</option>
                   <option value="applicant">Applicant</option>
