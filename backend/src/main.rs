@@ -3,13 +3,14 @@ use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use backend::{
-    application::{AuthService, ParkingService, PaymentService, ReservationService},
+    application::{AdminService, AuthService, ParkingService, PaymentService, ReservationService},
     infrastructure::{
         config::AppConfig,
         db::create_postgres_pool,
         repositories::{
-            PostgresAmenityRepository, PostgresAuditRepository, PostgresParkingRepository,
-            PostgresPaymentRepository, PostgresReservationRepository, PostgresUserRepository,
+            PostgresAdminRepository, PostgresAmenityRepository, PostgresAuditRepository,
+            PostgresParkingRepository, PostgresPaymentRepository, PostgresReservationRepository,
+            PostgresUserRepository,
         },
     },
     presentation::{middleware::auth::AppState, routes::build_router},
@@ -49,6 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let parking_repo = Arc::new(PostgresParkingRepository::new(pool.clone()));
     let payment_repo = Arc::new(PostgresPaymentRepository::new(pool.clone()));
     let audit_repo = Arc::new(PostgresAuditRepository::new(pool.clone()));
+    let admin_repo = Arc::new(PostgresAdminRepository::new(pool.clone()));
 
     // 5. Initialize Application Use Case Services
     let auth_service = Arc::new(AuthService::new(
@@ -77,6 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.stripe_webhook_secret.clone(),
     ));
 
+    let admin_service = Arc::new(AdminService::new(admin_repo.clone()));
+
     // 6. Assemble Router with AppState
     let app_state = AppState {
         user_repo,
@@ -87,6 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         payment_service,
         amenity_repo,
         audit_repo,
+        admin_service,
     };
 
     let router = build_router(app_state, &config.allowed_origins);

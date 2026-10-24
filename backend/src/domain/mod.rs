@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod user;
 pub mod amenity;
 pub mod reservation;
@@ -7,10 +8,11 @@ pub mod audit;
 pub mod errors;
 pub mod repository;
 
+pub use admin::*;
 pub use user::*;
 pub use amenity::*;
 pub use reservation::*;
-pub use parking::*;
+pub use parking::{GeometryCoordinates, ParkingLayoutResponse, ParkingSpotNode, ParkingZone, SpotStatus};
 pub use payment::*;
 pub use audit::*;
 pub use errors::*;

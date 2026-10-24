@@ -14,6 +14,220 @@ export interface AuthResponse {
   expires_in: number;
 }
 
+// ==========================================
+// Admin Property Management Types
+// ==========================================
+
+export interface Property {
+  id: string;
+  name: string;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  state_province: string;
+  postal_code: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PropertyWithStats extends Property {
+  unit_count: number;
+  occupied_units_count: number;
+  tenant_count: number;
+}
+
+export interface CreatePropertyDto {
+  name: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state_province: string;
+  postal_code: string;
+}
+
+export type UpdatePropertyDto = CreatePropertyDto;
+
+export type UnitStatus = 'vacant' | 'occupied' | 'maintenance';
+
+export interface Unit {
+  id: string;
+  property_id: string;
+  unit_number: string;
+  floor: number;
+  bedrooms: number;
+  bathrooms: number;
+  square_feet: number;
+  status: UnitStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UnitWithTenant extends Unit {
+  tenant_id?: string | null;
+  tenant_name?: string | null;
+  tenant_email?: string | null;
+}
+
+export interface CreateUnitDto {
+  unit_number: string;
+  floor: number;
+  bedrooms: number;
+  bathrooms: number;
+  square_feet: number;
+  status?: UnitStatus;
+}
+
+export interface UpdateUnitDto {
+  unit_number: string;
+  floor: number;
+  bedrooms: number;
+  bathrooms: number;
+  square_feet: number;
+  status: UnitStatus;
+}
+
+export type TenantStatus = 'active' | 'past' | 'applicant';
+
+export interface Tenant {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  assigned_unit_id?: string | null;
+  lease_start_date?: string | null;
+  lease_end_date?: string | null;
+  status: TenantStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantWithUnit extends Tenant {
+  unit_number?: string | null;
+  property_id?: string | null;
+  property_name?: string | null;
+}
+
+export interface CreateTenantDto {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  assigned_unit_id?: string | null;
+  lease_start_date?: string | null;
+  lease_end_date?: string | null;
+  status?: TenantStatus;
+}
+
+export interface UpdateTenantDto {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  assigned_unit_id?: string | null;
+  lease_start_date?: string | null;
+  lease_end_date?: string | null;
+  status: TenantStatus;
+}
+
+export interface AdminAmenity {
+  id: string;
+  property_id: string;
+  name: string;
+  description?: string | null;
+  capacity: number;
+  fee_cents: number;
+  deposit_cents: number;
+  rules?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAmenityDto {
+  name: string;
+  description?: string;
+  capacity: number;
+  fee_cents: number;
+  deposit_cents: number;
+  rules?: string;
+  is_active?: boolean;
+}
+
+export interface UpdateAmenityDto {
+  name: string;
+  description?: string;
+  capacity: number;
+  fee_cents: number;
+  deposit_cents: number;
+  rules?: string;
+  is_active: boolean;
+}
+
+// ==========================================
+// Interactive SVG Parking Layout Types
+// ==========================================
+
+export type AdminSpotType = 'standard' | 'compact' | 'ev_charging' | 'handicap';
+
+export interface ParkingSpot {
+  id: string;
+  layout_id: string;
+  spot_label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  spot_type: AdminSpotType;
+  is_occupied: boolean;
+  assigned_tenant_id?: string | null;
+  tenant_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ParkingLayout {
+  id: string;
+  property_id: string;
+  canvas_width: number;
+  canvas_height: number;
+  grid_size: number;
+  updated_at: string;
+}
+
+export interface ParkingLayoutWithSpots {
+  layout: ParkingLayout;
+  spots: ParkingSpot[];
+}
+
+export interface SaveParkingSpotDto {
+  id?: string;
+  spot_label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  spot_type: AdminSpotType;
+  is_occupied: boolean;
+  assigned_tenant_id?: string | null;
+}
+
+export interface SaveParkingLayoutRequest {
+  canvas_width: number;
+  canvas_height: number;
+  grid_size: number;
+  spots: SaveParkingSpotDto[];
+}
+
+// Legacy reservation & payment types
 export interface Amenity {
   id: string;
   name: string;
@@ -33,8 +247,8 @@ export interface Reservation {
   id: string;
   amenity_id: string;
   user_id: string;
-  start_time: string; // ISO 8601
-  end_time: string;   // ISO 8601
+  start_time: string;
+  end_time: string;
   total_price_cents: number;
   status: ReservationStatus;
   notes?: string | null;

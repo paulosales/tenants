@@ -20,6 +20,11 @@ impl IntoResponse for DomainError {
                 "Reservation Conflict",
                 "The requested amenity time slot has already been reserved. Please select another time.".to_string(),
             ),
+            DomainError::Conflict(msg) => (
+                StatusCode::CONFLICT,
+                "Conflict",
+                msg,
+            ),
             DomainError::OutsideOperatingHours { open_time, close_time } => (
                 StatusCode::BAD_REQUEST,
                 "Outside Operating Hours",

@@ -12,6 +12,13 @@ use tower_http::{
 
 use crate::presentation::{
     handlers::{
+        admin::{
+            create_property, create_property_amenity, create_tenant, create_unit,
+            delete_amenity, delete_property, delete_tenant, delete_unit, get_parking_layout,
+            get_property, get_tenant, list_properties, list_property_amenities,
+            list_tenants, list_units, save_parking_layout, update_amenity, update_property,
+            update_tenant, update_unit,
+        },
         amenities::{check_availability, get_amenity, list_amenities},
         audit::list_audit_logs,
         auth::{login, logout, me, refresh, register},
@@ -71,7 +78,21 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
         // Stripe Webhook
         .route("/webhooks/stripe", post(stripe_webhook))
         // Audit
-        .route("/audit/logs", get(list_audit_logs));
+        .route("/audit/logs", get(list_audit_logs))
+        // Admin: Properties API
+        .route("/properties", get(list_properties).post(create_property))
+        .route("/properties/:id", get(get_property).put(update_property).delete(delete_property))
+        // Admin: Units API
+        .route("/properties/:property_id/units", get(list_units).post(create_unit))
+        .route("/units/:id", put(update_unit).delete(delete_unit))
+        // Admin: Tenants API
+        .route("/tenants", get(list_tenants).post(create_tenant))
+        .route("/tenants/:id", get(get_tenant).put(update_tenant).delete(delete_tenant))
+        // Admin: Amenities API
+        .route("/properties/:property_id/amenities", get(list_property_amenities).post(create_property_amenity))
+        .route("/amenities/:id", put(update_amenity).delete(delete_amenity))
+        // Admin: Parking Layout API
+        .route("/properties/:property_id/parking-layout", get(get_parking_layout).put(save_parking_layout));
 
     // 3. Assemble root router with layered middleware
     Router::new()

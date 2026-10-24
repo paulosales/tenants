@@ -8,6 +8,9 @@ pub enum DomainError {
     #[error("Reservation conflict: the requested amenity time slot is already booked")]
     ReservationConflict,
 
+    #[error("Conflict: {0}")]
+    Conflict(String),
+
     #[error("Requested time is outside operating hours ({open_time} - {close_time})")]
     OutsideOperatingHours { open_time: String, close_time: String },
 

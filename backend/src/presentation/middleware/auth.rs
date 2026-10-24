@@ -24,6 +24,7 @@ pub struct AppState {
     pub payment_service: Arc<crate::application::PaymentService>,
     pub amenity_repo: Arc<dyn crate::domain::repository::AmenityRepository>,
     pub audit_repo: Arc<dyn crate::domain::repository::AuditRepository>,
+    pub admin_service: Arc<crate::application::AdminService>,
 }
 
 #[derive(Debug, Clone)]
