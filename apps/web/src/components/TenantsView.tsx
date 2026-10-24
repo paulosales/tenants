@@ -25,6 +25,7 @@ import type {
   CreateTenantDto,
   TenantStatus,
 } from '@tenants/shared-types';
+import { SearchableSelect } from './SearchableSelect';
 
 const tenantSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -80,6 +81,8 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<TenantFormData>({
     resolver: createZodResolver(tenantSchema),
@@ -441,17 +444,26 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Assigned Unit
                 </label>
-                <select
-                  {...register('assigned_unit_id')}
-                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="none">-- Unassigned --</option>
-                  {availableUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      Unit {u.unit_number} ({u.bedrooms} Bed, {u.bathrooms} Bath) - {u.status}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={[
+                    { value: 'none', label: '-- Unassigned --' },
+                    ...availableUnits.map((u) => ({
+                      value: u.id,
+                      label: `Unit ${u.unit_number}`,
+                      sublabel: `${u.bedrooms} Bed, ${u.bathrooms} Bath`,
+                      badge: u.status,
+                      badgeColor: (u.status === 'vacant' ? 'emerald' : u.status === 'occupied' ? 'amber' : 'rose') as any,
+                    })),
+                  ]}
+                  value={watch('assigned_unit_id') || 'none'}
+                  onChange={(val) => setValue('assigned_unit_id', val, { shouldValidate: true })}
+                  placeholder="Select or search unit..."
+                  searchPlaceholder="Type unit number (e.g. 101)..."
+                  emptyMessage="No units matching search"
+                  allowClear={true}
+                  clearLabel="-- Unassigned --"
+                  clearValue="none"
+                />
                 <p className="text-[11px] text-slate-400 mt-1">
                   Assigning a unit automatically marks its status as Occupied.
                 </p>
@@ -503,14 +515,16 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Status *</label>
-                <select
-                  {...register('status')}
-                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="active">Active</option>
-                  <option value="applicant">Applicant</option>
-                  <option value="past">Past</option>
-                </select>
+                <SearchableSelect
+                  options={[
+                    { value: 'active', label: 'Active', badge: 'Active Lease', badgeColor: 'emerald' },
+                    { value: 'applicant', label: 'Applicant', badge: 'Pending', badgeColor: 'amber' },
+                    { value: 'past', label: 'Past', badge: 'Former', badgeColor: 'slate' },
+                  ]}
+                  value={watch('status') || 'active'}
+                  onChange={(val) => setValue('status', val as TenantStatus, { shouldValidate: true })}
+                  placeholder="Select status..."
+                />
               </div>
 
               <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-200">

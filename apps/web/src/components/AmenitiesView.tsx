@@ -22,6 +22,7 @@ import type {
   AdminAmenity,
   CreateAmenityDto,
 } from '@tenants/shared-types';
+import { SearchableSelect } from './SearchableSelect';
 
 const amenitySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -165,17 +166,20 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
-          <select
-            value={activePropertyId}
-            onChange={(e) => onSelectProperty(e.target.value)}
-            className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-64">
+            <SearchableSelect
+              options={properties.map((p) => ({
+                value: p.id,
+                label: p.name,
+                sublabel: `${p.city}, ${p.state_province}`,
+                badge: `${p.unit_count} units`,
+              }))}
+              value={activePropertyId}
+              onChange={onSelectProperty}
+              placeholder="Select a property..."
+              searchPlaceholder="Search properties..."
+            />
+          </div>
 
           <button
             id="btn-add-amenity"

@@ -22,6 +22,7 @@ import type {
   AdminSpotType,
   SaveParkingLayoutRequest,
 } from '@tenants/shared-types';
+import { SearchableSelect } from './SearchableSelect';
 
 interface ParkingLayoutEditorProps {
   properties: PropertyWithStats[];
@@ -259,17 +260,21 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
         {/* Left: Property Switcher & Add Tools */}
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={activePropertyId}
-            onChange={(e) => onSelectProperty(e.target.value)}
-            className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-56">
+            <SearchableSelect
+              options={properties.map((p) => ({
+                value: p.id,
+                label: p.name,
+                sublabel: `${p.city}, ${p.state_province}`,
+                badge: `${p.unit_count} units`,
+              }))}
+              value={activePropertyId}
+              onChange={onSelectProperty}
+              size="sm"
+              placeholder="Select a property..."
+              searchPlaceholder="Search properties..."
+            />
+          </div>
 
           <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block" />
 
@@ -648,16 +653,17 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Spot Type</label>
-                <select
+                <SearchableSelect
+                  options={[
+                    { value: 'standard', label: 'Standard Vehicle', badge: 'Standard', badgeColor: 'indigo' },
+                    { value: 'compact', label: 'Compact Only', badge: 'Compact', badgeColor: 'slate' },
+                    { value: 'ev_charging', label: 'EV Charging Station', badge: 'EV Charging', badgeColor: 'emerald' },
+                    { value: 'handicap', label: 'Accessible / Handicap', badge: 'Handicap', badgeColor: 'amber' },
+                  ]}
                   value={selectedSpot.spot_type}
-                  onChange={(e) => updateSelectedSpot({ spot_type: e.target.value as AdminSpotType })}
-                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="standard">Standard Vehicle</option>
-                  <option value="compact">Compact Only</option>
-                  <option value="ev_charging">EV Charging Station</option>
-                  <option value="handicap">Accessible / Handicap</option>
-                </select>
+                  onChange={(val) => updateSelectedSpot({ spot_type: val as AdminSpotType })}
+                  placeholder="Select spot type..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -716,24 +722,32 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Assigned Tenant
                 </label>
-                <select
+                <SearchableSelect
+                  options={[
+                    { value: 'none', label: '-- Unassigned --' },
+                    ...tenants.map((t) => ({
+                      value: t.id,
+                      label: `${t.first_name} ${t.last_name}`,
+                      sublabel: t.email,
+                      badge: t.unit_number ? `Unit ${t.unit_number}` : undefined,
+                      badgeColor: 'emerald' as const,
+                    })),
+                  ]}
                   value={selectedSpot.assigned_tenant_id || 'none'}
-                  onChange={(e) => {
-                    const val = e.target.value === 'none' ? null : e.target.value;
+                  onChange={(val) => {
+                    const tenantId = val === 'none' ? null : val;
                     updateSelectedSpot({
-                      assigned_tenant_id: val,
-                      is_occupied: Boolean(val),
+                      assigned_tenant_id: tenantId,
+                      is_occupied: Boolean(tenantId),
                     });
                   }}
-                  className="w-full px-3 py-2 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="none">-- Unassigned --</option>
-                  {tenants.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.first_name} {t.last_name} ({t.unit_number ? `Unit ${t.unit_number}` : t.email})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Search and assign tenant..."
+                  searchPlaceholder="Type tenant name, unit, or email..."
+                  emptyMessage="No tenants found"
+                  allowClear={true}
+                  clearLabel="-- Unassigned --"
+                  clearValue="none"
+                />
               </div>
 
               {/* Occupied Toggle */}

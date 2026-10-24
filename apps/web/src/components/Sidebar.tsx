@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Building2, DoorClosed, Users, Sparkles, Car, ShieldCheck } from 'lucide-react';
 import type { PropertyWithStats } from '@tenants/shared-types';
+import { SearchableSelect, type SearchableOption } from './SearchableSelect';
 
 export type AdminTab = 'properties' | 'units' | 'tenants' | 'amenities' | 'parking';
 
@@ -19,6 +20,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedPropertyId,
   onSelectProperty,
 }) => {
+  const propertyOptions: SearchableOption[] = useMemo(() => {
+    return [
+      { value: '', label: `All Portfolio (${properties.length})` },
+      ...properties.map((p) => ({
+        value: p.id,
+        label: p.name,
+        sublabel: `${p.city}, ${p.state_province}`,
+        badge: `${p.unit_count} units`,
+      })),
+    ];
+  }, [properties]);
   const navItems = [
     { id: 'properties' as AdminTab, label: 'Properties', icon: Building2 },
     { id: 'units' as AdminTab, label: 'Units', icon: DoorClosed },
@@ -48,19 +60,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
           Active Property
         </label>
-        <select
+        <SearchableSelect
           id="global-property-selector"
+          options={propertyOptions}
           value={selectedPropertyId || ''}
-          onChange={(e) => onSelectProperty(e.target.value ? e.target.value : null)}
-          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-        >
-          <option value="">All Portfolio ({properties.length})</option>
-          {properties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => onSelectProperty(val ? val : null)}
+          variant="dark"
+          size="sm"
+          searchPlaceholder="Search properties..."
+          placeholder={`All Portfolio (${properties.length})`}
+        />
       </div>
 
       {/* Navigation Links */}
