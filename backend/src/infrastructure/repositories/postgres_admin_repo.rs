@@ -185,13 +185,23 @@ impl AdminRepository for PostgresAdminRepository {
             r#"
             SELECT 
                 u.id, u.property_id, u.unit_number, u.floor, u.bedrooms, u.bathrooms::float8 as bathrooms, u.square_feet, u.status,
-                t.id as tenant_id,
-                CASE WHEN t.id IS NOT NULL THEN t.first_name || ' ' || t.last_name ELSE NULL END as tenant_name,
-                t.email as tenant_email,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', t.id,
+                            'name', t.first_name || ' ' || t.last_name,
+                            'email', t.email,
+                            'phone', t.phone
+                        )
+                        ORDER BY t.first_name ASC, t.last_name ASC
+                    ) FILTER (WHERE t.id IS NOT NULL),
+                    '[]'::json
+                ) as tenants_json,
                 u.created_at, u.updated_at
             FROM units u
             LEFT JOIN tenants t ON t.assigned_unit_id = u.id AND t.deleted_at IS NULL AND t.status = 'active'
             WHERE u.property_id = $1 AND u.deleted_at IS NULL
+            GROUP BY u.id
             ORDER BY u.unit_number ASC
             "#
         )
@@ -204,6 +214,16 @@ impl AdminRepository for PostgresAdminRepository {
             .into_iter()
             .map(|r| {
                 let status_str: String = r.get("status");
+                let tenants_val: serde_json::Value = r.get("tenants_json");
+                let tenants: Vec<UnitTenantSummary> = serde_json::from_value(tenants_val).unwrap_or_default();
+                let tenant_id = tenants.first().map(|t| t.id);
+                let tenant_email = tenants.first().map(|t| t.email.clone());
+                let tenant_name = if tenants.is_empty() {
+                    None
+                } else {
+                    Some(tenants.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(", "))
+                };
+
                 UnitWithTenant {
                     id: r.get("id"),
                     property_id: r.get("property_id"),
@@ -213,9 +233,10 @@ impl AdminRepository for PostgresAdminRepository {
                     bathrooms: r.get("bathrooms"),
                     square_feet: r.get("square_feet"),
                     status: UnitStatus::from_str(&status_str),
-                    tenant_id: r.get("tenant_id"),
-                    tenant_name: r.get("tenant_name"),
-                    tenant_email: r.get("tenant_email"),
+                    tenant_id,
+                    tenant_name,
+                    tenant_email,
+                    tenants,
                     created_at: r.get("created_at"),
                     updated_at: r.get("updated_at"),
                 }
@@ -339,6 +360,12 @@ impl AdminRepository for PostgresAdminRepository {
     }
 
     async fn delete_unit(&self, id: Uuid) -> DomainResult<()> {
+        sqlx::query("UPDATE tenants SET assigned_unit_id = NULL, updated_at = NOW() WHERE assigned_unit_id = $1 AND deleted_at IS NULL")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DomainError::Internal(format!("Failed to unassign tenants on unit deletion: {}", e)))?;
+
         sqlx::query("UPDATE units SET deleted_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -355,6 +382,53 @@ impl AdminRepository for PostgresAdminRepository {
             .await
             .map_err(|e| DomainError::Internal(format!("Failed to update unit status: {}", e)))?;
         Ok(())
+    }
+
+    async fn sync_unit_tenants(&self, unit_id: Uuid, tenant_ids: &[Uuid]) -> DomainResult<()> {
+        if tenant_ids.is_empty() {
+            sqlx::query(
+                "UPDATE tenants SET assigned_unit_id = NULL, updated_at = NOW() WHERE assigned_unit_id = $1 AND deleted_at IS NULL"
+            )
+            .bind(unit_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DomainError::Internal(format!("Failed to unassign tenants: {}", e)))?;
+        } else {
+            // 1. Unassign any tenant currently assigned to this unit that is not in the new list
+            sqlx::query(
+                "UPDATE tenants SET assigned_unit_id = NULL, updated_at = NOW() WHERE assigned_unit_id = $1 AND NOT (id = ANY($2)) AND deleted_at IS NULL"
+            )
+            .bind(unit_id)
+            .bind(tenant_ids)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DomainError::Internal(format!("Failed to unassign removed tenants: {}", e)))?;
+
+            // 2. Assign the specified tenants to this unit
+            sqlx::query(
+                "UPDATE tenants SET assigned_unit_id = $1, updated_at = NOW() WHERE id = ANY($2) AND deleted_at IS NULL"
+            )
+            .bind(unit_id)
+            .bind(tenant_ids)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DomainError::Internal(format!("Failed to assign tenants to unit: {}", e)))?;
+        }
+        Ok(())
+    }
+
+    async fn count_active_tenants_for_unit(&self, unit_id: Uuid, exclude_tenant_id: Option<Uuid>) -> DomainResult<i64> {
+        let row = sqlx::query(
+            "SELECT COUNT(*)::int8 as count FROM tenants WHERE assigned_unit_id = $1 AND ($2::uuid IS NULL OR id != $2) AND deleted_at IS NULL AND status = 'active'"
+        )
+        .bind(unit_id)
+        .bind(exclude_tenant_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to count active tenants: {}", e)))?;
+
+        let count: i64 = row.get("count");
+        Ok(count)
     }
 
     // ------------------------------------------

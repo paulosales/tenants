@@ -326,11 +326,10 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
           {/* Snap toggle */}
           <button
             onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              snapToGrid
+            className={`inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${snapToGrid
                 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                 : 'bg-slate-100 text-slate-500'
-            }`}
+              }`}
             title="Snap coordinates to 20px grid"
           >
             <Grid className="w-3.5 h-3.5" />
@@ -724,7 +723,6 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                 </label>
                 <SearchableSelect
                   options={[
-                    { value: 'none', label: '-- Unassigned --' },
                     ...tenants.map((t) => ({
                       value: t.id,
                       label: `${t.first_name} ${t.last_name}`,

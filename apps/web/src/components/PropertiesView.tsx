@@ -15,9 +15,13 @@ import {
   AlertCircle,
   X,
   Loader2,
+  Filter,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { PropertyWithStats, CreatePropertyDto } from '@tenants/shared-types';
+import { TablePagination } from './TablePagination';
+import { SortableColumnHeader, TableColumnFilterInput } from './DataTableHeader';
+import { useDataTable } from '../hooks/useDataTable';
 
 const propertySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -47,6 +51,67 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
   const { data: properties = [], isLoading, error } = useQuery({
     queryKey: ['properties'],
     queryFn: () => api.getProperties(),
+  });
+
+  const {
+    pageSize,
+    setPageSize,
+    currentPage,
+    setCurrentPage,
+    sortKey,
+    sortDirection,
+    handleSort,
+    columnFilters,
+    setColumnFilter,
+    clearAllFilters,
+    hasActiveFilters,
+    showFilterRow,
+    setShowFilterRow,
+    totalRecords,
+    paginatedData,
+  } = useDataTable<PropertyWithStats>({
+    data: properties,
+    initialPageSize: 25,
+    initialSortKey: 'name',
+    initialSortDirection: 'asc',
+    filterPredicate: (prop, filters) => {
+      if (filters.name) {
+        const q = filters.name.toLowerCase();
+        const fullLocation = `${prop.name} ${prop.address_line1} ${prop.address_line2 || ''} ${prop.city} ${prop.state_province} ${prop.postal_code}`.toLowerCase();
+        if (!fullLocation.includes(q)) return false;
+      }
+      if (filters.unit_count) {
+        const minUnits = Number(filters.unit_count);
+        if (!isNaN(minUnits) && Number(prop.unit_count || 0) < minUnits) return false;
+      }
+      if (filters.occupancy) {
+        const minOcc = Number(filters.occupancy);
+        const units = Number(prop.unit_count || 0);
+        const occupied = Number(prop.occupied_units_count || 0);
+        const rate = units > 0 ? Math.round((occupied / units) * 100) : 0;
+        if (!isNaN(minOcc) && rate < minOcc) return false;
+      }
+      if (filters.tenant_count) {
+        const minTenants = Number(filters.tenant_count);
+        if (!isNaN(minTenants) && Number(prop.tenant_count || 0) < minTenants) return false;
+      }
+      return true;
+    },
+    sortComparator: (a, b, key, dir) => {
+      let cmp = 0;
+      if (key === 'name') {
+        cmp = a.name.localeCompare(b.name, undefined, { numeric: true });
+      } else if (key === 'unit_count') {
+        cmp = Number(a.unit_count || 0) - Number(b.unit_count || 0);
+      } else if (key === 'occupancy') {
+        const rateA = Number(a.unit_count || 0) > 0 ? Number(a.occupied_units_count || 0) / Number(a.unit_count) : 0;
+        const rateB = Number(b.unit_count || 0) > 0 ? Number(b.occupied_units_count || 0) / Number(b.unit_count) : 0;
+        cmp = rateA - rateB;
+      } else if (key === 'tenant_count') {
+        cmp = Number(a.tenant_count || 0) - Number(b.tenant_count || 0);
+      }
+      return dir === 'asc' ? cmp : -cmp;
+    },
   });
 
   const {
@@ -241,92 +306,235 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/60 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="py-3.5 px-4 sm:px-6">Property Name & Location</th>
-                  <th className="py-3.5 px-4">Units & Capacity</th>
-                  <th className="py-3.5 px-4">Occupancy</th>
-                  <th className="py-3.5 px-4">Tenants</th>
-                  <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {properties.map((prop) => {
-                  const units = Number(prop.unit_count || 0);
-                  const occupied = Number(prop.occupied_units_count || 0);
-                  const occupancyRate = units > 0 ? Math.round((occupied / units) * 100) : 0;
+          <div>
+            {/* Table Controls Bar */}
+            <div className="px-4 sm:px-6 py-2.5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFilterRow(!showFilterRow)}
+                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    showFilterRow
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>{showFilterRow ? 'Hide Column Filters' : 'Filter Columns'}</span>
+                  {hasActiveFilters && (
+                    <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-indigo-500 text-white rounded-full">
+                      Filtered
+                    </span>
+                  )}
+                </button>
 
-                  return (
-                    <tr key={prop.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-4 px-4 sm:px-6">
-                        <div className="font-semibold text-slate-900">{prop.name}</div>
-                        <div className="flex items-center text-xs text-slate-500 mt-1">
-                          <MapPin className="w-3.5 h-3.5 mr-1 text-slate-400 shrink-0" />
-                          <span>
-                            {prop.address_line1}
-                            {prop.address_line2 ? `, ${prop.address_line2}` : ''}, {prop.city},{' '}
-                            {prop.state_province} {prop.postal_code}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="font-medium text-slate-800">{units}</span> units
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
-                            <div
-                              className="bg-indigo-600 h-full rounded-full transition-all"
-                              style={{ width: `${occupancyRate}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-medium text-slate-600">{occupancyRate}%</span>
-                        </div>
-                        <span className="text-[11px] text-slate-400">{occupied} occupied</span>
-                      </td>
-                      <td className="py-4 px-4 text-slate-700 font-medium">{prop.tenant_count}</td>
-                      <td className="py-4 px-4 sm:px-6 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          onClick={() => onSelectPropertyForUnits(prop.id)}
-                          className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
-                          title="Manage Units"
-                        >
-                          Units
-                        </button>
-                        <button
-                          onClick={() => onSelectPropertyForParking(prop.id)}
-                          className="px-2.5 py-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg transition-colors cursor-pointer inline-flex items-center space-x-1"
-                          title="Parking Visual Builder"
-                        >
-                          <Car className="w-3.5 h-3.5" />
-                          <span>Parking</span>
-                        </button>
-                        <button
-                          onClick={() => openEditModal(prop)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to delete ${prop.name}?`)) {
-                              deleteMutation.mutate(prop.id);
-                            }
-                          }}
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Property"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+
+              <div className="text-xs text-slate-400">
+                {totalRecords} {totalRecords === 1 ? 'property' : 'properties'} found
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/60 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="py-3.5 px-4 sm:px-6">
+                      <SortableColumnHeader
+                        columnKey="name"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Property Name & Location"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="unit_count"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Units & Capacity"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="occupancy"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Occupancy"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="tenant_count"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Tenants"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
+                  </tr>
+
+                  {showFilterRow && (
+                    <tr className="border-b border-slate-200 bg-slate-100/70 text-xs">
+                      <th className="py-2 px-4 sm:px-6">
+                        <TableColumnFilterInput
+                          value={columnFilters.name || ''}
+                          onChange={(val) => setColumnFilter('name', val)}
+                          placeholder="Search name, city, address..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterInput
+                          value={columnFilters.unit_count || ''}
+                          onChange={(val) => setColumnFilter('unit_count', val)}
+                          placeholder="Min units..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterInput
+                          value={columnFilters.occupancy || ''}
+                          onChange={(val) => setColumnFilter('occupancy', val)}
+                          placeholder="Min %..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterInput
+                          value={columnFilters.tenant_count || ''}
+                          onChange={(val) => setColumnFilter('tenant_count', val)}
+                          placeholder="Min tenants..."
+                        />
+                      </th>
+                      <th className="py-2 px-4 sm:px-6 text-right">
+                        {hasActiveFilters && (
+                          <button
+                            type="button"
+                            onClick={clearAllFilters}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Reset</span>
+                          </button>
+                        )}
+                      </th>
+                    </tr>
+                  )}
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {paginatedData.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-500">
+                        <p className="font-semibold text-slate-800">No properties match your filter criteria.</p>
+                        <p className="text-xs text-slate-400 mt-1">Try adjusting or clearing your column filters.</p>
+                        {hasActiveFilters && (
+                          <button
+                            type="button"
+                            onClick={clearAllFilters}
+                            className="mt-3 inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Clear all filters</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ) : (
+                    paginatedData.map((prop) => {
+                      const units = Number(prop.unit_count || 0);
+                      const occupied = Number(prop.occupied_units_count || 0);
+                      const occupancyRate = units > 0 ? Math.round((occupied / units) * 100) : 0;
+
+                      return (
+                        <tr key={prop.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-4 px-4 sm:px-6">
+                            <div className="font-semibold text-slate-900">{prop.name}</div>
+                            <div className="flex items-center text-xs text-slate-500 mt-1">
+                              <MapPin className="w-3.5 h-3.5 mr-1 text-slate-400 shrink-0" />
+                              <span>
+                                {prop.address_line1}
+                                {prop.address_line2 ? `, ${prop.address_line2}` : ''}, {prop.city},{' '}
+                                {prop.state_province} {prop.postal_code}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="font-medium text-slate-800">{units}</span> units
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-16 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-indigo-600 h-full rounded-full transition-all"
+                                  style={{ width: `${occupancyRate}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium text-slate-600">{occupancyRate}%</span>
+                            </div>
+                            <span className="text-[11px] text-slate-400">{occupied} occupied</span>
+                          </td>
+                          <td className="py-4 px-4 text-slate-700 font-medium">{prop.tenant_count}</td>
+                          <td className="py-4 px-4 sm:px-6 text-right space-x-1 whitespace-nowrap">
+                            <button
+                              onClick={() => onSelectPropertyForUnits(prop.id)}
+                              className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                              title="Manage Units"
+                            >
+                              Units
+                            </button>
+                            <button
+                              onClick={() => onSelectPropertyForParking(prop.id)}
+                              className="px-2.5 py-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg transition-colors cursor-pointer inline-flex items-center space-x-1"
+                              title="Parking Visual Builder"
+                            >
+                              <Car className="w-3.5 h-3.5" />
+                              <span>Parking</span>
+                            </button>
+                            <button
+                              onClick={() => openEditModal(prop)}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to delete ${prop.name}?`)) {
+                                  deleteMutation.mutate(prop.id);
+                                }
+                              }}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Property"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <TablePagination
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalRecords={totalRecords}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         )}
       </div>

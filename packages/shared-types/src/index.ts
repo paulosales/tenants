@@ -62,10 +62,18 @@ export interface Unit {
   updated_at: string;
 }
 
+export interface UnitTenantSummary {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
 export interface UnitWithTenant extends Unit {
   tenant_id?: string | null;
   tenant_name?: string | null;
   tenant_email?: string | null;
+  tenants?: UnitTenantSummary[];
 }
 
 export interface CreateUnitDto {
@@ -75,6 +83,7 @@ export interface CreateUnitDto {
   bathrooms: number;
   square_feet: number;
   status?: UnitStatus;
+  tenant_ids?: string[];
 }
 
 export interface UpdateUnitDto {
@@ -84,6 +93,7 @@ export interface UpdateUnitDto {
   bathrooms: number;
   square_feet: number;
   status: UnitStatus;
+  tenant_ids?: string[];
 }
 
 export type TenantStatus = 'active' | 'past' | 'applicant';

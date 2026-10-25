@@ -138,6 +138,14 @@ pub struct Unit {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnitTenantSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+    pub phone: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnitWithTenant {
     pub id: Uuid,
     pub property_id: Uuid,
@@ -150,6 +158,8 @@ pub struct UnitWithTenant {
     pub tenant_id: Option<Uuid>,
     pub tenant_name: Option<String>,
     pub tenant_email: Option<String>,
+    #[serde(default)]
+    pub tenants: Vec<UnitTenantSummary>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -261,6 +271,8 @@ pub trait AdminRepository: Send + Sync {
     async fn update_unit(&self, unit: Unit) -> DomainResult<Unit>;
     async fn delete_unit(&self, id: Uuid) -> DomainResult<()>;
     async fn set_unit_status(&self, unit_id: Uuid, status: UnitStatus) -> DomainResult<()>;
+    async fn sync_unit_tenants(&self, unit_id: Uuid, tenant_ids: &[Uuid]) -> DomainResult<()>;
+    async fn count_active_tenants_for_unit(&self, unit_id: Uuid, exclude_tenant_id: Option<Uuid>) -> DomainResult<i64>;
 
     // Tenants
     async fn list_tenants(

@@ -26,6 +26,13 @@ import type {
   TenantStatus,
 } from '@tenants/shared-types';
 import { SearchableSelect } from './SearchableSelect';
+import { TablePagination } from './TablePagination';
+import {
+  SortableColumnHeader,
+  TableColumnFilterInput,
+  TableColumnFilterSelect,
+} from './DataTableHeader';
+import { useDataTable } from '../hooks/useDataTable';
 
 const tenantSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -67,6 +74,76 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
         status: statusFilter !== 'all' ? (statusFilter as TenantStatus) : undefined,
         q: searchQuery || undefined,
       }),
+  });
+
+  const {
+    pageSize,
+    setPageSize,
+    currentPage,
+    setCurrentPage,
+    sortKey,
+    sortDirection,
+    handleSort,
+    columnFilters,
+    setColumnFilter,
+    clearAllFilters,
+    hasActiveFilters,
+    showFilterRow,
+    setShowFilterRow,
+    totalRecords,
+    paginatedData,
+  } = useDataTable<TenantWithUnit>({
+    data: tenants,
+    initialPageSize: 25,
+    initialSortKey: 'name',
+    initialSortDirection: 'asc',
+    filterPredicate: (t, filters) => {
+      if (filters.name) {
+        const q = filters.name.toLowerCase();
+        const fullName = `${t.first_name} ${t.last_name} ${t.emergency_contact_name || ''}`.toLowerCase();
+        if (!fullName.includes(q)) return false;
+      }
+      if (filters.contact) {
+        const q = filters.contact.toLowerCase();
+        const contactStr = `${t.email} ${t.phone} ${t.emergency_contact_phone || ''}`.toLowerCase();
+        if (!contactStr.includes(q)) return false;
+      }
+      if (filters.residence) {
+        const q = filters.residence.toLowerCase();
+        const resStr = `${t.unit_number || ''} ${t.property_name || ''}`.toLowerCase();
+        if (!resStr.includes(q)) return false;
+      }
+      if (filters.lease) {
+        const q = filters.lease.toLowerCase();
+        const leaseStr = `${t.lease_start_date || ''} ${t.lease_end_date || ''}`.toLowerCase();
+        if (!leaseStr.includes(q)) return false;
+      }
+      if (filters.status && filters.status !== 'all') {
+        if (t.status !== filters.status) return false;
+      }
+      return true;
+    },
+    sortComparator: (a, b, key, dir) => {
+      let cmp = 0;
+      if (key === 'name') {
+        const nameA = `${a.first_name} ${a.last_name}`;
+        const nameB = `${b.first_name} ${b.last_name}`;
+        cmp = nameA.localeCompare(nameB);
+      } else if (key === 'contact') {
+        cmp = a.email.localeCompare(b.email);
+      } else if (key === 'residence') {
+        const unitA = a.unit_number || '';
+        const unitB = b.unit_number || '';
+        cmp = unitA.localeCompare(unitB, undefined, { numeric: true });
+      } else if (key === 'lease') {
+        const dateA = a.lease_start_date || '';
+        const dateB = b.lease_start_date || '';
+        cmp = dateA.localeCompare(dateB);
+      } else if (key === 'status') {
+        cmp = a.status.localeCompare(b.status);
+      }
+      return dir === 'asc' ? cmp : -cmp;
+    },
   });
 
   // Query units for the modal unit assignment selector
@@ -217,21 +294,39 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
           />
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Filter className="w-4 h-4 text-slate-400 mr-1" />
-          {['all', 'active', 'applicant', 'past'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                statusFilter === status
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-slate-400 mr-1" />
+            {['all', 'active', 'applicant', 'past'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${statusFilter === status
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowFilterRow(!showFilterRow)}
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${showFilterRow
+                ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
               }`}
-            >
-              {status}
-            </button>
-          ))}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span>{showFilterRow ? 'Hide Column Filters' : 'Filter Columns'}</span>
+            {hasActiveFilters && (
+              <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-indigo-500 text-white rounded-full">
+                Filtered
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -263,115 +358,240 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/60 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="py-3.5 px-4 sm:px-6">Tenant Name</th>
-                  <th className="py-3.5 px-4">Contact Info</th>
-                  <th className="py-3.5 px-4">Assigned Residence</th>
-                  <th className="py-3.5 px-4">Lease Term</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {tenants.map((t) => {
-                  const statusBadges: Record<string, string> = {
-                    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                    applicant: 'bg-sky-50 text-sky-700 border-sky-200',
-                    past: 'bg-slate-100 text-slate-600 border-slate-200',
-                  };
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/60 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <th className="py-3.5 px-4 sm:px-6">
+                      <SortableColumnHeader
+                        columnKey="name"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Tenant Name"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="contact"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Contact Info"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="residence"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Assigned Residence"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="lease"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Lease Term"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4">
+                      <SortableColumnHeader
+                        columnKey="status"
+                        currentSortKey={sortKey}
+                        currentSortDirection={sortDirection}
+                        onSort={handleSort}
+                        label="Status"
+                      />
+                    </th>
+                    <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
+                  </tr>
 
-                  return (
-                    <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-4 px-4 sm:px-6">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-400 text-white font-bold flex items-center justify-center text-xs shadow-xs">
-                            {t.first_name[0]}
-                            {t.last_name[0]}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">
-                              {t.first_name} {t.last_name}
-                            </div>
-                            {t.emergency_contact_name && (
-                              <div className="text-[11px] text-slate-400 mt-0.5">
-                                ICE: {t.emergency_contact_name} ({t.emergency_contact_phone})
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 space-y-1">
-                        <div className="flex items-center text-xs text-slate-600">
-                          <Mail className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                          <span>{t.email}</span>
-                        </div>
-                        <div className="flex items-center text-xs text-slate-600">
-                          <Phone className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                          <span>{t.phone}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        {t.unit_number ? (
-                          <div className="flex items-center space-x-1.5">
-                            <DoorClosed className="w-4 h-4 text-indigo-600" />
-                            <div>
-                              <span className="font-bold text-slate-800">Unit {t.unit_number}</span>
-                              <p className="text-[11px] text-slate-400">{t.property_name}</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs italic">Unassigned</span>
+                  {showFilterRow && (
+                    <tr className="border-b border-slate-200 bg-slate-100/70 text-xs">
+                      <th className="py-2 px-4 sm:px-6">
+                        <TableColumnFilterInput
+                          value={columnFilters.name || ''}
+                          onChange={(val) => setColumnFilter('name', val)}
+                          placeholder="Filter name or ICE..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterInput
+                          value={columnFilters.contact || ''}
+                          onChange={(val) => setColumnFilter('contact', val)}
+                          placeholder="Filter email or phone..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterInput
+                          value={columnFilters.residence || ''}
+                          onChange={(val) => setColumnFilter('residence', val)}
+                          placeholder="Filter unit or property..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterInput
+                          value={columnFilters.lease || ''}
+                          onChange={(val) => setColumnFilter('lease', val)}
+                          placeholder="Filter lease dates..."
+                        />
+                      </th>
+                      <th className="py-2 px-4">
+                        <TableColumnFilterSelect
+                          value={columnFilters.status || 'all'}
+                          onChange={(val) => setColumnFilter('status', val)}
+                          options={[
+                            { value: 'all', label: 'All Statuses' },
+                            { value: 'active', label: 'Active' },
+                            { value: 'applicant', label: 'Applicant' },
+                            { value: 'past', label: 'Past' },
+                          ]}
+                        />
+                      </th>
+                      <th className="py-2 px-4 sm:px-6 text-right">
+                        {hasActiveFilters && (
+                          <button
+                            type="button"
+                            onClick={clearAllFilters}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Reset</span>
+                          </button>
                         )}
-                      </td>
-                      <td className="py-4 px-4 text-xs text-slate-600">
-                        {t.lease_start_date && t.lease_end_date ? (
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>
-                              {t.lease_start_date} → {t.lease_end_date}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic">No lease active</span>
+                      </th>
+                    </tr>
+                  )}
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {paginatedData.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-500">
+                        <p className="font-semibold text-slate-800">No tenants match your filter criteria.</p>
+                        <p className="text-xs text-slate-400 mt-1">Try clearing or adjusting your column filters.</p>
+                        {hasActiveFilters && (
+                          <button
+                            type="button"
+                            onClick={clearAllFilters}
+                            className="mt-3 inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Clear all filters</span>
+                          </button>
                         )}
-                      </td>
-                      <td className="py-4 px-4">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border uppercase tracking-wider ${
-                            statusBadges[t.status] || 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {t.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 sm:px-6 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          onClick={() => openEditModal(t)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                          title="Edit Tenant"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Delete tenant ${t.first_name} ${t.last_name}?`)) {
-                              deleteMutation.mutate(t.id);
-                            }
-                          }}
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Tenant"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ) : (
+                    paginatedData.map((t) => {
+                      const statusBadges: Record<string, string> = {
+                        active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                        applicant: 'bg-sky-50 text-sky-700 border-sky-200',
+                        past: 'bg-slate-100 text-slate-600 border-slate-200',
+                      };
+
+                      return (
+                        <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-4 px-4 sm:px-6">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-400 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                                {t.first_name[0]}
+                                {t.last_name[0]}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-900">
+                                  {t.first_name} {t.last_name}
+                                </div>
+                                {t.emergency_contact_name && (
+                                  <div className="text-[11px] text-slate-400 mt-0.5">
+                                    ICE: {t.emergency_contact_name} ({t.emergency_contact_phone})
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 space-y-1">
+                            <div className="flex items-center text-xs text-slate-600">
+                              <Mail className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                              <span>{t.email}</span>
+                            </div>
+                            <div className="flex items-center text-xs text-slate-600">
+                              <Phone className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                              <span>{t.phone}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            {t.unit_number ? (
+                              <div className="flex items-center space-x-1.5">
+                                <DoorClosed className="w-4 h-4 text-indigo-600" />
+                                <div>
+                                  <span className="font-bold text-slate-800">Unit {t.unit_number}</span>
+                                  <p className="text-[11px] text-slate-400">{t.property_name}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-xs italic">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 text-xs text-slate-600">
+                            {t.lease_start_date && t.lease_end_date ? (
+                              <div className="flex items-center space-x-1">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span>
+                                  {t.lease_start_date} → {t.lease_end_date}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">No lease active</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span
+                              className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border uppercase tracking-wider ${statusBadges[t.status] || 'bg-slate-100 text-slate-600'
+                                }`}
+                            >
+                              {t.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 sm:px-6 text-right space-x-1 whitespace-nowrap">
+                            <button
+                              onClick={() => openEditModal(t)}
+                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Tenant"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete tenant ${t.first_name} ${t.last_name}?`)) {
+                                  deleteMutation.mutate(t.id);
+                                }
+                              }}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Tenant"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <TablePagination
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalRecords={totalRecords}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         )}
       </div>
@@ -446,7 +666,6 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                 </label>
                 <SearchableSelect
                   options={[
-                    { value: 'none', label: '-- Unassigned --' },
                     ...availableUnits.map((u) => ({
                       value: u.id,
                       label: `Unit ${u.unit_number}`,

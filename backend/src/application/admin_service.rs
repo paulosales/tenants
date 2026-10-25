@@ -40,6 +40,8 @@ pub struct CreateUnitRequest {
     pub bathrooms: f64,
     pub square_feet: i32,
     pub status: Option<UnitStatus>,
+    #[serde(default)]
+    pub tenant_ids: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +52,8 @@ pub struct UpdateUnitRequest {
     pub bathrooms: f64,
     pub square_feet: i32,
     pub status: UnitStatus,
+    #[serde(default)]
+    pub tenant_ids: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,6 +225,13 @@ impl AdminService {
             return Err(DomainError::ValidationError("Unit number cannot be empty".to_string()));
         }
         let now = Utc::now();
+        let has_tenants = req.tenant_ids.as_ref().map(|ids| !ids.is_empty()).unwrap_or(false);
+        let initial_status = req.status.unwrap_or(if has_tenants {
+            UnitStatus::Occupied
+        } else {
+            UnitStatus::Vacant
+        });
+
         let unit = Unit {
             id: Uuid::new_v4(),
             property_id,
@@ -229,11 +240,20 @@ impl AdminService {
             bedrooms: req.bedrooms,
             bathrooms: req.bathrooms,
             square_feet: req.square_feet,
-            status: req.status.unwrap_or(UnitStatus::Vacant),
+            status: initial_status,
             created_at: now,
             updated_at: now,
         };
-        self.repo.create_unit(unit).await
+        let created = self.repo.create_unit(unit).await?;
+
+        if let Some(ref tenant_ids) = req.tenant_ids {
+            self.repo.sync_unit_tenants(created.id, tenant_ids).await?;
+            if !tenant_ids.is_empty() && created.status == UnitStatus::Vacant {
+                self.repo.set_unit_status(created.id, UnitStatus::Occupied).await?;
+            }
+        }
+
+        Ok(created)
     }
 
     pub async fn update_unit(&self, id: Uuid, req: UpdateUnitRequest) -> DomainResult<Unit> {
@@ -248,7 +268,20 @@ impl AdminService {
         unit.square_feet = req.square_feet;
         unit.status = req.status;
         unit.updated_at = Utc::now();
-        self.repo.update_unit(unit).await
+        let mut updated = self.repo.update_unit(unit).await?;
+
+        if let Some(ref tenant_ids) = req.tenant_ids {
+            self.repo.sync_unit_tenants(id, tenant_ids).await?;
+            if !tenant_ids.is_empty() && updated.status == UnitStatus::Vacant {
+                updated.status = UnitStatus::Occupied;
+                self.repo.set_unit_status(id, UnitStatus::Occupied).await?;
+            } else if tenant_ids.is_empty() && updated.status == UnitStatus::Occupied {
+                updated.status = UnitStatus::Vacant;
+                self.repo.set_unit_status(id, UnitStatus::Vacant).await?;
+            }
+        }
+
+        Ok(updated)
     }
 
     pub async fn delete_unit(&self, id: Uuid) -> DomainResult<()> {
@@ -324,7 +357,10 @@ impl AdminService {
         // Handle unit status changes on reassignment
         if existing.assigned_unit_id != req.assigned_unit_id {
             if let Some(old_unit_id) = existing.assigned_unit_id {
-                self.repo.set_unit_status(old_unit_id, UnitStatus::Vacant).await?;
+                let remaining_active = self.repo.count_active_tenants_for_unit(old_unit_id, Some(id)).await?;
+                if remaining_active == 0 {
+                    self.repo.set_unit_status(old_unit_id, UnitStatus::Vacant).await?;
+                }
             }
             if let Some(new_unit_id) = req.assigned_unit_id {
                 self.repo.set_unit_status(new_unit_id, UnitStatus::Occupied).await?;
@@ -353,7 +389,10 @@ impl AdminService {
     pub async fn delete_tenant(&self, id: Uuid) -> DomainResult<()> {
         let tenant = self.get_tenant(id).await?;
         if let Some(unit_id) = tenant.assigned_unit_id {
-            self.repo.set_unit_status(unit_id, UnitStatus::Vacant).await?;
+            let remaining_active = self.repo.count_active_tenants_for_unit(unit_id, Some(id)).await?;
+            if remaining_active == 0 {
+                self.repo.set_unit_status(unit_id, UnitStatus::Vacant).await?;
+            }
         }
         self.repo.delete_tenant(id).await
     }
