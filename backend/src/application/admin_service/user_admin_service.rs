@@ -65,12 +65,12 @@ impl AdminUserService {
         let email = req.email.trim().to_lowercase();
         let full_name = req.full_name.trim().to_string();
 
-        if full_name.len() < 2 {
+        if full_name.len() < 2 || full_name.len() > 150 {
             return Err(DomainError::ValidationError(
-                "Full name must be at least 2 characters".into(),
+                "Full name must be between 2 and 150 characters".into(),
             ));
         }
-        if !email.contains('@') || email.len() < 5 {
+        if !email.contains('@') || email.len() < 5 || email.len() > 255 {
             return Err(DomainError::ValidationError(
                 "A valid email address is required".into(),
             ));

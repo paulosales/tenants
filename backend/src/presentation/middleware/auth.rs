@@ -12,6 +12,7 @@ use crate::domain::{
     repository::UserRepository,
     user::User,
 };
+use crate::infrastructure::redis_client::RedisRateLimiter;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -24,6 +25,7 @@ pub struct AppState {
     pub amenity_repo: Arc<dyn crate::domain::repository::AmenityRepository>,
     pub audit_repo: Arc<dyn crate::domain::repository::AuditRepository>,
     pub admin_service: Arc<crate::application::AdminService>,
+    pub rate_limiter: Arc<RedisRateLimiter>,
     pub cookie_secure: bool,
 }
 

@@ -136,6 +136,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToPorta
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    maxLength={128}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"

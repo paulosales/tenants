@@ -176,3 +176,37 @@ impl From<User> for UserSummary {
         }
     }
 }
+
+impl User {
+    /// Checks whether this user may access resources under `target_property_id`.
+    /// SuperAdmins and unscoped PropertyManagers (`property_id == None`) have portfolio access;
+    /// property-scoped users are restricted to their assigned property.
+    pub fn has_property_access(&self, target_property_id: Uuid) -> bool {
+        if self.role == Role::SuperAdmin {
+            return true;
+        }
+        match self.property_id {
+            Some(assigned) => assigned == target_property_id,
+            None => self.role.can_manage_properties(),
+        }
+    }
+
+    /// Resolves and authorizes an optional query/body `property_id` filter against the caller's scope.
+    pub fn enforce_property_scope(&self, requested: Option<Uuid>) -> Result<Option<Uuid>, crate::domain::errors::DomainError> {
+        if self.role == Role::SuperAdmin {
+            return Ok(requested);
+        }
+        match self.property_id {
+            Some(assigned) => {
+                if let Some(req_id) = requested {
+                    if req_id != assigned {
+                        return Err(crate::domain::errors::DomainError::Forbidden);
+                    }
+                }
+                Ok(Some(assigned))
+            }
+            None if self.role.can_manage_properties() => Ok(requested),
+            None => Err(crate::domain::errors::DomainError::Forbidden),
+        }
+    }
+}

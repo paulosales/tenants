@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, ShieldCheck } from 'lucide-react';
-import type { PropertyWithStats } from '@tenants/shared-types';
+import type { PropertyStaff, PropertyWithStats } from '@tenants/shared-types';
 import { useStaffManagement } from '../hooks/useStaffManagement';
+import { ConfirmModal } from './common/ConfirmModal';
 import { AssignCallModal } from './staff/AssignCallModal';
 import { StaffFormModal } from './staff/StaffFormModal';
 import { StaffKpiCards } from './staff/StaffKpiCards';
@@ -20,6 +21,7 @@ export const StaffView: React.FC<StaffViewProps> = ({
   onSelectProperty,
 }) => {
   const vm = useStaffManagement(selectedPropertyId);
+  const [confirmDeleteStaff, setConfirmDeleteStaff] = useState<PropertyStaff | null>(null);
 
   return (
     <div className="space-y-6">
@@ -78,12 +80,27 @@ export const StaffView: React.FC<StaffViewProps> = ({
         onPageChange={vm.setCurrentPage}
         onPageSizeChange={vm.setPageSize}
         onEditStaff={vm.openEditModal}
-        onDeleteStaff={(member) => {
-          if (confirm(`Are you sure you want to remove ${member.first_name} ${member.last_name}?`)) {
-            vm.deleteMutation.mutate(member.id);
+        onDeleteStaff={(member) => setConfirmDeleteStaff(member)}
+        onAssignCall={vm.openAssignModal}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(confirmDeleteStaff)}
+        title="Remove Staff Member"
+        message={
+          confirmDeleteStaff
+            ? `Are you sure you want to remove ${confirmDeleteStaff.first_name} ${confirmDeleteStaff.last_name}?`
+            : ''
+        }
+        confirmLabel="Remove Member"
+        isLoading={vm.deleteMutation.isPending}
+        onCancel={() => setConfirmDeleteStaff(null)}
+        onConfirm={() => {
+          if (confirmDeleteStaff) {
+            vm.deleteMutation.mutate(confirmDeleteStaff.id);
+            setConfirmDeleteStaff(null);
           }
         }}
-        onAssignCall={vm.openAssignModal}
       />
 
       <StaffFormModal

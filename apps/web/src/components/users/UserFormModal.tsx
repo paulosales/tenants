@@ -96,12 +96,12 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       setLocalError('Please provide a valid email address.');
       return;
     }
-    if (!editingUser && password.length < 8) {
-      setLocalError('Password must be at least 8 characters long.');
+    if (!editingUser && (password.length < 8 || password.length > 128)) {
+      setLocalError('Password must be between 8 and 128 characters long.');
       return;
     }
-    if (editingUser && password && password.length < 8) {
-      setLocalError('Replacement password must be at least 8 characters long.');
+    if (editingUser && password && (password.length < 8 || password.length > 128)) {
+      setLocalError('Replacement password must be between 8 and 128 characters long.');
       return;
     }
 
@@ -215,6 +215,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               <input
                 id="user-password"
                 type="password"
+                maxLength={128}
                 required={!editingUser}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

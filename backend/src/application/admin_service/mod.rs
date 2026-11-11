@@ -73,9 +73,9 @@ impl AdminService {
             tenants: TenantService::new(tenant_repo.clone(), unit_repo.clone()),
             amenities: AdminAmenityService::new(amenity_repo, property_repo.clone()),
             parking_layouts: ParkingLayoutService::new(parking_layout_repo, property_repo.clone()),
-            maintenance: MaintenanceService::new(maintenance_repo),
+            maintenance: MaintenanceService::new(maintenance_repo, staff_repo.clone()),
             reservations: TenantReservationService::new(reservation_repo),
-            staff: PropertyStaffService::new(staff_repo),
+            staff: PropertyStaffService::new(staff_repo.clone(), property_repo.clone()),
             public_portal: PublicPortalService::new(portal_repo.clone()),
             applications: TenancyApplicationService::new(
                 app_repo,
@@ -84,7 +84,7 @@ impl AdminService {
                 tenant_repo,
                 unit_repo,
             ),
-            messages: StaffMessagingService::new(message_repo, property_repo.clone()),
+            messages: StaffMessagingService::new(message_repo, property_repo.clone(), staff_repo),
             users: AdminUserService::new(admin_user_repo, property_repo, password_hasher),
         }
     }
@@ -208,6 +208,9 @@ impl AdminService {
     }
 
     // Tenant Reservations
+    pub async fn get_tenant_reservation(&self, id: Uuid) -> DomainResult<TenantReservation> {
+        self.reservations.get_tenant_reservation(id).await
+    }
     pub async fn list_tenant_reservations(&self, tenant_id: Option<Uuid>) -> DomainResult<Vec<TenantReservation>> {
         self.reservations.list_tenant_reservations(tenant_id).await
     }
@@ -244,6 +247,17 @@ impl AdminService {
     }
 
     // Parking Spot Assignment & Public Portal & Applications & Messaging
+    pub async fn get_parking_layout_for_viewer(
+        &self,
+        actor: &User,
+        property_id: Uuid,
+    ) -> DomainResult<ParkingLayoutWithSpots> {
+        let layout = self.parking_layouts.get_parking_layout(property_id).await?;
+        Ok(ParkingLayoutService::redact_for_viewer(actor, layout))
+    }
+    pub async fn get_parking_spot_property_id(&self, spot_id: Uuid) -> DomainResult<Uuid> {
+        self.parking_layouts.get_spot_property_id(spot_id).await
+    }
     pub async fn assign_parking_spot(
         &self,
         spot_id: Uuid,
@@ -266,6 +280,9 @@ impl AdminService {
         req: CreateTenancyApplicationRequest,
     ) -> DomainResult<PublicApplicationReceipt> {
         self.applications.submit_public_application(req).await
+    }
+    pub async fn get_application(&self, id: Uuid) -> DomainResult<TenancyApplication> {
+        self.applications.get_application(id).await
     }
     pub async fn list_applications(
         &self,
@@ -298,8 +315,8 @@ impl AdminService {
     ) -> DomainResult<StaffMessage> {
         self.messages.send_message(sender, req).await
     }
-    pub async fn mark_message_read(&self, id: Uuid) -> DomainResult<StaffMessage> {
-        self.messages.mark_read(id).await
+    pub async fn mark_message_read(&self, actor: &User, id: Uuid) -> DomainResult<StaffMessage> {
+        self.messages.mark_read(actor, id).await
     }
 
     // Users & Roles Administration

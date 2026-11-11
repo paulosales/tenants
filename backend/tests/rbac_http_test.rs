@@ -14,6 +14,7 @@ use backend::{
     domain::ports::{PasswordHasher, PaymentGateway, SvgSanitizerPort, TokenProvider},
     infrastructure::{
         payment_gateway::StripePaymentGateway,
+        redis_client::RedisRateLimiter,
         repositories::{
             PostgresAdminRepository, PostgresAmenityRepository, PostgresAuditRepository,
             PostgresParkingRepository, PostgresPaymentRepository, PostgresReservationRepository,
@@ -75,6 +76,7 @@ async fn build_test_router() -> (axum::Router, PgPool) {
         payment_gateway,
     ));
     let admin_service = Arc::new(AdminService::new(admin_repo, password_hasher));
+    let rate_limiter = Arc::new(RedisRateLimiter::in_memory());
 
     let app_state = AppState {
         user_repo,
@@ -86,6 +88,7 @@ async fn build_test_router() -> (axum::Router, PgPool) {
         amenity_repo,
         audit_repo,
         admin_service,
+        rate_limiter,
         cookie_secure: false,
     };
 
@@ -553,4 +556,405 @@ async fn test_public_portal_and_rbac_csrf_enforcement() {
     .bind(&app_id)
     .execute(&pool)
     .await;
+}
+
+#[tokio::test]
+async fn test_owasp_security_controls_and_idor_blocking() {
+    let (router, pool) = build_test_router().await;
+
+    let prop1_id = "11111111-2222-3333-4444-555555555551";
+    let prop2_id = "11111111-2222-3333-4444-555555555552";
+    let prop2_app_id = "99999999-1111-1111-1111-111111111002";
+    let target_staff_id = "88888888-1111-1111-1111-111111111005";
+
+    // 1. Unauthenticated requests to private amenity/parking routes return 401
+    for path in ["/api/v1/amenities", "/api/v1/parking/zones"] {
+        let res = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED, "Expected 401 on {}", path);
+    }
+
+    // 2. Oversized JSON payload triggers 413 Payload Too Large (DefaultBodyLimit)
+    let huge_notes = "A".repeat(300 * 1024);
+    let oversized_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/public/applications")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "property_id": prop1_id,
+                        "applicant_first_name": "Test",
+                        "applicant_last_name": "Limit",
+                        "applicant_email": "limit@example.com",
+                        "applicant_phone": "+12065550100",
+                        "occupants_count": 1,
+                        "notes": huge_notes
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(oversized_res.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
+    // 3. Log in test actors
+    let (admin_cookie, admin_csrf, _, _) =
+        login_with_cookies(&router, "admin@property.local", "Password123!").await;
+    let (mgr_cookie, mgr_csrf, _, _) =
+        login_with_cookies(&router, "manager@property.local", "Password123!").await;
+    let (tenant_cookie, _, _, tenant_user) =
+        login_with_cookies(&router, "tenant@property.local", "Password123!").await;
+    let (_, _, maint_bearer, _) =
+        login_with_cookies(&router, "maintainer@property.local", "Password123!").await;
+    let (_, _, staff_bearer, _) =
+        login_with_cookies(&router, "staff@property.local", "Password123!").await;
+
+    // 4. Negative audit limit is clamped cleanly (no Postgres LIMIT -1 error)
+    let audit_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/audit/logs?limit=-1")
+                .header(header::COOKIE, &admin_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(audit_res.status(), StatusCode::OK);
+
+    // 5. Cross-property scoping & parking PII redaction for non-managers
+    let tenant_cross_prop = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/properties/{}/parking-layout", prop2_id))
+                .header(header::COOKIE, &tenant_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(tenant_cross_prop.status(), StatusCode::FORBIDDEN);
+
+    let tenant_own_layout = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/properties/{}/parking-layout", prop1_id))
+                .header(header::COOKIE, &tenant_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(tenant_own_layout.status(), StatusCode::OK);
+    let layout_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(tenant_own_layout.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let caller_tenant_id = tenant_user["tenant_id"].as_str();
+    if let Some(spots) = layout_json["spots"].as_array() {
+        for s in spots {
+            let assigned = s["assigned_tenant_id"].as_str();
+            if assigned.is_some() && assigned != caller_tenant_id {
+                panic!("Other tenant PII leaked in parking spot: {:?}", s);
+            }
+            if assigned.is_none() {
+                assert!(s["tenant_name"].is_null());
+            }
+        }
+    }
+
+    // Scoped manager (Property 1) cannot read Property 2 or review Property 2 applications
+    for forbidden_uri in [
+        format!("/api/v1/properties/{}", prop2_id),
+        format!("/api/v1/properties/{}/units", prop2_id),
+        format!("/api/v1/staff?property_id={}", prop2_id),
+    ] {
+        let res = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(&forbidden_uri)
+                    .header(header::COOKIE, &mgr_cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::FORBIDDEN, "Expected 403 on {}", forbidden_uri);
+    }
+
+    let mgr_cross_review = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/tenancy-applications/{}/review", prop2_app_id))
+                .header(header::COOKIE, &mgr_cookie)
+                .header("x-csrf-token", &mgr_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(json!({ "status": "under_review" }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(mgr_cross_review.status(), StatusCode::FORBIDDEN);
+
+    // 6. Staff Messaging IDOR: maintainer cannot mark a direct message to Maria Gonzalez as read
+    let direct_msg_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/staff-messages")
+                .header(header::COOKIE, &mgr_cookie)
+                .header("x-csrf-token", &mgr_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "property_id": prop1_id,
+                        "recipient_staff_id": target_staff_id,
+                        "body": "Private shift check for Maria"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(direct_msg_res.status(), StatusCode::CREATED);
+    let direct_msg: Value = serde_json::from_slice(
+        &axum::body::to_bytes(direct_msg_res.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let direct_msg_id = direct_msg["id"].as_str().unwrap().to_string();
+
+    let idor_read = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/staff-messages/{}/read", direct_msg_id))
+                .header(header::AUTHORIZATION, format!("Bearer {}", maint_bearer))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(idor_read.status(), StatusCode::FORBIDDEN);
+
+    let legit_read = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/staff-messages/{}/read", direct_msg_id))
+                .header(header::AUTHORIZATION, format!("Bearer {}", staff_bearer))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(legit_read.status(), StatusCode::OK);
+
+    // 7. Cross-property staff assignment & invalid status blocked + SVG <SCRIPT> rejected
+    let p2_staff_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/staff")
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "property_id": prop2_id,
+                        "first_name": "PropTwo",
+                        "last_name": "Tech",
+                        "role": "maintainer",
+                        "title": "Technician",
+                        "email": format!("p2tech-{}@property.local", Uuid::new_v4()),
+                        "phone": "+12065550195"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(p2_staff_res.status(), StatusCode::CREATED);
+    let p2_staff_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(p2_staff_res.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let p2_staff_id = p2_staff_json["id"].as_str().unwrap().to_string();
+
+    let call_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/maintenance-calls")
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "tenant_id": "33333333-1111-1111-1111-111111111001",
+                        "property_id": prop1_id,
+                        "unit_number": "101",
+                        "category": "electrical",
+                        "priority": "routine",
+                        "title": "Breaker check",
+                        "description": "Routine panel inspection needed",
+                        "contact_phone": "+12065550192"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(call_res.status(), StatusCode::CREATED);
+    let call_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(call_res.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let p1_call_id = call_json["id"].as_str().unwrap().to_string();
+
+    let cross_assign = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/maintenance-calls/{}/assign-staff", p1_call_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(json!({ "staff_id": p2_staff_id }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(cross_assign.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let invalid_status = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri(format!("/api/v1/maintenance-calls/{}/status", p1_call_id))
+                .header(header::AUTHORIZATION, format!("Bearer {}", maint_bearer))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(json!({ "status": "arbitrary_status" }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid_status.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let xss_svg = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri(format!("/api/v1/parking/zones/{}/svg", Uuid::new_v4()))
+                .header(header::COOKIE, &mgr_cookie)
+                .header("x-csrf-token", &mgr_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "svg_markup": "<svg><SCRIPT>alert(1)</SCRIPT></svg>" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(xss_svg.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // 8. Oversized password fast-rejected without Argon2 CPU stall + Rate limit 429 burst enforcement
+    let long_pw = "X".repeat(250);
+    let long_pw_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-forwarded-for", "198.51.100.44")
+                .body(Body::from(
+                    json!({ "email": "admin@property.local", "password": long_pw }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(long_pw_res.status(), StatusCode::UNAUTHORIZED);
+
+    let mut hit_429 = false;
+    for _ in 0..25 {
+        let r = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header("x-forwarded-for", "198.51.100.77")
+                    .body(Body::from(
+                        json!({ "email": "nonexistent@property.local", "password": "BadPassword123!" })
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        if r.status() == StatusCode::TOO_MANY_REQUESTS {
+            assert!(r.headers().contains_key(header::RETRY_AFTER));
+            hit_429 = true;
+            break;
+        }
+    }
+    assert!(hit_429, "Expected rate limiter to trigger 429 Too Many Requests");
+
+    // Clean up test rows
+    let _ = sqlx::query("DELETE FROM staff_messages WHERE id = $1::uuid")
+        .bind(&direct_msg_id)
+        .execute(&pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM maintenance_calls WHERE id = $1::uuid")
+        .bind(&p1_call_id)
+        .execute(&pool)
+        .await;
+    let _ = sqlx::query("DELETE FROM property_staff WHERE id = $1::uuid")
+        .bind(&p2_staff_id)
+        .execute(&pool)
+        .await;
 }

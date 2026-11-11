@@ -27,7 +27,12 @@ pub async fn list_property_staff(
     if !user.role.can_access_staff_messages() {
         return Err(DomainError::Forbidden);
     }
-    let staff = state.admin_service.staff.list_property_staff(q.property_id, q.role).await?;
+    let scoped_property_id = user.enforce_property_scope(q.property_id)?;
+    let staff = state
+        .admin_service
+        .staff
+        .list_property_staff(scoped_property_id, q.role)
+        .await?;
     Ok(Json(staff).into_response())
 }
 
@@ -40,6 +45,9 @@ pub async fn get_property_staff(
         return Err(DomainError::Forbidden);
     }
     let staff = state.admin_service.staff.get_property_staff(id).await?;
+    if !user.has_property_access(staff.property_id) {
+        return Err(DomainError::Forbidden);
+    }
     Ok(Json(staff).into_response())
 }
 
@@ -48,7 +56,7 @@ pub async fn create_property_staff(
     AuthenticatedUser(user): AuthenticatedUser,
     Json(req): Json<CreatePropertyStaffRequest>,
 ) -> DomainResult<Response> {
-    if !user.role.can_manage_properties() {
+    if !user.role.can_manage_properties() || !user.has_property_access(req.property_id) {
         return Err(DomainError::Forbidden);
     }
     let staff = state.admin_service.staff.create_property_staff(req).await?;
@@ -64,6 +72,15 @@ pub async fn update_property_staff(
     if !user.role.can_manage_properties() {
         return Err(DomainError::Forbidden);
     }
+    let existing = state.admin_service.staff.get_property_staff(id).await?;
+    if !user.has_property_access(existing.property_id) {
+        return Err(DomainError::Forbidden);
+    }
+    if let Some(target_pid) = req.property_id {
+        if !user.has_property_access(target_pid) {
+            return Err(DomainError::Forbidden);
+        }
+    }
     let staff = state.admin_service.staff.update_property_staff(id, req).await?;
     Ok(Json(staff).into_response())
 }
@@ -74,6 +91,10 @@ pub async fn delete_property_staff(
     Path(id): Path<Uuid>,
 ) -> DomainResult<Response> {
     if !user.role.can_manage_properties() {
+        return Err(DomainError::Forbidden);
+    }
+    let existing = state.admin_service.staff.get_property_staff(id).await?;
+    if !user.has_property_access(existing.property_id) {
         return Err(DomainError::Forbidden);
     }
     state.admin_service.staff.delete_property_staff(id).await?;

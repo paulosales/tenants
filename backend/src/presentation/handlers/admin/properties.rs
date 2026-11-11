@@ -14,17 +14,24 @@ use crate::{
 
 pub async fn list_properties(
     State(state): State<AppState>,
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
 ) -> DomainResult<Response> {
     let properties = state.admin_service.properties.list_properties().await?;
-    Ok(Json(properties).into_response())
+    let scoped: Vec<_> = properties
+        .into_iter()
+        .filter(|p| user.has_property_access(p.id))
+        .collect();
+    Ok(Json(scoped).into_response())
 }
 
 pub async fn get_property(
     State(state): State<AppState>,
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<Uuid>,
 ) -> DomainResult<Response> {
+    if !user.has_property_access(id) {
+        return Err(DomainError::Forbidden);
+    }
     let property = state.admin_service.properties.get_property(id).await?;
     Ok(Json(property).into_response())
 }
@@ -34,7 +41,7 @@ pub async fn create_property(
     AuthenticatedUser(user): AuthenticatedUser,
     Json(req): Json<CreatePropertyRequest>,
 ) -> DomainResult<Response> {
-    if !user.role.can_manage_properties() {
+    if !user.role.can_manage_properties() || user.property_id.is_some() {
         return Err(DomainError::Forbidden);
     }
     let property = state.admin_service.properties.create_property(req).await?;
@@ -47,7 +54,7 @@ pub async fn update_property(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdatePropertyRequest>,
 ) -> DomainResult<Response> {
-    if !user.role.can_manage_properties() {
+    if !user.role.can_manage_properties() || !user.has_property_access(id) {
         return Err(DomainError::Forbidden);
     }
     let property = state.admin_service.properties.update_property(id, req).await?;
@@ -59,7 +66,7 @@ pub async fn delete_property(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<Uuid>,
 ) -> DomainResult<Response> {
-    if !user.role.can_manage_properties() {
+    if !user.role.can_manage_properties() || !user.has_property_access(id) {
         return Err(DomainError::Forbidden);
     }
     state.admin_service.properties.delete_property(id).await?;

@@ -64,16 +64,30 @@ export const ParkingMapEditor: React.FC<ParkingMapEditorProps> = ({
     }
   };
 
+  const escapeXml = (raw: string): string =>
+    raw
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+  const safeNum = (n: number): number => (Number.isFinite(n) ? n : 0);
+
   const generateSvgMarkup = (): string => {
     const spotElements = spots
       .map((s) => {
         const coords = s.coordinates as RectCoordinates;
-        return `  <rect x="${coords.x}" y="${coords.y}" width="${coords.width}" height="${coords.height}" rx="6" fill="#1e293b" stroke="#6366f1" stroke-width="2" />
-  <text x="${coords.x + coords.width / 2}" y="${coords.y + coords.height / 2}" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="14" font-weight="bold">${s.spot_number}</text>`;
+        const x = safeNum(coords.x);
+        const y = safeNum(coords.y);
+        const w = safeNum(coords.width);
+        const h = safeNum(coords.height);
+        return `  <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="#1e293b" stroke="#6366f1" stroke-width="2" />
+  <text x="${x + w / 2}" y="${y + h / 2}" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="14" font-weight="bold">${escapeXml(s.spot_number)}</text>`;
       })
       .join('\n');
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${layout.zone.svg_viewbox}">\n${spotElements}\n</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${escapeXml(layout.zone.svg_viewbox)}">\n${spotElements}\n</svg>`;
   };
 
   const handleExport = async () => {

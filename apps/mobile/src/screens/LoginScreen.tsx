@@ -80,6 +80,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           placeholder="Enter your password"
           placeholderTextColor={mobileTheme.textSubtle}
           secureTextEntry
+          maxLength={128}
         />
 
         <TouchableOpacity

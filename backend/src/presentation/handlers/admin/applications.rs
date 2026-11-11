@@ -27,9 +27,10 @@ pub async fn list_tenancy_applications(
         return Err(DomainError::Forbidden);
     }
 
+    let scoped_property_id = user.enforce_property_scope(q.property_id)?;
     let apps = state
         .admin_service
-        .list_applications(q.property_id, q.status)
+        .list_applications(scoped_property_id, q.status)
         .await?;
     Ok(Json(apps).into_response())
 }
@@ -41,6 +42,11 @@ pub async fn review_tenancy_application(
     Json(req): Json<ReviewTenancyApplicationRequest>,
 ) -> DomainResult<Response> {
     if !user.role.can_manage_properties() {
+        return Err(DomainError::Forbidden);
+    }
+
+    let existing = state.admin_service.get_application(id).await?;
+    if !user.has_property_access(existing.property_id) {
         return Err(DomainError::Forbidden);
     }
 

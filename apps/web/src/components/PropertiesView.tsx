@@ -18,6 +18,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { usePropertiesGateway } from '../context/ApiContext';
+import { ConfirmModal } from './common/ConfirmModal';
 import type { PropertyWithStats, CreatePropertyDto } from '@tenants/shared-types';
 import { TablePagination } from './TablePagination';
 import { SortableColumnHeader, TableColumnFilterInput } from './DataTableHeader';
@@ -48,6 +49,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<PropertyWithStats | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteProperty, setConfirmDeleteProperty] = useState<PropertyWithStats | null>(null);
 
   const { data: properties = [], isLoading, error } = useQuery({
     queryKey: ['properties'],
@@ -510,11 +512,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to delete ${prop.name}?`)) {
-                                  deleteMutation.mutate(prop.id);
-                                }
-                              }}
+                              onClick={() => setConfirmDeleteProperty(prop)}
                               className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete Property"
                             >
@@ -650,6 +648,25 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(confirmDeleteProperty)}
+        title="Delete Property"
+        message={
+          confirmDeleteProperty
+            ? `Are you sure you want to delete ${confirmDeleteProperty.name}?`
+            : ''
+        }
+        confirmLabel="Delete Property"
+        isLoading={deleteMutation.isPending}
+        onCancel={() => setConfirmDeleteProperty(null)}
+        onConfirm={() => {
+          if (confirmDeleteProperty) {
+            deleteMutation.mutate(confirmDeleteProperty.id);
+            setConfirmDeleteProperty(null);
+          }
+        }}
+      />
     </div>
   );
 };

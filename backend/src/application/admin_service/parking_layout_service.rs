@@ -6,6 +6,7 @@ use super::dtos::{AssignParkingSpotRequest, SaveParkingLayoutRequest};
 use crate::domain::{
     admin::{ParkingLayoutRepository, ParkingLayoutWithSpots, ParkingSpot, PropertyRepository},
     errors::{DomainError, DomainResult},
+    user::User,
 };
 
 pub struct ParkingLayoutService {
@@ -44,6 +45,31 @@ impl ParkingLayoutService {
         }
     }
 
+    /// Masks other tenants' PII (`tenant_name`, `assigned_tenant_id`) for non-manager callers.
+    pub fn redact_for_viewer(
+        actor: &User,
+        mut layout: ParkingLayoutWithSpots,
+    ) -> ParkingLayoutWithSpots {
+        if !actor.role.can_manage_properties() {
+            for spot in &mut layout.spots {
+                let is_own_spot =
+                    actor.tenant_id.is_some() && spot.assigned_tenant_id == actor.tenant_id;
+                if !is_own_spot {
+                    spot.tenant_name = None;
+                    spot.assigned_tenant_id = None;
+                }
+            }
+        }
+        layout
+    }
+
+    pub async fn get_spot_property_id(&self, spot_id: Uuid) -> DomainResult<Uuid> {
+        self.layout_repo
+            .get_spot_property_id(spot_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("Parking spot not found".into()))
+    }
+
     pub async fn save_parking_layout(
         &self,
         property_id: Uuid,
@@ -51,9 +77,18 @@ impl ParkingLayoutService {
     ) -> DomainResult<ParkingLayoutWithSpots> {
         self.ensure_property_exists(property_id).await?;
 
-        if req.canvas_width < 200 || req.canvas_height < 200 {
+        if req.canvas_width < 200
+            || req.canvas_height < 200
+            || req.canvas_width > 10_000
+            || req.canvas_height > 10_000
+        {
             return Err(DomainError::ValidationError(
-                "Canvas dimensions must be at least 200x200 pixels".to_string(),
+                "Canvas dimensions must be between 200 and 10000 pixels".to_string(),
+            ));
+        }
+        if req.spots.len() > 500 {
+            return Err(DomainError::ValidationError(
+                "Parking layout cannot exceed 500 spots".to_string(),
             ));
         }
         let grid_size = if req.grid_size > 0 { req.grid_size } else { 20 };

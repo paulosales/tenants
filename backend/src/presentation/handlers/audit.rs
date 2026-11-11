@@ -22,7 +22,7 @@ pub async fn list_audit_logs(
         return Err(DomainError::Forbidden);
     }
 
-    let limit = query.limit.unwrap_or(50).min(200);
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
     let logs = state.audit_repo.list_recent(limit).await?;
     Ok(Json(logs))
 }

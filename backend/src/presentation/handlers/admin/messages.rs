@@ -31,16 +31,9 @@ pub async fn list_staff_messages(
         return Err(DomainError::Forbidden);
     }
 
-    let property_id = match user.role {
-        Role::Staff | Role::MaintenanceStaff => user
-            .property_id
-            .or(q.property_id)
-            .ok_or_else(|| DomainError::ValidationError("property_id is required".into()))?,
-        _ => q
-            .property_id
-            .or(user.property_id)
-            .ok_or_else(|| DomainError::ValidationError("property_id is required".into()))?,
-    };
+    let property_id = user
+        .enforce_property_scope(q.property_id)?
+        .ok_or_else(|| DomainError::ValidationError("property_id is required".into()))?;
 
     // Staff & Maintainers are scoped to their own direct messages and property broadcasts
     let effective_staff_id = match user.role {
@@ -58,16 +51,13 @@ pub async fn list_staff_messages(
 pub async fn send_staff_message(
     State(state): State<AppState>,
     AuthenticatedUser(user): AuthenticatedUser,
-    Json(mut req): Json<CreateStaffMessageRequest>,
+    Json(req): Json<CreateStaffMessageRequest>,
 ) -> DomainResult<Response> {
     if !user.role.can_access_staff_messages() {
         return Err(DomainError::Forbidden);
     }
-
-    if matches!(user.role, Role::Staff | Role::MaintenanceStaff) {
-        if let Some(assigned_prop) = user.property_id {
-            req.property_id = assigned_prop;
-        }
+    if !user.has_property_access(req.property_id) {
+        return Err(DomainError::Forbidden);
     }
 
     let created = state.admin_service.send_message(&user, req).await?;
@@ -83,7 +73,7 @@ pub async fn mark_staff_message_read(
         return Err(DomainError::Forbidden);
     }
 
-    let updated = state.admin_service.mark_message_read(id).await?;
+    let updated = state.admin_service.mark_message_read(&user, id).await?;
     Ok(Json(updated).into_response())
 }
 

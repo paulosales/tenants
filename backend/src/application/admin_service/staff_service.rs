@@ -4,19 +4,24 @@ use uuid::Uuid;
 
 use super::dtos::{CreatePropertyStaffRequest, UpdatePropertyStaffRequest};
 use crate::domain::{
-    admin::{PropertyStaff, PropertyStaffRepository},
+    admin::{PropertyRepository, PropertyStaff, PropertyStaffRepository},
     errors::{DomainError, DomainResult},
 };
 
 const ALLOWED_STAFF_ROLES: [&str; 5] = ["manager", "maintainer", "security", "cleaner", "other"];
+const ALLOWED_STAFF_STATUSES: [&str; 3] = ["active", "on_leave", "inactive"];
 
 pub struct PropertyStaffService {
     repo: Arc<dyn PropertyStaffRepository>,
+    property_repo: Arc<dyn PropertyRepository>,
 }
 
 impl PropertyStaffService {
-    pub fn new(repo: Arc<dyn PropertyStaffRepository>) -> Self {
-        Self { repo }
+    pub fn new(
+        repo: Arc<dyn PropertyStaffRepository>,
+        property_repo: Arc<dyn PropertyRepository>,
+    ) -> Self {
+        Self { repo, property_repo }
     }
 
     pub async fn list_property_staff(
@@ -60,6 +65,22 @@ impl PropertyStaffService {
             )));
         }
 
+        let status = req
+            .status
+            .unwrap_or_else(|| "active".to_string())
+            .trim()
+            .to_lowercase();
+        if !ALLOWED_STAFF_STATUSES.contains(&status.as_str()) {
+            return Err(DomainError::ValidationError(
+                "Staff status must be active, on_leave, or inactive".into(),
+            ));
+        }
+
+        self.property_repo
+            .get_property(req.property_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("Property not found".into()))?;
+
         let now = Utc::now();
         let staff = PropertyStaff {
             id: Uuid::new_v4(),
@@ -73,7 +94,7 @@ impl PropertyStaffService {
             phone: req.phone.trim().to_string(),
             specialization: req.specialization.map(|s| s.trim().to_string()),
             shift: req.shift.unwrap_or_else(|| "Day (08:00 - 17:00)".to_string()),
-            status: req.status.unwrap_or_else(|| "active".to_string()),
+            status,
             assigned_calls_count: 0,
             created_at: now,
             updated_at: now,

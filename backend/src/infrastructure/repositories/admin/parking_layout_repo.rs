@@ -236,5 +236,22 @@ impl ParkingLayoutRepository for PostgresAdminRepository {
             updated_at: row.get("updated_at"),
         })
     }
+
+    async fn get_spot_property_id(&self, spot_id: Uuid) -> DomainResult<Option<Uuid>> {
+        let row = sqlx::query(
+            r#"
+            SELECT l.property_id
+            FROM parking_spots s
+            JOIN parking_layouts l ON l.id = s.layout_id
+            WHERE s.id = $1
+            "#,
+        )
+        .bind(spot_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to resolve spot property: {}", e)))?;
+
+        Ok(row.map(|r| r.get("property_id")))
+    }
 }
 

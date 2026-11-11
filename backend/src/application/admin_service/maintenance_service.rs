@@ -7,17 +7,24 @@ use super::dtos::{
     UpdateMaintenanceCallStatusRequest,
 };
 use crate::domain::{
-    admin::{MaintenanceCall, MaintenanceCallRepository},
+    admin::{MaintenanceCall, MaintenanceCallRepository, PropertyStaffRepository},
     errors::{DomainError, DomainResult},
 };
 
+const ALLOWED_MAINTENANCE_STATUSES: [&str; 5] =
+    ["reported", "dispatched", "in_progress", "resolved", "cancelled"];
+
 pub struct MaintenanceService {
     repo: Arc<dyn MaintenanceCallRepository>,
+    staff_repo: Arc<dyn PropertyStaffRepository>,
 }
 
 impl MaintenanceService {
-    pub fn new(repo: Arc<dyn MaintenanceCallRepository>) -> Self {
-        Self { repo }
+    pub fn new(
+        repo: Arc<dyn MaintenanceCallRepository>,
+        staff_repo: Arc<dyn PropertyStaffRepository>,
+    ) -> Self {
+        Self { repo, staff_repo }
     }
 
     pub async fn list_maintenance_calls(
@@ -97,8 +104,15 @@ impl MaintenanceService {
         id: Uuid,
         req: UpdateMaintenanceCallStatusRequest,
     ) -> DomainResult<MaintenanceCall> {
+        let normalized_status = req.status.trim().to_lowercase();
+        if !ALLOWED_MAINTENANCE_STATUSES.contains(&normalized_status.as_str()) {
+            return Err(DomainError::ValidationError(
+                "Status must be one of: reported, dispatched, in_progress, resolved, cancelled"
+                    .into(),
+            ));
+        }
         self.repo
-            .update_maintenance_call_status(id, &req.status, req.resolution_notes)
+            .update_maintenance_call_status(id, &normalized_status, req.resolution_notes)
             .await
     }
 
@@ -111,6 +125,20 @@ impl MaintenanceService {
         call_id: Uuid,
         req: AssignMaintenanceCallStaffRequest,
     ) -> DomainResult<MaintenanceCall> {
+        let call = self.get_maintenance_call(call_id).await?;
+        let staff = self
+            .staff_repo
+            .get_property_staff(req.staff_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("Staff member not found".into()))?;
+
+        if staff.property_id != call.property_id {
+            return Err(DomainError::ValidationError(
+                "Assigned staff member must belong to the same property as the maintenance call"
+                    .into(),
+            ));
+        }
+
         let scheduled = match req.scheduled_date {
             Some(ref d) => Some(
                 chrono::DateTime::parse_from_rfc3339(d)

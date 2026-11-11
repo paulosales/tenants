@@ -41,7 +41,14 @@ pub async fn list_tenant_reservations(
         .reservations
         .list_tenant_reservations(scoped_tenant_id)
         .await?;
-    Ok(Json(res).into_response())
+    let scoped: Vec<_> = if user.role == Role::Tenant {
+        res
+    } else {
+        res.into_iter()
+            .filter(|r| r.property_id.map(|p| user.has_property_access(p)).unwrap_or(true))
+            .collect()
+    };
+    Ok(Json(scoped).into_response())
 }
 
 pub async fn create_tenant_reservation(
@@ -56,8 +63,15 @@ pub async fn create_tenant_reservation(
         return Err(DomainError::Forbidden);
     }
 
+    let amenity = state.admin_service.amenities.get_amenity(req.amenity_id).await?;
+    if !user.has_property_access(amenity.property_id) {
+        return Err(DomainError::Forbidden);
+    }
+
     if user.role == Role::Tenant {
         req.tenant_id = Some(user.tenant_id.ok_or(DomainError::Forbidden)?);
+    } else if req.tenant_id.is_none() {
+        return Err(DomainError::ValidationError("tenant_id is required".into()));
     }
 
     let res = state
@@ -73,16 +87,22 @@ pub async fn cancel_tenant_reservation(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<Uuid>,
 ) -> DomainResult<Response> {
+    let existing = state
+        .admin_service
+        .reservations
+        .get_tenant_reservation(id)
+        .await?;
+
     if user.role == Role::Tenant {
-        let existing = state
-            .admin_service
-            .reservations
-            .get_tenant_reservation(id)
-            .await?;
         if Some(existing.tenant_id) != user.tenant_id {
             return Err(DomainError::Forbidden);
         }
-    } else if !user.role.can_manage_properties() {
+    } else if !user.role.can_manage_properties()
+        || existing
+            .property_id
+            .map(|p| !user.has_property_access(p))
+            .unwrap_or(false)
+    {
         return Err(DomainError::Forbidden);
     }
 
@@ -98,6 +118,12 @@ pub async fn review_tenant_reservation(
 ) -> DomainResult<Response> {
     if !user.role.can_manage_properties() {
         return Err(DomainError::Forbidden);
+    }
+    let existing = state.admin_service.get_tenant_reservation(id).await?;
+    if let Some(pid) = existing.property_id {
+        if !user.has_property_access(pid) {
+            return Err(DomainError::Forbidden);
+        }
     }
 
     let res = state

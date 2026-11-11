@@ -1,4 +1,5 @@
 use axum::{
+    extract::DefaultBodyLimit,
     http::{header, HeaderValue, Method},
     middleware as axum_middleware,
     routing::{get, patch, post, put},
@@ -37,6 +38,7 @@ use crate::presentation::{
     middleware::{
         auth::AppState,
         csrf::csrf_protection_middleware,
+        rate_limit::rate_limit_middleware,
         request_id::request_id_middleware,
         security_headers::security_headers_middleware,
     },
@@ -94,7 +96,10 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
         .route("/parking/zones/:id/layout", get(get_zone_layout))
         .route("/parking/reserve", post(reserve_spot))
         .route("/parking/spots", post(upsert_spot))
-        .route("/parking/zones/:id/svg", put(upload_svg_layout))
+        .route(
+            "/parking/zones/:id/svg",
+            put(upload_svg_layout).layer(DefaultBodyLimit::max(640 * 1024)),
+        )
         // Stripe Webhook
         .route("/webhooks/stripe", post(stripe_webhook))
         // Audit
@@ -138,11 +143,16 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
         .route("/users", get(list_admin_users).post(create_admin_user))
         .route("/users/roles", get(list_roles))
         .route("/users/:id", get(get_admin_user).put(update_admin_user).delete(delete_admin_user))
+        .layer(DefaultBodyLimit::max(256 * 1024))
         .layer(axum_middleware::from_fn(csrf_protection_middleware));
 
     // 3. Assemble root router with layered middleware
     Router::new()
         .nest("/api/v1", api_router)
+        .layer(axum_middleware::from_fn_with_state(
+            state.clone(),
+            rate_limit_middleware,
+        ))
         .layer(axum_middleware::from_fn(security_headers_middleware))
         .layer(axum_middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())

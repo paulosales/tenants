@@ -14,6 +14,7 @@ use crate::presentation::middleware::auth::{AppState, AuthenticatedUser};
 
 pub async fn list_zones(
     State(state): State<AppState>,
+    AuthenticatedUser(_user): AuthenticatedUser,
 ) -> DomainResult<Json<Vec<ParkingZone>>> {
     let zones = state.parking_service.list_zones().await?;
     Ok(Json(zones))
@@ -21,9 +22,13 @@ pub async fn list_zones(
 
 pub async fn get_zone_layout(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(zone_id): Path<Uuid>,
 ) -> DomainResult<Json<ParkingLayoutResponse>> {
-    let layout = state.parking_service.get_layout(zone_id).await?;
+    let layout = state
+        .parking_service
+        .get_layout_for_viewer(&user, zone_id)
+        .await?;
     Ok(Json(layout))
 }
 

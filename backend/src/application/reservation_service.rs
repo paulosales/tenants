@@ -43,6 +43,24 @@ impl ReservationService {
             .await
     }
 
+    /// Returns availability slots with other tenants' PII (`user_id`, `notes`) redacted.
+    pub async fn check_availability_for_viewer(
+        &self,
+        actor: &User,
+        query: CheckAvailabilityQuery,
+    ) -> DomainResult<Vec<Reservation>> {
+        let mut list = self.check_availability(query).await?;
+        if !actor.role.can_manage_properties() {
+            for res in &mut list {
+                if res.user_id != actor.id {
+                    res.user_id = Uuid::nil();
+                    res.notes = None;
+                }
+            }
+        }
+        Ok(list)
+    }
+
     pub async fn create_reservation(
         &self,
         actor: &User,

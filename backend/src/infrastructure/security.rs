@@ -24,6 +24,11 @@ impl PasswordHasher for Argon2PasswordHasher {
                 "Password must be at least 8 characters long".into(),
             ));
         }
+        if password.len() > 128 {
+            return Err(DomainError::ValidationError(
+                "Password must not exceed 128 characters".into(),
+            ));
+        }
 
         let salt = SaltString::generate(&mut OsRng);
         Argon2::default()
@@ -33,6 +38,10 @@ impl PasswordHasher for Argon2PasswordHasher {
     }
 
     fn verify(&self, password: &str, hash: &str) -> bool {
+        // Bound password verification length to mitigate Argon2id CPU exhaustion DoS (CWE-400).
+        if password.len() > 128 {
+            return false;
+        }
         Argon2ParsedHash::new(hash)
             .map(|parsed| Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok())
             .unwrap_or(false)
@@ -91,7 +100,10 @@ impl TokenProvider for JwtTokenProvider {
             &validation,
         )
         .map(|data| data.claims)
-        .map_err(|e| DomainError::Unauthorized(format!("Invalid or expired token: {}", e)))
+        .map_err(|e| {
+            tracing::debug!("JWT verification rejected: {}", e);
+            DomainError::Unauthorized("Invalid or expired authentication token".into())
+        })
     }
 
     fn generate_refresh_token(&self) -> String {

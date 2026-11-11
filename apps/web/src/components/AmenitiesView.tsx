@@ -21,6 +21,7 @@ import {
   Table as TableIcon,
 } from 'lucide-react';
 import { useAmenitiesGateway } from '../context/ApiContext';
+import { ConfirmModal } from './common/ConfirmModal';
 import type {
   PropertyWithStats,
   AdminAmenity,
@@ -65,6 +66,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
   const [actionError, setActionError] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [confirmDeleteAmenity, setConfirmDeleteAmenity] = useState<AdminAmenity | null>(null);
 
   const activePropertyId = selectedPropertyId || (properties.length > 0 ? properties[0].id : '');
 
@@ -584,11 +586,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => {
-                                  if (window.confirm(`Delete amenity ${a.name}?`)) {
-                                    deleteMutation.mutate(a.id);
-                                  }
-                                }}
+                                onClick={() => setConfirmDeleteAmenity(a)}
                                 className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                 title="Delete Amenity"
                               >
@@ -655,11 +653,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
                                   <Edit2 className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    if (window.confirm(`Delete amenity ${a.name}?`)) {
-                                      deleteMutation.mutate(a.id);
-                                    }
-                                  }}
+                                  onClick={() => setConfirmDeleteAmenity(a)}
                                   className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                   title="Delete"
                                 >
@@ -837,6 +831,25 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(confirmDeleteAmenity)}
+        title="Delete Amenity"
+        message={
+          confirmDeleteAmenity
+            ? `Are you sure you want to delete amenity ${confirmDeleteAmenity.name}?`
+            : ''
+        }
+        confirmLabel="Delete Amenity"
+        isLoading={deleteMutation.isPending}
+        onCancel={() => setConfirmDeleteAmenity(null)}
+        onConfirm={() => {
+          if (confirmDeleteAmenity) {
+            deleteMutation.mutate(confirmDeleteAmenity.id);
+            setConfirmDeleteAmenity(null);
+          }
+        }}
+      />
     </div>
   );
 };

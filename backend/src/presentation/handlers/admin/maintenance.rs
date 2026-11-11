@@ -35,16 +35,21 @@ pub async fn list_maintenance_calls(
         return Err(DomainError::Forbidden);
     }
 
-    let scoped_tenant_id = if user.role == Role::Tenant {
-        Some(user.tenant_id.ok_or(DomainError::Forbidden)?)
+    let (scoped_tenant_id, scoped_property_id) = if user.role == Role::Tenant {
+        (
+            Some(user.tenant_id.ok_or(DomainError::Forbidden)?),
+            user.property_id,
+        )
+    } else if user.role.can_perform_maintenance() {
+        (q.tenant_id, user.enforce_property_scope(q.property_id)?)
     } else {
-        q.tenant_id
+        return Err(DomainError::Forbidden);
     };
 
     let calls = state
         .admin_service
         .maintenance
-        .list_maintenance_calls(scoped_tenant_id, q.property_id, q.status)
+        .list_maintenance_calls(scoped_tenant_id, scoped_property_id, q.status)
         .await?;
     Ok(Json(calls).into_response())
 }
@@ -58,7 +63,11 @@ pub async fn get_maintenance_call(
         return Err(DomainError::Forbidden);
     }
     let call = state.admin_service.maintenance.get_maintenance_call(id).await?;
-    if user.role == Role::Tenant && Some(call.tenant_id) != user.tenant_id {
+    if user.role == Role::Tenant {
+        if Some(call.tenant_id) != user.tenant_id {
+            return Err(DomainError::Forbidden);
+        }
+    } else if !user.has_property_access(call.property_id) {
         return Err(DomainError::Forbidden);
     }
     Ok(Json(call).into_response())
@@ -79,8 +88,23 @@ pub async fn create_maintenance_call(
     if user.role == Role::Tenant {
         let tid = user.tenant_id.ok_or(DomainError::Forbidden)?;
         req.tenant_id = Some(tid);
-        if user.property_id.is_some() {
-            req.property_id = user.property_id;
+        if let Some(prop_id) = user.property_id {
+            if let Some(req_prop) = req.property_id {
+                if req_prop != prop_id {
+                    return Err(DomainError::Forbidden);
+                }
+            }
+            req.property_id = Some(prop_id);
+        } else if req.property_id.is_none() {
+            return Err(DomainError::ValidationError("property_id is required".into()));
+        }
+    } else {
+        if req.tenant_id.is_none() {
+            return Err(DomainError::ValidationError("tenant_id is required".into()));
+        }
+        req.property_id = user.enforce_property_scope(req.property_id)?;
+        if req.property_id.is_none() {
+            return Err(DomainError::ValidationError("property_id is required".into()));
         }
     }
 
@@ -97,6 +121,17 @@ pub async fn update_maintenance_call_status(
     if !user.role.can_perform_maintenance() {
         return Err(DomainError::Forbidden);
     }
+    let existing = state.admin_service.maintenance.get_maintenance_call(id).await?;
+    if !user.has_property_access(existing.property_id) {
+        return Err(DomainError::Forbidden);
+    }
+    if user.role == Role::MaintenanceStaff {
+        if let (Some(assigned), Some(caller_staff)) = (existing.assigned_staff_id, user.staff_id) {
+            if assigned != caller_staff {
+                return Err(DomainError::Forbidden);
+            }
+        }
+    }
     let call = state
         .admin_service
         .maintenance
@@ -110,12 +145,12 @@ pub async fn cancel_maintenance_call(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<Uuid>,
 ) -> DomainResult<Response> {
+    let existing = state.admin_service.maintenance.get_maintenance_call(id).await?;
     if user.role == Role::Tenant {
-        let call = state.admin_service.maintenance.get_maintenance_call(id).await?;
-        if Some(call.tenant_id) != user.tenant_id {
+        if Some(existing.tenant_id) != user.tenant_id {
             return Err(DomainError::Forbidden);
         }
-    } else if !user.role.can_manage_properties() {
+    } else if !user.role.can_manage_properties() || !user.has_property_access(existing.property_id) {
         return Err(DomainError::Forbidden);
     }
 
@@ -130,6 +165,10 @@ pub async fn assign_maintenance_call_staff(
     Json(req): Json<AssignMaintenanceCallStaffRequest>,
 ) -> DomainResult<Response> {
     if !user.role.can_manage_properties() {
+        return Err(DomainError::Forbidden);
+    }
+    let existing = state.admin_service.maintenance.get_maintenance_call(id).await?;
+    if !user.has_property_access(existing.property_id) {
         return Err(DomainError::Forbidden);
     }
     let call = state

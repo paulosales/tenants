@@ -12,6 +12,9 @@ use crate::domain::{
 
 pub use crate::domain::ports::TokenClaims as JwtClaims;
 
+const DUMMY_ARGON2_HASH: &str =
+    "$argon2id$v=19$m=19456,t=2,p=1$Y9tk2yYGbPe7nli24xmzfA$z2srHuwDKMjfa/BuVk8jaPWFbIahDNQQgq8MEzYlscY";
+
 pub struct AuthService {
     user_repo: Arc<dyn UserRepository>,
     password_hasher: Arc<dyn PasswordHasher>,
@@ -42,8 +45,27 @@ impl AuthService {
     }
 
     pub async fn register(&self, req: RegisterRequest) -> DomainResult<(AuthResponse, String)> {
-        if self.user_repo.find_by_email(&req.email).await?.is_some() {
-            return Err(DomainError::ValidationError("A user with this email already exists".into()));
+        let normalized_email = req.email.trim().to_lowercase();
+        let normalized_name = req.full_name.trim().to_string();
+
+        if !normalized_email.contains('@')
+            || normalized_email.len() < 5
+            || normalized_email.len() > 255
+        {
+            return Err(DomainError::ValidationError(
+                "A valid email address is required".into(),
+            ));
+        }
+        if normalized_name.len() < 2 || normalized_name.len() > 150 {
+            return Err(DomainError::ValidationError(
+                "Full name must be between 2 and 150 characters".into(),
+            ));
+        }
+
+        if self.user_repo.find_by_email(&normalized_email).await?.is_some() {
+            return Err(DomainError::ValidationError(
+                "A user with this email already exists".into(),
+            ));
         }
 
         let password_hash = self.password_hasher.hash(&req.password)?;
@@ -51,9 +73,9 @@ impl AuthService {
 
         let new_user = User {
             id: Uuid::new_v4(),
-            email: req.email.to_lowercase().trim().to_string(),
+            email: normalized_email,
             password_hash,
-            full_name: req.full_name.trim().to_string(),
+            full_name: normalized_name,
             // Security: Public self-registration always assigns Tenant role to prevent privilege escalation.
             role: Role::Tenant,
             phone: req.phone,
@@ -81,15 +103,22 @@ impl AuthService {
     }
 
     pub async fn login(&self, req: LoginRequest) -> DomainResult<(AuthResponse, String)> {
-        let user = self
-            .user_repo
-            .find_by_email(req.email.to_lowercase().trim())
-            .await?
-            .ok_or(DomainError::InvalidCredentials)?;
+        let normalized_email = req.email.trim().to_lowercase();
+        let maybe_user = self.user_repo.find_by_email(&normalized_email).await?;
 
-        if !self.password_hasher.verify(&req.password, &user.password_hash) {
-            return Err(DomainError::InvalidCredentials);
-        }
+        let user = match maybe_user {
+            Some(u) => {
+                if !self.password_hasher.verify(&req.password, &u.password_hash) {
+                    return Err(DomainError::InvalidCredentials);
+                }
+                u
+            }
+            None => {
+                // Constant-work mitigation against email-enumeration timing side channels (CWE-203/CWE-208).
+                let _ = self.password_hasher.verify(&req.password, DUMMY_ARGON2_HASH);
+                return Err(DomainError::InvalidCredentials);
+            }
+        };
 
         let (refresh_token, refresh_token_hash, refresh_expires) = self.issue_refresh_token_pair()?;
 
@@ -113,25 +142,26 @@ impl AuthService {
             .user_repo
             .find_by_id(user_id)
             .await?
-            .ok_or_else(|| DomainError::Unauthorized("User session not found".into()))?;
+            .ok_or_else(|| DomainError::Unauthorized("Invalid or expired session".into()))?;
 
         let stored_hash = user
             .refresh_token_hash
             .as_ref()
-            .ok_or_else(|| DomainError::Unauthorized("No active session".into()))?;
+            .ok_or_else(|| DomainError::Unauthorized("Invalid or expired session".into()))?;
 
         let expires_at = user
             .refresh_token_expires_at
-            .ok_or_else(|| DomainError::Unauthorized("Refresh token expired".into()))?;
+            .ok_or_else(|| DomainError::Unauthorized("Invalid or expired session".into()))?;
 
         if Utc::now() > expires_at {
-            return Err(DomainError::Unauthorized("Refresh token expired".into()));
+            return Err(DomainError::Unauthorized("Invalid or expired session".into()));
         }
 
         if !self.password_hasher.verify(provided_token, stored_hash) {
-            // Compromise detected: invalidate all active tokens for this user immediately!
+            // Compromise detected: invalidate all active tokens for this user immediately.
             let _ = self.user_repo.update_refresh_token(user.id, None, None).await;
-            return Err(DomainError::Unauthorized("Invalid refresh token. Session revoked.".into()));
+            tracing::warn!(user_id = %user.id, "Refresh token mismatch; active session revoked");
+            return Err(DomainError::Unauthorized("Invalid or expired session".into()));
         }
 
         let (new_refresh_token, new_refresh_hash, new_expires) = self.issue_refresh_token_pair()?;

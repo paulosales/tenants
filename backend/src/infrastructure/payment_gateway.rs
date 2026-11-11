@@ -69,9 +69,13 @@ impl StripePaymentGateway {
             DomainError::WebhookVerificationFailed(format!("HMAC init failed: {}", e))
         })?;
         mac.update(signed_payload.as_bytes());
-        let expected_signature = hex::encode(mac.finalize().into_bytes());
 
-        let matched = signatures.iter().any(|&sig| sig == expected_signature);
+        // Constant-time HMAC verification against decoded hex signatures (mitigates CWE-208 timing oracle).
+        let matched = signatures.iter().any(|&sig| {
+            hex::decode(sig)
+                .map(|sig_bytes| mac.clone().verify_slice(&sig_bytes).is_ok())
+                .unwrap_or(false)
+        });
         if !matched {
             return Err(DomainError::WebhookVerificationFailed(
                 "HMAC signature mismatch".into(),
@@ -154,6 +158,17 @@ mod tests {
         let tampered_payload = r#"{"id":"evt_123","type":"payment_intent.succeeded","amount":999999}"#;
 
         let res = StripePaymentGateway::verify_stripe_signature(tampered_payload, &sig_header, secret);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_stripe_signature_wrong_same_length_hex_rejected() {
+        let secret = "whsec_test_secret_12345";
+        let now = Utc::now().timestamp();
+        let payload = r#"{"id":"evt_123","type":"payment_intent.succeeded"}"#;
+        let bogus_sig = "0".repeat(64);
+        let sig_header = format!("t={},v1={}", now, bogus_sig);
+        let res = StripePaymentGateway::verify_stripe_signature(payload, &sig_header, secret);
         assert!(res.is_err());
     }
 }

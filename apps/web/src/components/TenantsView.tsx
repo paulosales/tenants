@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useTenantsGateway, useUnitsGateway } from '../context/ApiContext';
+import { ConfirmModal } from './common/ConfirmModal';
 import type {
   PropertyWithStats,
   TenantWithUnit,
@@ -69,6 +70,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteTenant, setConfirmDeleteTenant] = useState<TenantWithUnit | null>(null);
 
   // Load tenants with optional property and status filters
   const { data: tenants = [], isLoading } = useQuery({
@@ -580,11 +582,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Delete tenant ${t.first_name} ${t.last_name}?`)) {
-                                  deleteMutation.mutate(t.id);
-                                }
-                              }}
+                              onClick={() => setConfirmDeleteTenant(t)}
                               className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete Tenant"
                             >
@@ -783,6 +781,25 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(confirmDeleteTenant)}
+        title="Delete Tenant"
+        message={
+          confirmDeleteTenant
+            ? `Are you sure you want to delete tenant ${confirmDeleteTenant.first_name} ${confirmDeleteTenant.last_name}?`
+            : ''
+        }
+        confirmLabel="Delete Tenant"
+        isLoading={deleteMutation.isPending}
+        onCancel={() => setConfirmDeleteTenant(null)}
+        onConfirm={() => {
+          if (confirmDeleteTenant) {
+            deleteMutation.mutate(confirmDeleteTenant.id);
+            setConfirmDeleteTenant(null);
+          }
+        }}
+      />
     </div>
   );
 };

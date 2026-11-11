@@ -67,6 +67,23 @@ impl StaffMessageRepository for PostgresAdminRepository {
         Ok(rows.iter().map(map_message_row).collect())
     }
 
+    async fn get_message(&self, id: Uuid) -> DomainResult<Option<StaffMessage>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, property_id, sender_user_id, sender_staff_id, recipient_user_id,
+                   recipient_staff_id, sender_name, sender_role, body, is_read, created_at
+            FROM staff_messages
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to get staff message: {}", e)))?;
+
+        Ok(row.as_ref().map(map_message_row))
+    }
+
     async fn create_message(&self, msg: StaffMessage) -> DomainResult<StaffMessage> {
         let row = sqlx::query(
             r#"

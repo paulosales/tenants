@@ -15,6 +15,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { useTenantsGateway, useUnitsGateway } from '../context/ApiContext';
+import { ConfirmModal } from './common/ConfirmModal';
 import type {
   PropertyWithStats,
   UnitWithTenant,
@@ -61,6 +62,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
   const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmDeleteUnit, setConfirmDeleteUnit] = useState<UnitWithTenant | null>(null);
 
   // Default to first property if none selected
   const activePropertyId = selectedPropertyId || (properties.length > 0 ? properties[0].id : '');
@@ -605,11 +607,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Delete unit ${u.unit_number}?`)) {
-                                  deleteMutation.mutate(u.id);
-                                }
-                              }}
+                              onClick={() => setConfirmDeleteUnit(u)}
                               className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete Unit"
                             >
@@ -786,6 +784,25 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(confirmDeleteUnit)}
+        title="Delete Unit"
+        message={
+          confirmDeleteUnit
+            ? `Are you sure you want to delete unit ${confirmDeleteUnit.unit_number}?`
+            : ''
+        }
+        confirmLabel="Delete Unit"
+        isLoading={deleteMutation.isPending}
+        onCancel={() => setConfirmDeleteUnit(null)}
+        onConfirm={() => {
+          if (confirmDeleteUnit) {
+            deleteMutation.mutate(confirmDeleteUnit.id);
+            setConfirmDeleteUnit(null);
+          }
+        }}
+      />
     </div>
   );
 };

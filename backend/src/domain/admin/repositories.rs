@@ -77,6 +77,7 @@ pub trait ParkingLayoutRepository: Send + Sync {
         tenant_id: Option<Uuid>,
         is_occupied: bool,
     ) -> DomainResult<ParkingSpot>;
+    async fn get_spot_property_id(&self, spot_id: Uuid) -> DomainResult<Option<Uuid>>;
 }
 
 #[async_trait]
@@ -166,6 +167,7 @@ pub trait StaffMessageRepository: Send + Sync {
         property_id: Uuid,
         staff_id: Option<Uuid>,
     ) -> DomainResult<Vec<StaffMessage>>;
+    async fn get_message(&self, id: Uuid) -> DomainResult<Option<StaffMessage>>;
     async fn create_message(&self, msg: StaffMessage) -> DomainResult<StaffMessage>;
     async fn mark_message_read(&self, id: Uuid) -> DomainResult<StaffMessage>;
 }

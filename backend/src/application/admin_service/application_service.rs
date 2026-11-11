@@ -51,17 +51,21 @@ impl TenancyApplicationService {
         let email = req.applicant_email.trim().to_lowercase();
         let phone = req.applicant_phone.trim().to_string();
 
-        if first_name.is_empty() || last_name.is_empty() {
+        if first_name.is_empty()
+            || last_name.is_empty()
+            || first_name.len() > 100
+            || last_name.len() > 100
+        {
             return Err(DomainError::ValidationError(
-                "Applicant first and last name are required".into(),
+                "Applicant first and last name must be between 1 and 100 characters".into(),
             ));
         }
-        if !email.contains('@') || email.len() < 5 {
+        if !email.contains('@') || email.len() < 5 || email.len() > 255 {
             return Err(DomainError::ValidationError(
                 "A valid applicant email address is required".into(),
             ));
         }
-        if phone.len() < 7 {
+        if phone.len() < 7 || phone.len() > 50 {
             return Err(DomainError::ValidationError(
                 "A valid applicant contact phone number is required".into(),
             ));
@@ -69,6 +73,11 @@ impl TenancyApplicationService {
         if req.occupants_count < 1 || req.occupants_count > 12 {
             return Err(DomainError::ValidationError(
                 "Occupants count must be between 1 and 12".into(),
+            ));
+        }
+        if req.notes.as_deref().map(|n| n.len() > 2000).unwrap_or(false) {
+            return Err(DomainError::ValidationError(
+                "Application notes must not exceed 2000 characters".into(),
             ));
         }
 
@@ -137,6 +146,13 @@ impl TenancyApplicationService {
             application: saved,
             managers_notified,
         })
+    }
+
+    pub async fn get_application(&self, id: Uuid) -> DomainResult<TenancyApplication> {
+        self.app_repo
+            .get_application(id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("Tenancy application {} not found", id)))
     }
 
     pub async fn list_applications(

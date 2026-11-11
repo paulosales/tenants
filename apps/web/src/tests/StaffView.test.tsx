@@ -330,9 +330,7 @@ describe('StaffView Component - Properties Staff & Maintainer Assignment', () =>
     });
   });
 
-  it('prompts confirmation and deletes a staff member', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
+  it('prompts confirmation modal and deletes a staff member', async () => {
     renderWithQuery(<StaffView properties={mockProperties} selectedPropertyId="prop-1" />);
 
     await waitFor(() => {
@@ -342,7 +340,11 @@ describe('StaffView Component - Properties Staff & Maintainer Assignment', () =>
     const deleteBtn = screen.getAllByTitle('Deactivate / Delete')[0];
     fireEvent.click(deleteBtn);
 
-    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to remove Sarah Jenkins\?/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Remove Member/i }));
+
     await waitFor(() => {
       expect(api.deleteStaff).toHaveBeenCalledWith('staff-1');
     });

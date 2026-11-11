@@ -39,7 +39,23 @@ impl ParkingService {
         self.parking_repo
             .get_zone_layout(zone_id)
             .await?
-            .ok_or_else(|| DomainError::NotFound(format!("Parking zone {} not found", zone_id)))
+            .ok_or_else(|| DomainError::NotFound("Parking zone not found".into()))
+    }
+
+    pub async fn get_layout_for_viewer(
+        &self,
+        actor: &User,
+        zone_id: Uuid,
+    ) -> DomainResult<ParkingLayoutResponse> {
+        let mut layout = self.get_layout(zone_id).await?;
+        if !actor.role.can_manage_properties() {
+            for spot in &mut layout.spots {
+                if spot.assigned_tenant_id != Some(actor.id) {
+                    spot.assigned_tenant_id = None;
+                }
+            }
+        }
+        Ok(layout)
     }
 
     pub async fn reserve_spot(
@@ -92,6 +108,11 @@ impl ParkingService {
     ) -> DomainResult<ParkingSpot> {
         if !actor.role.can_manage_properties() {
             return Err(DomainError::Forbidden);
+        }
+        if req.hourly_rate_cents < 0 || req.monthly_rate_cents < 0 {
+            return Err(DomainError::ValidationError(
+                "Parking rates cannot be negative".into(),
+            ));
         }
 
         let spot = ParkingSpot {

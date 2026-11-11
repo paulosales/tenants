@@ -9,6 +9,7 @@ use backend::{
         config::AppConfig,
         db::create_postgres_pool,
         payment_gateway::StripePaymentGateway,
+        redis_client::RedisRateLimiter,
         repositories::{
             PostgresAdminRepository, PostgresAmenityRepository, PostgresAuditRepository,
             PostgresParkingRepository, PostgresPaymentRepository, PostgresReservationRepository,
@@ -103,6 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     let admin_service = Arc::new(AdminService::new(admin_repo.clone(), password_hasher));
+    let rate_limiter = Arc::new(RedisRateLimiter::new(&config.redis_url).await);
 
     // 7. Assemble Router with AppState
     let app_state = AppState {
@@ -115,6 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         amenity_repo,
         audit_repo,
         admin_service,
+        rate_limiter,
         cookie_secure: config.is_production,
     };
 
