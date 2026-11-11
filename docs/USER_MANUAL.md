@@ -83,7 +83,7 @@ When running locally with Docker Compose (`docker compose up`), database migrati
 Prospective tenants do **not** need an account to search communities, inspect floorplans, or apply:
 
 1. **Multi-Criteria Search & URL Deep Links**: Filter communities by keyword, city, bedrooms (`Any`, `Studio`, `1+`, `2+`, `3+` — synced via URL query parameters such as `?beds=2`), minimum bathrooms, monthly rent range (`Min $` / `Max $`), expandable **Features** tags, **Available Now Only**, and sort order (`Recommended`, `Rent: Low to High`, `Rent: High to Low`, `Most Available Units`).
-2. **Interactive Google Maps Widget with Rent Price Pins**: Switch between **Split List & Map**, **Grid View**, or **Map Only**. Each map pin displays the community's live monthly rent price range (e.g., `$1,650 – $2,350/mo`). Hovering or clicking a pin highlights the card, previews photos and availability, and links straight to the showcase or application.
+2. **Interactive Free Map Widget with Rent Price Pins**: Switch between **Split List & Map**, **Grid View**, or **Map Only** powered by **Leaflet + OpenStreetMap** (zero API key required). Each map pin displays the community's live monthly rent price range (e.g., `$1,650 – $2,350/mo`). Hovering or clicking a pin highlights the card, previews photos and availability, and links straight to the showcase or application.
 3. **Dedicated Property Showcase Page**: Click **Explore Community** (or a community banner) to view the full **Community Showcase**:
    - **CDN Photo Gallery & Lightbox** with multi-photo thumbnails.
    - **About This Community** rich-text overview, **Pet Policy**, and **Lease Terms**.
@@ -100,7 +100,7 @@ Prospective tenants do **not** need an account to search communities, inspect fl
 Administrators have complete visibility across every building and module:
 
 - **Properties & Showcase Media**: Create, edit, or remove buildings (protected by a dependency guard preventing accidental deletion while units exist), and click **Showcase & Media** on any property row to:
-  - Edit the **Rich-Text Community Description**, **Pet Policy**, **Lease Terms**, and **Google Maps Geo-Coordinates** (`Latitude`, `Longitude`).
+  - Edit the **Rich-Text Community Description**, **Pet Policy**, **Lease Terms**, and **Map Geo-Coordinates** (`Latitude`, `Longitude`).
   - **Add or Remove Property Features** categorized across Community, In-Suite, Utilities, Policies, and Transit.
   - **Upload, Set Cover, or Remove CDN Photos** stored in S3-compatible object storage (**MinIO** in local dev; AWS S3 in production). Supported formats: JPEG, PNG, WebP up to 5 MB.
 - **Units & Monthly Rent Pricing**: Manage apartment floorplans, **Monthly Rent (`$/mo`)**, multi-tenant unit assignments, and occupancy states (`vacant`, `occupied`, `maintenance`). Updating a unit's rent immediately recalculates the community price range on public cards and map pins.

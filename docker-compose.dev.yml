@@ -125,7 +125,6 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost:8080/api/v1
-      VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
       VITE_MEDIA_CDN_URL: ${MEDIA_CDN_BASE_URL:-http://localhost:9000/property-media}
     volumes:
       - ./apps/web:/app/apps/web

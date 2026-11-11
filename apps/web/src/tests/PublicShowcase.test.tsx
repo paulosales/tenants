@@ -195,7 +195,7 @@ function renderWithProviders(ui: React.ReactElement, gateways: IApiGateways) {
   );
 }
 
-describe('Rental Showcase, Filters, Google Map Pins & XSS Sanitization', () => {
+describe('Rental Showcase, Filters, OpenStreetMap Price Pins & XSS Sanitization', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
   });
@@ -245,15 +245,20 @@ describe('Rental Showcase, Filters, Google Map Pins & XSS Sanitization', () => {
       expect(screen.getByText('Harborview Terrace')).toBeInTheDocument();
     });
 
-    // Interactive map displays rent range pills for properties
-    expect(screen.getAllByText('$1,650 – $2,350/mo').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('$2,400/mo').length).toBeGreaterThanOrEqual(1);
+    // Interactive Leaflet OpenStreetMap renders rent range pills and floating card on click
+    const auroraPin = screen.getByTestId('map-pin-prop-aurora');
+    expect(auroraPin).toHaveTextContent('$1,650 – $2,350/mo');
+    expect(screen.getByTestId('map-pin-prop-harbor')).toHaveTextContent('$2,400/mo');
+    fireEvent.click(auroraPin);
+    await waitFor(() => {
+      expect(screen.getByTestId('map-selected-card')).toHaveTextContent('Aurora Heights Commons');
+    });
 
     // Quick 2+ Bedroom preset filters out 1-bedroom-only Harborview Terrace
     fireEvent.click(screen.getByRole('button', { name: '2+ Bedroom Suites' }));
     await waitFor(() => {
       expect(screen.queryByText('Harborview Terrace')).not.toBeInTheDocument();
-      expect(screen.getByText('Aurora Heights Commons')).toBeInTheDocument();
+      expect(screen.getAllByText('Aurora Heights Commons').length).toBeGreaterThanOrEqual(1);
     });
 
     // Explore Aurora Heights Community Detail Showcase

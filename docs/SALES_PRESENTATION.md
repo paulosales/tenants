@@ -38,7 +38,7 @@ Property operators juggle disconnected tools every day:
 
 ### Turn Renters Browsing Map Pins into Onboarded Residents in Minutes
 
-1. **Interactive Rent-Pin Map & Deep Filters**: Prospective renters filter by **bedrooms (`Studio`–`3+`), bathrooms, monthly rent ceiling, city, and features** while comparing live **monthly rent range pills** across neighborhoods on the integrated **Google Maps** widget.
+1. **Interactive Rent-Pin Map & Deep Filters**: Prospective renters filter by **bedrooms (`Studio`–`3+`), bathrooms, monthly rent ceiling, city, and features** while comparing live **monthly rent range pills** across neighborhoods on a free, zero-API-key **Leaflet + OpenStreetMap** widget.
 2. **Aurora-Grade Property Showcase Pages**: Every building gets a rich landing page featuring **CDN-delivered photo lightboxes**, formatted community storytelling (**rich-text HTML**), categorized amenities/features, and live **per-suite rent pricing**.
 3. **Direct Suite Pre-Selection & 1-Click Onboarding**: Renters click **Apply for Suite X**, routing directly to that property's manager queue—and 1 click converts approved applicants into active tenants and occupies the unit.
 
@@ -106,7 +106,7 @@ Property operators juggle disconnected tools every day:
 
 ### Run Anywhere You Operate
 
-- **Turnkey Docker Compose Stack**: PostgreSQL 16 + Redis 7 + **MinIO S3 CDN** + Rust Backend + React Web App ready in minutes, with instant production switch-over to **AWS S3** / CloudFront and live **Google Maps** API keys.
+- **Turnkey Docker Compose Stack**: PostgreSQL 16 + Redis 7 + **MinIO S3 CDN** + Rust Backend + React Web App ready in minutes, with built-in **Leaflet + OpenStreetMap** mapping (no paid map API keys needed) and instant production switch-over to **AWS S3** / CloudFront.
 - **Monorepo Shared Contracts**: `@tenants/shared-types` & `@tenants/shared-ui` ensure web, mobile, and backend speak the exact same language.
 - **Ready for Cloud or On-Prem**: Stateless API containers scale horizontally behind your TLS load balancer.
 

@@ -361,7 +361,7 @@ export const PropertyShowcaseModal: React.FC<PropertyShowcaseModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">
                   <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                  Google Maps Geo-Coordinates
+                  Map Geo-Coordinates (Lat / Lng)
                 </span>
                 <div className="flex gap-2">
                   <button

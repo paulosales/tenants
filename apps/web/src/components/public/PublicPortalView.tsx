@@ -445,7 +445,7 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({ onOpenLogin 
                 ))}
               </div>
             ) : (
-              /* Split View: Cards on Left, Sticky Interactive Google Map on Right */
+              /* Split View: Cards on Left, Sticky Interactive Map on Right */
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-5">
                   {filteredProperties.map((prop) => (
