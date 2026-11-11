@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use backend::{
     application::{AdminService, AuthService, ParkingService, PaymentService, ReservationService},
@@ -22,28 +21,29 @@ use backend::{
         },
         security::{Argon2PasswordHasher, JwtTokenProvider},
         svg_sanitizer::DefaultSvgSanitizer,
+        telemetry::init_telemetry,
     },
     presentation::{middleware::auth::AppState, routes::build_router},
 };
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Initialize structured logging with JSON formatting in production
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,backend=debug,tower_http=debug"));
-
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(tracing_subscriber::fmt::layer().json())
-        .init();
-
-    tracing::info!("Initializing Property & Tenant Management Platform Backend...");
-
-    // 2. Load Configuration
-    let config = AppConfig::from_env().map_err(|e| {
-        tracing::error!("Configuration failure: {}", e);
-        e
+    // 1. Load Configuration
+    let config = AppConfig::from_env().inspect_err(|e| {
+        eprintln!("Configuration failure: {}", e);
     })?;
+
+    // 2. Initialize OpenTelemetry (Traces, Metrics, Logs) + Structured JSON Logs
+    let telemetry_guard = init_telemetry(
+        &config.otel_service_name,
+        &config.app_env,
+        config.otel_exporter_otlp_endpoint.as_deref(),
+    );
+
+    tracing::info!(
+        otel_enabled = config.otel_exporter_otlp_endpoint.is_some(),
+        "Initializing Property & Tenant Management Platform Backend..."
+    );
 
     // 3. Database Connection Pool
     let pool = create_postgres_pool(&config.database_url)
@@ -166,6 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     tracing::info!("Server shut down cleanly.");
+    telemetry_guard.shutdown();
     Ok(())
 }
 

@@ -12,6 +12,16 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/context-zone": "^3.1.1",
+    "@opentelemetry/core": "^3.1.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.301.1",
+    "@opentelemetry/instrumentation": "^0.301.1",
+    "@opentelemetry/instrumentation-fetch": "^0.301.1",
+    "@opentelemetry/resources": "^3.1.1",
+    "@opentelemetry/sdk-trace-base": "^2.12.0",
+    "@opentelemetry/sdk-trace-web": "^2.12.0",
+    "@opentelemetry/semantic-conventions": "^1.45.0",
     "@tanstack/react-query": "^5.59.0",
     "@tenants/shared-types": "workspace:*",
     "@tenants/shared-ui": "workspace:*",

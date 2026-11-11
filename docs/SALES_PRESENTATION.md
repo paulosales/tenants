@@ -88,6 +88,7 @@ Property operators juggle disconnected tools every day:
   - Browser authentication strictly via hardened **`HttpOnly`, `SameSite=Strict` cookies** + constant-time **`X-CSRF-Token`** validation (zero tokens exposed to `localStorage`).
   - **Backend-Enforced RBAC & Ownership Scoping**: Tenants never touch management APIs; cleaners never see resident PII; maintainers only act on work orders and team chat.
 - **100% Parameterized SQL, XSS & CDN Media Hardening**: Immune to SQL injection; rich-text descriptions undergo server allow-list sanitization + client **DOMPurify**; uploaded property images pass magic-byte verification into **AWS S3 / MinIO CDN** object keys.
+- **End-to-End OpenTelemetry Observability**: Browser-to-Rust **W3C TraceContext** (`traceparent`) distributed tracing, HTTP latency/throughput metrics, and trace-correlated structured logs routed via **OpenTelemetry Collector** into **Prometheus**, **Jaeger**, **Loki**, and **Grafana**.
 
 ---
 
@@ -106,7 +107,7 @@ Property operators juggle disconnected tools every day:
 
 ### Run Anywhere You Operate
 
-- **Turnkey Docker Compose Stack**: PostgreSQL 16 + Redis 7 + **MinIO S3 CDN** + Rust Backend + React Web App ready in minutes, with built-in **Leaflet + OpenStreetMap** mapping (no paid map API keys needed) and instant production switch-over to **AWS S3** / CloudFront.
+- **Turnkey Docker Compose Stack**: PostgreSQL 16 + Redis 7 + **MinIO S3 CDN** + **OpenTelemetry Collector / Jaeger / Prometheus / Loki / Grafana** + Rust Backend + React Web App ready in minutes, with built-in **Leaflet + OpenStreetMap** mapping (no paid map API keys needed) and instant production switch-over to **AWS S3** / CloudFront.
 - **Monorepo Shared Contracts**: `@tenants/shared-types` & `@tenants/shared-ui` ensure web, mobile, and backend speak the exact same language.
 - **Ready for Cloud or On-Prem**: Stateless API containers scale horizontally behind your TLS load balancer.
 

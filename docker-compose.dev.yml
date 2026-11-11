@@ -95,6 +95,9 @@ services:
       MEDIA_CDN_BASE_URL: ${MEDIA_CDN_BASE_URL:-http://localhost:9000/property-media}
       ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       RUST_LOG: "info,backend=debug,tower_http=debug"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: tenants-backend
+      OTEL_METRIC_EXPORT_INTERVAL: "5000"
     volumes:
       # Bind mount code for live editing
       - ./backend:/app
@@ -114,6 +117,8 @@ services:
         condition: service_completed_successfully
       minio:
         condition: service_started
+      otel-collector:
+        condition: service_started
     networks:
       - internal_network
 
@@ -126,6 +131,8 @@ services:
     environment:
       VITE_API_URL: http://localhost:8080/api/v1
       VITE_MEDIA_CDN_URL: ${MEDIA_CDN_BASE_URL:-http://localhost:9000/property-media}
+      VITE_OTEL_EXPORTER_URL: http://localhost:4318/v1/traces
+      VITE_OTEL_SERVICE_NAME: tenants-web
     volumes:
       - ./apps/web:/app/apps/web
       - ./packages:/app/packages
@@ -138,6 +145,85 @@ services:
     networks:
       - internal_network
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: tenants_jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+    networks:
+      - internal_network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: tenants_loki
+    restart: unless-stopped
+    user: "0:0"
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./infra/observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - internal_network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: tenants_otel_collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infra/observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    depends_on:
+      - jaeger
+      - loki
+    networks:
+      - internal_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tenants_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+    networks:
+      - internal_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tenants_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin_dev_secret}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/json/tenants-overview.json
+    volumes:
+      - ./infra/observability/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ./infra/observability/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./infra/observability/dashboards:/etc/grafana/provisioning/dashboards/json:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - jaeger
+      - loki
+    networks:
+      - internal_network
+
 networks:
   internal_network:
     driver: bridge
@@ -146,6 +232,9 @@ volumes:
   pg_data:
   redis_data:
   minio_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:
   cargo_target:
   cargo_cache:
   cargo_git:

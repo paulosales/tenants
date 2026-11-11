@@ -203,6 +203,10 @@ Set `EXPO_PUBLIC_API_URL` if connecting from a physical device or emulator to a 
   - **Rich-Text XSS Defense-in-Depth**: Community descriptions are sanitized server-side via an allow-list HTML sanitizer (max 32 KB, stripping `<script>`, event attributes, and `javascript:`/`data:` URLs, enforcing `rel="noopener noreferrer"`) and client-side via **DOMPurify**.
   - **Object Storage & Upload Hardening**: Photos are validated by HTTP `DefaultBodyLimit` (`6 MB`, enforcing `<= 5 MB` image payload), MIME verification, and raw **magic-byte signatures** (JPEG, PNG, WebP) before streaming via AWS SigV4 into UUID object keys in MinIO/S3.
   - **Database Queries**: 100% parameterized SQLx queries; strict ownership and `has_property_access()` validation on every endpoint.
+- **Full-Stack OpenTelemetry Observability**:
+  - **React Web SDK**: Initializes `@opentelemetry/sdk-trace-web` + `FetchInstrumentation`, exporting client spans over OTLP HTTP (`:4318`) and propagating **W3C Trace Context** (`traceparent` / `tracestate`) strictly to first-party backend API URLs.
+  - **Rust Backend Telemetry**: Uses `tracing` + `tracing-opentelemetry` + `opentelemetry-otlp` + `opentelemetry-appender-tracing` to extract incoming W3C `traceparent` headers, attach `x-trace-id` onto responses, emit low-cardinality HTTP latency/count metrics (`MatchedPath`), and correlate JSON logs with active `trace_id`s.
+  - **Collection & Storage Stack**: **OpenTelemetry Collector** (`:4317` gRPC / `:4318` HTTP) routes traces to **Jaeger** (`http://localhost:16686`), metrics to **Prometheus** (`http://localhost:9090`), and OTLP logs to **Loki** (`http://localhost:3100`), pre-wired in **Grafana** (`http://localhost:3001`).
 
 ---
 

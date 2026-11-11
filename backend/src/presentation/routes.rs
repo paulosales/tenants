@@ -41,6 +41,7 @@ use crate::presentation::{
     middleware::{
         auth::AppState, csrf::csrf_protection_middleware, rate_limit::rate_limit_middleware,
         request_id::request_id_middleware, security_headers::security_headers_middleware,
+        telemetry::telemetry_middleware,
     },
 };
 
@@ -68,6 +69,13 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
             header::COOKIE,
             header::HeaderName::from_static("x-request-id"),
             header::HeaderName::from_static("x-csrf-token"),
+            header::HeaderName::from_static("traceparent"),
+            header::HeaderName::from_static("tracestate"),
+            header::HeaderName::from_static("baggage"),
+        ])
+        .expose_headers([
+            header::HeaderName::from_static("x-request-id"),
+            header::HeaderName::from_static("x-trace-id"),
         ])
         .allow_credentials(true);
 
@@ -224,7 +232,8 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
                 .delete(delete_admin_user),
         )
         .layer(DefaultBodyLimit::max(256 * 1024))
-        .layer(axum_middleware::from_fn(csrf_protection_middleware));
+        .layer(axum_middleware::from_fn(csrf_protection_middleware))
+        .layer(axum_middleware::from_fn(telemetry_middleware));
 
     // 3. Assemble root router with layered middleware
     Router::new()

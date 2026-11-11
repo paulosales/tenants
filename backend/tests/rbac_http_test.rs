@@ -27,11 +27,17 @@ use backend::{
         },
         security::{Argon2PasswordHasher, JwtTokenProvider},
         svg_sanitizer::DefaultSvgSanitizer,
+        telemetry::init_telemetry,
     },
     presentation::{middleware::auth::AppState, routes::build_router},
 };
 
+static INIT_TELEMETRY: std::sync::Once = std::sync::Once::new();
+
 async fn build_test_router() -> (axum::Router, PgPool) {
+    INIT_TELEMETRY.call_once(|| {
+        let _ = init_telemetry("tenants-backend-test", "test", None);
+    });
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
         "postgres://postgres:postgres_dev_secret_change_in_prod@localhost:5432/tenants_db"
             .to_string()
@@ -1222,4 +1228,63 @@ async fn test_owasp_security_controls_and_idor_blocking() {
         .bind(&p2_staff_id)
         .execute(&pool)
         .await;
+}
+
+#[tokio::test]
+async fn test_w3c_trace_context_propagation_and_cors() {
+    let (router, _pool) = build_test_router().await;
+
+    // 1. CORS preflight must permit W3C TraceContext headers from the React client
+    let preflight = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::OPTIONS)
+                .uri("/api/v1/public/properties")
+                .header(header::ORIGIN, "http://localhost:5173")
+                .header(header::ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .header(
+                    header::ACCESS_CONTROL_REQUEST_HEADERS,
+                    "content-type,x-request-id,traceparent,tracestate",
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(preflight.status(), StatusCode::OK);
+    let allowed = preflight
+        .headers()
+        .get(header::ACCESS_CONTROL_ALLOW_HEADERS)
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_lowercase();
+    assert!(allowed.contains("traceparent"));
+    assert!(allowed.contains("tracestate"));
+
+    // 2. Incoming W3C traceparent propagates into backend tracing span and x-trace-id response header
+    let parent_trace_id = "4bf92f3577b34da6a3ce929d0e0e4736";
+    let traceparent = format!("00-{}-00f067aa0ba902b7-01", parent_trace_id);
+
+    let traced_res = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/health")
+                .header("traceparent", traceparent)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(traced_res.status(), StatusCode::OK);
+    assert_eq!(
+        traced_res
+            .headers()
+            .get("x-trace-id")
+            .and_then(|v| v.to_str().ok()),
+        Some(parent_trace_id)
+    );
 }

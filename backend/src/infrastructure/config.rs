@@ -20,6 +20,8 @@ pub struct AppConfig {
     pub media_s3_secret_key: String,
     pub media_cdn_base_url: String,
     pub allowed_origins: Vec<String>,
+    pub otel_exporter_otlp_endpoint: Option<String>,
+    pub otel_service_name: String,
 }
 
 impl AppConfig {
@@ -110,6 +112,17 @@ impl AppConfig {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let otel_exporter_otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        let otel_service_name = std::env::var("OTEL_SERVICE_NAME")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "tenants-backend".to_string());
+
         Ok(Self {
             port,
             host,
@@ -129,6 +142,8 @@ impl AppConfig {
             media_s3_secret_key,
             media_cdn_base_url,
             allowed_origins,
+            otel_exporter_otlp_endpoint,
+            otel_service_name,
         })
     }
 }
