@@ -4,6 +4,7 @@ import { Building2, Home, Loader2, LogOut, Shield } from 'lucide-react';
 import type { PropertyWithStats, Role, UserSummary } from '@tenants/shared-types';
 import { ApiProvider, usePropertiesGateway } from './context/ApiContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ROLE_BY_KEY } from './constants/roles';
 import { AmenitiesView } from './components/AmenitiesView';
 import { AmenityApprovalsView } from './components/AmenityApprovalsView';
 import { ApplicationsReviewView } from './components/ApplicationsReviewView';
@@ -39,14 +40,6 @@ interface ViewRenderContext {
   onSelectPropertyForUnits: (propertyId: string) => void;
   onSelectPropertyForParking: (propertyId: string) => void;
 }
-
-const ROLE_DISPLAY_LABEL: Record<Role, string> = {
-  super_admin: 'Super Admin',
-  property_manager: 'Property Manager',
-  maintenance_staff: 'Maintainer',
-  staff: 'Building Staff',
-  tenant: 'Resident Tenant',
-};
 
 /**
  * OCP-compliant View Registry mapping AdminTab keys to view factories.
@@ -307,7 +300,7 @@ export const AdminAppContent: React.FC<{
                 </p>
                 <div className="flex items-center space-x-1 text-[11px] text-emerald-600 mt-0.5">
                   <Shield className="w-3 h-3" />
-                  <span>{ROLE_DISPLAY_LABEL[role]}</span>
+                  <span>{ROLE_BY_KEY[role]?.label || role}</span>
                 </div>
               </div>
             </div>

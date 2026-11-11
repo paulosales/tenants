@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 6. Initialize Application Use Case Services
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
-        password_hasher,
+        password_hasher.clone(),
         token_provider.clone(),
         config.jwt_refresh_expiration_seconds,
     ));
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         payment_gateway,
     ));
 
-    let admin_service = Arc::new(AdminService::new(admin_repo.clone()));
+    let admin_service = Arc::new(AdminService::new(admin_repo.clone(), password_hasher));
 
     // 7. Assemble Router with AppState
     let app_state = AppState {

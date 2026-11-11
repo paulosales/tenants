@@ -1,14 +1,7 @@
 import React from 'react';
 import { Check, Shield } from 'lucide-react';
 import type { Role, RoleDefinition } from '@tenants/shared-types';
-
-export const ROLE_BADGE_STYLES: Record<Role, string> = {
-  super_admin: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-  property_manager: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  maintenance_staff: 'bg-amber-100 text-amber-800 border-amber-200',
-  staff: 'bg-sky-100 text-sky-800 border-sky-200',
-  tenant: 'bg-purple-100 text-purple-800 border-purple-200',
-};
+import { ROLE_BY_KEY } from '../../constants/roles';
 
 interface RoleMatrixSectionProps {
   roles: RoleDefinition[];
@@ -44,6 +37,8 @@ export const RoleMatrixSection: React.FC<RoleMatrixSectionProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
         {roles.map((r) => {
           const isSelected = activeRoleFilter === r.role;
+          const badgeClass =
+            ROLE_BY_KEY[r.role]?.badgeClass || 'bg-slate-100 text-slate-700 border-slate-200';
           return (
             <button
               key={r.role}
@@ -58,9 +53,7 @@ export const RoleMatrixSection: React.FC<RoleMatrixSectionProps> = ({
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span
-                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${
-                      ROLE_BADGE_STYLES[r.role] || 'bg-slate-100 text-slate-700'
-                    }`}
+                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-bold border ${badgeClass}`}
                   >
                     <Shield className="w-3 h-3" />
                     <span>{r.label}</span>
@@ -85,4 +78,3 @@ export const RoleMatrixSection: React.FC<RoleMatrixSectionProps> = ({
     </section>
   );
 };
-

@@ -6,8 +6,11 @@ use backend::{
     application::{
         admin_service::*,
     },
-    domain::admin::*,
-    infrastructure::repositories::PostgresAdminRepository,
+    domain::{admin::*, ports::PasswordHasher},
+    infrastructure::{
+        repositories::PostgresAdminRepository,
+        security::Argon2PasswordHasher,
+    },
 };
 
 async fn setup_admin_service() -> (AdminService, Uuid) {
@@ -19,7 +22,8 @@ async fn setup_admin_service() -> (AdminService, Uuid) {
         .expect("Failed to connect to test Postgres database");
 
     let repo = Arc::new(PostgresAdminRepository::new(pool));
-    let service = AdminService::new(repo);
+    let hasher: Arc<dyn PasswordHasher> = Arc::new(Argon2PasswordHasher);
+    let service = AdminService::new(repo, hasher);
 
     // Create a dedicated test property
     let prop = service

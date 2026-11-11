@@ -227,81 +227,20 @@ impl AdminUserService {
         let counts_raw = self.user_repo.count_users_by_role().await?;
         let mut counts: HashMap<String, i64> = HashMap::new();
         for (role, cnt) in counts_raw {
-            if let Ok(serde_json::Value::String(key)) = serde_json::to_value(role) {
-                counts.insert(key, cnt);
-            }
+            counts.insert(role.descriptor().key.to_string(), cnt);
         }
 
-        let role_specs = [
-            (
-                Role::SuperAdmin,
-                "super_admin",
-                "Super Admin",
-                "Unrestricted portfolio governance, RBAC user/role provisioning, audit logs, and all property operations.",
-                vec![
-                    "Manage users & assign roles",
-                    "Full property, unit & tenant CRUD",
-                    "Staff management & dispatch",
-                    "Review applications & amenity schedules",
-                    "View security audit logs & Tenant View preview",
-                ],
-            ),
-            (
-                Role::PropertyManager,
-                "property_manager",
-                "Property Manager",
-                "Manages tenancy applications, property staff, parking assignments, amenity approvals, maintenance dispatch, and staff messaging.",
-                vec![
-                    "Approve or reject tenancy applications",
-                    "Manage cleaners, maintainers & security staff",
-                    "Assign parking spots & edit layouts",
-                    "Accept or reject amenity schedules",
-                    "Send broadcast & direct staff messages",
-                ],
-            ),
-            (
-                Role::MaintenanceStaff,
-                "maintenance_staff",
-                "Maintainer",
-                "Receives unit maintenance work orders, updates job progress, resolves tickets on Web & Mobile, and chats with managers.",
-                vec![
-                    "View & filter maintenance call queue",
-                    "Update status & record resolution notes",
-                    "Communicate with managers on Web & Mobile",
-                ],
-            ),
-            (
-                Role::Staff,
-                "staff",
-                "Building Staff",
-                "Cleaners, security, and concierge personnel who receive assignments and talk directly with Property Managers.",
-                vec![
-                    "Direct & team chat with Property Manager",
-                    "Mobile & Web messaging inbox",
-                    "View property staff directory",
-                ],
-            ),
-            (
-                Role::Tenant,
-                "tenant",
-                "Tenant / Resident",
-                "Scoped strictly to the Resident Portal to schedule amenities and report/track personal unit maintenance calls.",
-                vec![
-                    "Schedule amenities in local time",
-                    "Cancel or review own amenity bookings",
-                    "File & track own unit maintenance calls",
-                ],
-            ),
-        ];
-
-        Ok(role_specs
-            .into_iter()
-            .map(|(role, key, label, desc, perms)| RoleDefinition {
-                role,
-                label: label.to_string(),
-                description: desc.to_string(),
-                permissions: perms.into_iter().map(str::to_string).collect(),
-                user_count: *counts.get(key).unwrap_or(&0),
+        Ok(Role::ALL
+            .iter()
+            .map(|r| {
+                let d = r.descriptor();
+                RoleDefinition {
+                    role: d.role,
+                    label: d.label.to_string(),
+                    description: d.description.to_string(),
+                    permissions: d.permissions.iter().map(|s| (*s).to_string()).collect(),
+                    user_count: *counts.get(d.key).unwrap_or(&0),
+                }
             })
             .collect())
     }

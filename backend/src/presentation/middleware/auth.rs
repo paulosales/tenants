@@ -58,17 +58,9 @@ where
                 .to_str()
                 .map_err(|_| DomainError::Unauthorized("Invalid Cookie header".into()))?;
 
-            let mut found = None;
-            for cookie in cookie_str.split(';') {
-                let mut parts = cookie.trim().splitn(2, '=');
-                if let (Some(k), Some(v)) = (parts.next(), parts.next()) {
-                    if k == "__Host-access_token" || k == "access_token" {
-                        found = Some(v.to_string());
-                        break;
-                    }
-                }
-            }
-            found.ok_or_else(|| DomainError::Unauthorized("Missing authentication token".into()))?
+            crate::presentation::middleware::csrf::extract_cookie(cookie_str, "__Host-access_token")
+                .or_else(|| crate::presentation::middleware::csrf::extract_cookie(cookie_str, "access_token"))
+                .ok_or_else(|| DomainError::Unauthorized("Missing authentication token".into()))?
         } else {
             return Err(DomainError::Unauthorized("Missing authentication token".into()));
         };

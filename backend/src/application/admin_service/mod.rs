@@ -29,14 +29,11 @@ pub use tenant_service::TenantService;
 pub use unit_service::UnitService;
 pub use user_admin_service::AdminUserService;
 
-use crate::{
-    domain::{
-        admin::*,
-        errors::DomainResult,
-        ports::PasswordHasher,
-        user::{Role, User},
-    },
-    infrastructure::security::Argon2PasswordHasher,
+use crate::domain::{
+    admin::*,
+    errors::DomainResult,
+    ports::PasswordHasher,
+    user::{Role, User},
 };
 
 /// Facade composing single-responsibility domain services over segregated repository traits (ISP + SRP).
@@ -56,14 +53,7 @@ pub struct AdminService {
 }
 
 impl AdminService {
-    pub fn new(repo: Arc<dyn AdminRepository>) -> Self {
-        Self::with_password_hasher(repo, Arc::new(Argon2PasswordHasher))
-    }
-
-    pub fn with_password_hasher(
-        repo: Arc<dyn AdminRepository>,
-        password_hasher: Arc<dyn PasswordHasher>,
-    ) -> Self {
+    pub fn new(repo: Arc<dyn AdminRepository>, password_hasher: Arc<dyn PasswordHasher>) -> Self {
         let property_repo: Arc<dyn PropertyRepository> = repo.clone();
         let unit_repo: Arc<dyn UnitRepository> = repo.clone();
         let tenant_repo: Arc<dyn TenantRepository> = repo.clone();

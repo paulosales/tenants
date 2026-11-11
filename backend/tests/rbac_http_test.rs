@@ -54,7 +54,7 @@ async fn build_test_router() -> (axum::Router, PgPool) {
 
     let auth_service = Arc::new(AuthService::new(
         user_repo.clone(),
-        password_hasher,
+        password_hasher.clone(),
         token_provider.clone(),
         604800,
     ));
@@ -74,7 +74,7 @@ async fn build_test_router() -> (axum::Router, PgPool) {
         audit_repo.clone(),
         payment_gateway,
     ));
-    let admin_service = Arc::new(AdminService::new(admin_repo));
+    let admin_service = Arc::new(AdminService::new(admin_repo, password_hasher));
 
     let app_state = AppState {
         user_repo,

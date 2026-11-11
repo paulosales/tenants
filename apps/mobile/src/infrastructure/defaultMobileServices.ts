@@ -8,6 +8,7 @@ import type {
 import type {
   IMobileAmenityService,
   IMobileAuthService,
+  IMobileHttpClient,
   IMobileMaintenanceService,
   IMobileMessagingService,
   IMobileParkingService,
@@ -17,7 +18,7 @@ import type {
   MobileParkingSpot,
   ResidentDashboardData,
 } from '../domain/services';
-import { mobileHttpClient, type MobileHttpClient } from './mobileHttpClient';
+import { mobileHttpClient } from './mobileHttpClient';
 
 const DEFAULT_DASHBOARD_SUMMARY: ResidentDashboardData = {
   residentName: 'Marcus Vance',
@@ -82,7 +83,7 @@ export class ApiMobileAmenityService implements IMobileAmenityService {
 }
 
 export class ApiMobileAuthService implements IMobileAuthService {
-  constructor(private readonly http: MobileHttpClient = mobileHttpClient) {}
+  constructor(private readonly http: IMobileHttpClient = mobileHttpClient) {}
 
   async login(email: string, password: string): Promise<UserSummary> {
     const res = await this.http.request<AuthResponse>('/auth/login', {
@@ -116,7 +117,7 @@ export class ApiMobileAuthService implements IMobileAuthService {
 }
 
 export class ApiMobileMaintenanceService implements IMobileMaintenanceService {
-  constructor(private readonly http: MobileHttpClient = mobileHttpClient) {}
+  constructor(private readonly http: IMobileHttpClient = mobileHttpClient) {}
 
   async getCalls(propertyId?: string): Promise<MaintenanceCall[]> {
     const query = propertyId ? `?property_id=${encodeURIComponent(propertyId)}` : '';
@@ -139,7 +140,7 @@ export class ApiMobileMaintenanceService implements IMobileMaintenanceService {
 }
 
 export class ApiMobileMessagingService implements IMobileMessagingService {
-  constructor(private readonly http: MobileHttpClient = mobileHttpClient) {}
+  constructor(private readonly http: IMobileHttpClient = mobileHttpClient) {}
 
   async getMessages(propertyId: string, staffId?: string): Promise<StaffMessage[]> {
     const params = new URLSearchParams({ property_id: propertyId });

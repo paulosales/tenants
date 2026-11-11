@@ -18,6 +18,7 @@ import type {
 } from '@tenants/shared-types';
 import { useApplicationsGateway } from '../context/ApiContext';
 import { AlertBanner } from './common/AlertBanner';
+import { ModalDialog } from './common/ModalDialog';
 
 interface ApplicationsReviewViewProps {
   properties: PropertyWithStats[];
@@ -249,21 +250,19 @@ export const ApplicationsReviewView: React.FC<ApplicationsReviewViewProps> = ({
         </div>
       )}
 
-      {/* Confirmation / Review Decision Modal (replaces native confirm/prompt) */}
-      {reviewingApp && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">
-              {reviewingApp.decision === 'approved'
-                ? 'Approve Tenancy Application'
-                : reviewingApp.decision === 'rejected'
-                  ? 'Reject Tenancy Application'
-                  : 'Move Application to Review'}
-            </h3>
+      <ModalDialog
+        isOpen={Boolean(reviewingApp)}
+        title={
+          reviewingApp?.decision === 'approved'
+            ? 'Approve Tenancy Application'
+            : reviewingApp?.decision === 'rejected'
+              ? 'Reject Tenancy Application'
+              : 'Move Application to Review'
+        }
+        onClose={() => setReviewingApp(null)}
+      >
+        {reviewingApp && (
+          <div className="space-y-4">
             <p className="text-xs text-slate-600">
               Applicant:{' '}
               <strong>
@@ -329,8 +328,8 @@ export const ApplicationsReviewView: React.FC<ApplicationsReviewViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </div>
   );
 };

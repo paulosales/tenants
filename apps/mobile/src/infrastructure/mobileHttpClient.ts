@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import type { IMobileHttpClient } from '../domain/services';
 
 const ACCESS_TOKEN_KEY = 'apexliving_mobile_access_token';
 
@@ -9,7 +10,7 @@ const globalProcessEnv = (
 const DEFAULT_MOBILE_API_BASE =
   globalProcessEnv?.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
-export class MobileHttpClient {
+export class MobileHttpClient implements IMobileHttpClient {
   private inMemoryToken: string | null = null;
   private readonly baseUrl: string;
 

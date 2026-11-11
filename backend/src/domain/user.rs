@@ -13,7 +13,87 @@ pub enum Role {
     Tenant,
 }
 
+pub struct RoleDescriptor {
+    pub role: Role,
+    pub key: &'static str,
+    pub label: &'static str,
+    pub description: &'static str,
+    pub permissions: &'static [&'static str],
+}
+
 impl Role {
+    pub const ALL: [Role; 5] = [
+        Role::SuperAdmin,
+        Role::PropertyManager,
+        Role::MaintenanceStaff,
+        Role::Staff,
+        Role::Tenant,
+    ];
+
+    pub const fn descriptor(&self) -> RoleDescriptor {
+        match self {
+            Role::SuperAdmin => RoleDescriptor {
+                role: Role::SuperAdmin,
+                key: "super_admin",
+                label: "Super Admin",
+                description: "Unrestricted portfolio governance, RBAC user/role provisioning, audit logs, and all property operations.",
+                permissions: &[
+                    "Manage users & assign roles",
+                    "Full property, unit & tenant CRUD",
+                    "Staff management & dispatch",
+                    "Review applications & amenity schedules",
+                    "View security audit logs & Tenant View preview",
+                ],
+            },
+            Role::PropertyManager => RoleDescriptor {
+                role: Role::PropertyManager,
+                key: "property_manager",
+                label: "Property Manager",
+                description: "Manages tenancy applications, property staff, parking assignments, amenity approvals, maintenance dispatch, and staff messaging.",
+                permissions: &[
+                    "Approve or reject tenancy applications",
+                    "Manage cleaners, maintainers & security staff",
+                    "Assign parking spots & edit layouts",
+                    "Accept or reject amenity schedules",
+                    "Send broadcast & direct staff messages",
+                ],
+            },
+            Role::MaintenanceStaff => RoleDescriptor {
+                role: Role::MaintenanceStaff,
+                key: "maintenance_staff",
+                label: "Maintainer",
+                description: "Receives unit maintenance work orders, updates job progress, resolves tickets on Web & Mobile, and chats with managers.",
+                permissions: &[
+                    "View & filter maintenance call queue",
+                    "Update status & record resolution notes",
+                    "Communicate with managers on Web & Mobile",
+                ],
+            },
+            Role::Staff => RoleDescriptor {
+                role: Role::Staff,
+                key: "staff",
+                label: "Building Staff",
+                description: "Cleaners, security, and concierge personnel who receive assignments and talk directly with Property Managers.",
+                permissions: &[
+                    "Direct & team chat with Property Manager",
+                    "Mobile & Web messaging inbox",
+                    "View property staff directory",
+                ],
+            },
+            Role::Tenant => RoleDescriptor {
+                role: Role::Tenant,
+                key: "tenant",
+                label: "Tenant / Resident",
+                description: "Scoped strictly to the Resident Portal to schedule amenities and report/track personal unit maintenance calls.",
+                permissions: &[
+                    "Schedule amenities in local time",
+                    "Cancel or review own amenity bookings",
+                    "File & track own unit maintenance calls",
+                ],
+            },
+        }
+    }
+
     pub fn is_admin(&self) -> bool {
         matches!(self, Role::SuperAdmin)
     }

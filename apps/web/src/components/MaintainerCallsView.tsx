@@ -9,6 +9,7 @@ import type {
 } from '@tenants/shared-types';
 import { useMaintenanceGateway } from '../context/ApiContext';
 import { AlertBanner } from './common/AlertBanner';
+import { ModalDialog } from './common/ModalDialog';
 import { MAINTENANCE_STATUS_BADGE, PRIORITY_BADGE } from './tenant/tenantPortalConstants';
 
 interface MaintainerCallsViewProps {
@@ -247,17 +248,15 @@ export const MaintainerCallsView: React.FC<MaintainerCallsViewProps> = ({
         </div>
       )}
 
-      {/* Resolve Work Order Modal */}
-      {solvingCall && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">
-              Complete Work Order — {solvingCall.call.ticket_number}
-            </h3>
+      <ModalDialog
+        isOpen={Boolean(solvingCall)}
+        title={
+          solvingCall ? `Complete Work Order — ${solvingCall.call.ticket_number}` : ''
+        }
+        onClose={() => setSolvingCall(null)}
+      >
+        {solvingCall && (
+          <div className="space-y-4">
             <p className="text-xs text-slate-600">{solvingCall.call.title}</p>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -296,8 +295,8 @@ export const MaintainerCallsView: React.FC<MaintainerCallsViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </div>
   );
 };

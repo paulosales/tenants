@@ -7,7 +7,7 @@ use axum::{
 
 use crate::domain::errors::DomainError;
 
-fn extract_cookie(cookie_header: &str, name: &str) -> Option<String> {
+pub fn extract_cookie(cookie_header: &str, name: &str) -> Option<String> {
     for raw in cookie_header.split(';') {
         let mut parts = raw.trim().splitn(2, '=');
         if let (Some(k), Some(v)) = (parts.next(), parts.next()) {

@@ -11,59 +11,13 @@ import {
   ShieldCheck,
   UserCheck,
 } from 'lucide-react';
-import type { Role } from '@tenants/shared-types';
+import { ROLE_CATALOG } from '../../constants/roles';
 import { AlertBanner } from '../common/AlertBanner';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string) => Promise<unknown>;
   onNavigateToPortal: () => void;
 }
-
-interface RoleHint {
-  role: Role;
-  label: string;
-  email: string;
-  capabilities: string;
-  badgeClass: string;
-}
-
-const ROLE_HINTS: RoleHint[] = [
-  {
-    role: 'super_admin',
-    label: 'Administrator',
-    email: 'admin@property.local',
-    capabilities: 'Full portfolio access, staff, audit & resident portal oversight',
-    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  },
-  {
-    role: 'property_manager',
-    label: 'Property Manager',
-    email: 'manager@property.local',
-    capabilities: 'Applications, staff, parking assignment, amenity approvals & messaging',
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  },
-  {
-    role: 'maintenance_staff',
-    label: 'Maintainer',
-    email: 'maintainer@property.local',
-    capabilities: 'Receive maintenance dispatches, update status & resolve calls',
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-  },
-  {
-    role: 'staff',
-    label: 'Building Staff',
-    email: 'staff@property.local',
-    capabilities: 'Team directory & direct messaging with Property Management',
-    badgeClass: 'bg-sky-50 text-sky-700 border-sky-200',
-  },
-  {
-    role: 'tenant',
-    label: 'Tenant / Resident',
-    email: 'tenant@property.local',
-    capabilities: 'Resident View only: schedule amenities & submit maintenance calls',
-    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
-  },
-];
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToPortal }) => {
   const [email, setEmail] = useState('');
@@ -243,12 +197,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToPorta
             </p>
 
             <div className="mt-5 space-y-2.5">
-              {ROLE_HINTS.map((hint) => (
+              {ROLE_CATALOG.map((hint) => (
                 <button
                   key={hint.role}
                   type="button"
                   onClick={() => {
-                    setEmail(hint.email);
+                    setEmail(hint.demoEmail);
                     setErrorMsg(null);
                   }}
                   className="w-full text-left p-3.5 rounded-2xl bg-slate-800/70 hover:bg-slate-800 border border-slate-700/80 hover:border-indigo-500/60 transition-all cursor-pointer group"
@@ -263,8 +217,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToPorta
                       {hint.role}
                     </span>
                   </div>
-                  <p className="text-[11px] font-mono text-indigo-300 mt-1">{hint.email}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">{hint.capabilities}</p>
+                  <p className="text-[11px] font-mono text-indigo-300 mt-1">{hint.demoEmail}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{hint.capabilitiesSummary}</p>
                 </button>
               ))}
             </div>

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import type {
   CreateUserDto,
   ManagedUser,
@@ -11,6 +10,7 @@ import type {
   UpdateUserDto,
 } from '@tenants/shared-types';
 import { AlertBanner } from '../common/AlertBanner';
+import { ModalDialog } from '../common/ModalDialog';
 
 interface UserFormModalProps {
   isOpen: boolean;
@@ -135,33 +135,15 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="user-modal-title"
+    <ModalDialog
+      isOpen={isOpen}
+      title={editingUser ? `Edit User — ${editingUser.full_name}` : 'Create User Account'}
+      subtitle="Assign platform role permissions, property scope, and linked operational profile."
+      titleId="user-modal-title"
+      maxWidthClass="max-w-xl"
+      onClose={onClose}
     >
-      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h3 id="user-modal-title" className="text-lg font-bold text-slate-900">
-              {editingUser ? `Edit User — ${editingUser.full_name}` : 'Create User Account'}
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Assign platform role permissions, property scope, and linked operational profile.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
           {(localError || errorMsg) && (
             <AlertBanner
               variant="error"
@@ -364,9 +346,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               {isSubmitting ? 'Saving...' : editingUser ? 'Save Changes' : 'Create Account'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalDialog>
   );
 };
 

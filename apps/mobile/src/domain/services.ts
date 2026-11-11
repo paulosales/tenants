@@ -59,6 +59,13 @@ export interface IMobileAmenityService {
   scheduleAmenitySession(amenityName: string, timeSlot: string): Promise<void>;
 }
 
+/** Segregated transport port for Mobile API adapters (DIP). */
+export interface IMobileHttpClient {
+  setToken(token: string | null): Promise<void>;
+  getToken(): Promise<string | null>;
+  request<T>(endpoint: string, options?: RequestInit): Promise<T>;
+}
+
 /** Segregated service port for Mobile Authentication (ISP + DIP). */
 export interface IMobileAuthService {
   login(email: string, password: string): Promise<UserSummary>;

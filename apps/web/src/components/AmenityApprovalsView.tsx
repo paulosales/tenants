@@ -5,6 +5,7 @@ import type { AmenitySessionBooking, PropertyWithStats } from '@tenants/shared-t
 import { useTenantSessionsGateway } from '../context/ApiContext';
 import { formatLocalSessionDate, formatLocalSessionTimeWindow } from '../utils/dateTime';
 import { AlertBanner } from './common/AlertBanner';
+import { ModalDialog } from './common/ModalDialog';
 import { SESSION_STATUS_BADGE } from './tenant/tenantPortalConstants';
 
 interface AmenityApprovalsViewProps {
@@ -212,18 +213,17 @@ export const AmenityApprovalsView: React.FC<AmenityApprovalsViewProps> = ({
         </div>
       )}
 
-      {reviewingSession && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">
-              {reviewingSession.decision === 'confirmed'
-                ? 'Accept Amenity Reservation'
-                : 'Reject Amenity Reservation'}
-            </h3>
+      <ModalDialog
+        isOpen={Boolean(reviewingSession)}
+        title={
+          reviewingSession?.decision === 'confirmed'
+            ? 'Accept Amenity Reservation'
+            : 'Reject Amenity Reservation'
+        }
+        onClose={() => setReviewingSession(null)}
+      >
+        {reviewingSession && (
+          <div className="space-y-4">
             <p className="text-xs text-slate-600">
               <strong>{reviewingSession.session.amenity_name}</strong> for{' '}
               {reviewingSession.session.tenant_name || 'Resident'} on{' '}
@@ -282,8 +282,8 @@ export const AmenityApprovalsView: React.FC<AmenityApprovalsViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalDialog>
     </div>
   );
 };

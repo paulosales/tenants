@@ -97,17 +97,8 @@ pub async fn refresh(
         b.refresh_token
     } else if let Some(cookie_hdr) = headers.get(header::COOKIE) {
         let cookie_str = cookie_hdr.to_str().unwrap_or_default();
-        let mut found = None;
-        for c in cookie_str.split(';') {
-            let mut parts = c.trim().splitn(2, '=');
-            if let (Some(k), Some(v)) = (parts.next(), parts.next()) {
-                if k == "refresh_token" {
-                    found = Some(v.to_string());
-                    break;
-                }
-            }
-        }
-        found.ok_or_else(|| DomainError::Unauthorized("Refresh token missing".into()))?
+        crate::presentation::middleware::csrf::extract_cookie(cookie_str, "refresh_token")
+            .ok_or_else(|| DomainError::Unauthorized("Refresh token missing".into()))?
     } else {
         return Err(DomainError::Unauthorized("Refresh token missing".into()));
     };
