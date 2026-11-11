@@ -157,7 +157,9 @@ impl ReservationRepository for PostgresReservationRepository {
         .bind(end)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to list reservations by range: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to list reservations by range: {}", e))
+        })?;
 
         Ok(rows.into_iter().map(Into::into).collect())
     }
@@ -185,10 +187,7 @@ impl ReservationRepository for PostgresReservationRepository {
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
-    async fn create_transactional(
-        &self,
-        reservation: &Reservation,
-    ) -> DomainResult<Reservation> {
+    async fn create_transactional(&self, reservation: &Reservation) -> DomainResult<Reservation> {
         let mut tx = self.pool.begin().await.map_err(|e| {
             DomainError::Internal(format!("Failed to start database transaction: {}", e))
         })?;
@@ -232,25 +231,34 @@ impl ReservationRepository for PostgresReservationRepository {
         match result {
             Ok(row) => {
                 tx.commit().await.map_err(|e| {
-                    DomainError::Internal(format!("Failed to commit reservation transaction: {}", e))
+                    DomainError::Internal(format!(
+                        "Failed to commit reservation transaction: {}",
+                        e
+                    ))
                 })?;
                 Ok(row.into())
             }
-            Err(sqlx::Error::Database(ref db_err)) if db_err.code() == Some(std::borrow::Cow::Borrowed("23P01")) => {
+            Err(sqlx::Error::Database(ref db_err))
+                if db_err.code() == Some(std::borrow::Cow::Borrowed("23P01")) =>
+            {
                 let _ = tx.rollback().await;
                 Err(DomainError::ReservationConflict)
             }
             Err(e) => {
                 let _ = tx.rollback().await;
-                Err(DomainError::Internal(format!("Database error during reservation creation: {}", e)))
+                Err(DomainError::Internal(format!(
+                    "Database error during reservation creation: {}",
+                    e
+                )))
             }
         }
     }
 
     async fn cancel(&self, id: Uuid, _user_id: Uuid) -> DomainResult<()> {
-        let mut tx = self.pool.begin().await.map_err(|e| {
-            DomainError::Internal(format!("Failed to begin transaction: {}", e))
-        })?;
+        let mut tx =
+            self.pool.begin().await.map_err(|e| {
+                DomainError::Internal(format!("Failed to begin transaction: {}", e))
+            })?;
 
         // Row-level lock during state transition
         let res = sqlx::query(

@@ -53,7 +53,10 @@ pub trait TenantRepository: Send + Sync {
 
 #[async_trait]
 pub trait AdminAmenityRepository: Send + Sync {
-    async fn list_amenities_by_property(&self, property_id: Uuid) -> DomainResult<Vec<AdminAmenity>>;
+    async fn list_amenities_by_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<AdminAmenity>>;
     async fn get_amenity(&self, id: Uuid) -> DomainResult<Option<AdminAmenity>>;
     async fn create_amenity(&self, amenity: AdminAmenity) -> DomainResult<AdminAmenity>;
     async fn update_amenity(&self, amenity: AdminAmenity) -> DomainResult<AdminAmenity>;
@@ -62,7 +65,10 @@ pub trait AdminAmenityRepository: Send + Sync {
 
 #[async_trait]
 pub trait ParkingLayoutRepository: Send + Sync {
-    async fn get_parking_layout(&self, property_id: Uuid) -> DomainResult<Option<ParkingLayoutWithSpots>>;
+    async fn get_parking_layout(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Option<ParkingLayoutWithSpots>>;
     async fn save_parking_layout(
         &self,
         property_id: Uuid,
@@ -89,7 +95,8 @@ pub trait MaintenanceCallRepository: Send + Sync {
         status: Option<String>,
     ) -> DomainResult<Vec<MaintenanceCall>>;
     async fn get_maintenance_call(&self, id: Uuid) -> DomainResult<Option<MaintenanceCall>>;
-    async fn create_maintenance_call(&self, call: MaintenanceCall) -> DomainResult<MaintenanceCall>;
+    async fn create_maintenance_call(&self, call: MaintenanceCall)
+        -> DomainResult<MaintenanceCall>;
     async fn update_maintenance_call_status(
         &self,
         id: Uuid,
@@ -112,7 +119,10 @@ pub trait TenantReservationRepository: Send + Sync {
         &self,
         tenant_id: Option<Uuid>,
     ) -> DomainResult<Vec<TenantReservation>>;
-    async fn create_tenant_reservation(&self, res: TenantReservation) -> DomainResult<TenantReservation>;
+    async fn create_tenant_reservation(
+        &self,
+        res: TenantReservation,
+    ) -> DomainResult<TenantReservation>;
     async fn cancel_tenant_reservation(&self, id: Uuid) -> DomainResult<()>;
     async fn get_tenant_reservation(&self, id: Uuid) -> DomainResult<Option<TenantReservation>>;
     async fn review_tenant_reservation(
@@ -146,16 +156,27 @@ pub trait PropertyFeatureRepository: Send + Sync {
 #[async_trait]
 pub trait PropertyPhotoRepository: Send + Sync {
     async fn list_photos(&self, property_id: Uuid) -> DomainResult<Vec<PropertyPhoto>>;
-    async fn get_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<Option<PropertyPhoto>>;
+    async fn get_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<Option<PropertyPhoto>>;
     async fn add_photo(&self, photo: PropertyPhoto) -> DomainResult<PropertyPhoto>;
     async fn delete_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<()>;
-    async fn set_cover_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<PropertyPhoto>;
+    async fn set_cover_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<PropertyPhoto>;
 }
 
 #[async_trait]
 pub trait PublicPortalRepository: Send + Sync {
     async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>>;
-    async fn get_public_property(&self, property_id: Uuid) -> DomainResult<Option<PublicPropertyListing>>;
+    async fn get_public_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Option<PublicPropertyListing>>;
     async fn count_property_managers(&self, property_id: Uuid) -> DomainResult<i64>;
 }
 
@@ -167,7 +188,8 @@ pub trait TenancyApplicationRepository: Send + Sync {
         status: Option<String>,
     ) -> DomainResult<Vec<TenancyApplication>>;
     async fn get_application(&self, id: Uuid) -> DomainResult<Option<TenancyApplication>>;
-    async fn create_application(&self, app: TenancyApplication) -> DomainResult<TenancyApplication>;
+    async fn create_application(&self, app: TenancyApplication)
+        -> DomainResult<TenancyApplication>;
     async fn update_application_review(
         &self,
         id: Uuid,
@@ -256,4 +278,3 @@ impl<T> AdminRepository for T where
         + Sync
 {
 }
-

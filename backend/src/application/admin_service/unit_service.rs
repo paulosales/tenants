@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{CreateUnitRequest, UpdateUnitRequest};
@@ -28,11 +28,16 @@ impl UnitService {
         self.property_repo
             .get_property(property_id)
             .await?
-            .ok_or_else(|| DomainError::NotFound(format!("Property with ID {} not found", property_id)))?;
+            .ok_or_else(|| {
+                DomainError::NotFound(format!("Property with ID {} not found", property_id))
+            })?;
         Ok(())
     }
 
-    pub async fn list_units_by_property(&self, property_id: Uuid) -> DomainResult<Vec<UnitWithTenant>> {
+    pub async fn list_units_by_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<UnitWithTenant>> {
         self.ensure_property_exists(property_id).await?;
         self.unit_repo.list_units_by_property(property_id).await
     }
@@ -44,10 +49,16 @@ impl UnitService {
             .ok_or_else(|| DomainError::NotFound(format!("Unit with ID {} not found", id)))
     }
 
-    pub async fn create_unit(&self, property_id: Uuid, req: CreateUnitRequest) -> DomainResult<Unit> {
+    pub async fn create_unit(
+        &self,
+        property_id: Uuid,
+        req: CreateUnitRequest,
+    ) -> DomainResult<Unit> {
         self.ensure_property_exists(property_id).await?;
         if req.unit_number.trim().is_empty() {
-            return Err(DomainError::ValidationError("Unit number cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Unit number cannot be empty".to_string(),
+            ));
         }
         let monthly_rent_cents = req.monthly_rent_cents.unwrap_or(185_000);
         if monthly_rent_cents < 0 {
@@ -56,7 +67,11 @@ impl UnitService {
             ));
         }
         let now = Utc::now();
-        let has_tenants = req.tenant_ids.as_ref().map(|ids| !ids.is_empty()).unwrap_or(false);
+        let has_tenants = req
+            .tenant_ids
+            .as_ref()
+            .map(|ids| !ids.is_empty())
+            .unwrap_or(false);
         let initial_status = req.status.unwrap_or(if has_tenants {
             UnitStatus::Occupied
         } else {
@@ -79,9 +94,13 @@ impl UnitService {
         let created = self.unit_repo.create_unit(unit).await?;
 
         if let Some(ref tenant_ids) = req.tenant_ids {
-            self.unit_repo.sync_unit_tenants(created.id, tenant_ids).await?;
+            self.unit_repo
+                .sync_unit_tenants(created.id, tenant_ids)
+                .await?;
             if !tenant_ids.is_empty() && created.status == UnitStatus::Vacant {
-                self.unit_repo.set_unit_status(created.id, UnitStatus::Occupied).await?;
+                self.unit_repo
+                    .set_unit_status(created.id, UnitStatus::Occupied)
+                    .await?;
             }
         }
 
@@ -91,7 +110,9 @@ impl UnitService {
     pub async fn update_unit(&self, id: Uuid, req: UpdateUnitRequest) -> DomainResult<Unit> {
         let mut unit = self.get_unit(id).await?;
         if req.unit_number.trim().is_empty() {
-            return Err(DomainError::ValidationError("Unit number cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Unit number cannot be empty".to_string(),
+            ));
         }
         if let Some(rent) = req.monthly_rent_cents {
             if rent < 0 {
@@ -114,10 +135,14 @@ impl UnitService {
             self.unit_repo.sync_unit_tenants(id, tenant_ids).await?;
             if !tenant_ids.is_empty() && updated.status == UnitStatus::Vacant {
                 updated.status = UnitStatus::Occupied;
-                self.unit_repo.set_unit_status(id, UnitStatus::Occupied).await?;
+                self.unit_repo
+                    .set_unit_status(id, UnitStatus::Occupied)
+                    .await?;
             } else if tenant_ids.is_empty() && updated.status == UnitStatus::Occupied {
                 updated.status = UnitStatus::Vacant;
-                self.unit_repo.set_unit_status(id, UnitStatus::Vacant).await?;
+                self.unit_repo
+                    .set_unit_status(id, UnitStatus::Vacant)
+                    .await?;
             }
         }
 
@@ -129,4 +154,3 @@ impl UnitService {
         self.unit_repo.delete_unit(id).await
     }
 }
-

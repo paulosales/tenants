@@ -26,4 +26,3 @@ impl PublicPortalService {
             .ok_or_else(|| DomainError::NotFound("Property listing not found".into()))
     }
 }
-

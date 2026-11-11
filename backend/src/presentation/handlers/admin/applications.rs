@@ -56,4 +56,3 @@ pub async fn review_tenancy_application(
         .await?;
     Ok(Json(updated).into_response())
 }
-

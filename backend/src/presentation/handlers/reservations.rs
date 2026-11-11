@@ -39,7 +39,10 @@ pub async fn list_my_reservations(
     State(state): State<AppState>,
     AuthenticatedUser(user): AuthenticatedUser,
 ) -> DomainResult<Json<Vec<ReservationWithDetails>>> {
-    let list = state.reservation_service.list_user_reservations(user.id).await?;
+    let list = state
+        .reservation_service
+        .list_user_reservations(user.id)
+        .await?;
     Ok(Json(list))
 }
 

@@ -81,7 +81,11 @@ pub async fn update_property_staff(
             return Err(DomainError::Forbidden);
         }
     }
-    let staff = state.admin_service.staff.update_property_staff(id, req).await?;
+    let staff = state
+        .admin_service
+        .staff
+        .update_property_staff(id, req)
+        .await?;
     Ok(Json(staff).into_response())
 }
 
@@ -100,4 +104,3 @@ pub async fn delete_property_staff(
     state.admin_service.staff.delete_property_staff(id).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

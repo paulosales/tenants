@@ -136,7 +136,11 @@ impl S3ObjectStorage {
     }
 
     pub fn build_public_url(&self, clean_key: &str) -> String {
-        format!("{}/{}", self.cdn_base_url, clean_key.trim_start_matches('/'))
+        format!(
+            "{}/{}",
+            self.cdn_base_url,
+            clean_key.trim_start_matches('/')
+        )
     }
 
     fn sign_request(
@@ -206,7 +210,15 @@ impl S3ObjectStorage {
         let date_stamp = now.format("%Y%m%d").to_string();
         let empty_hash = sha256_hex(b"");
 
-        if let Ok(auth) = self.sign_request("HEAD", &canonical_uri, "", None, &empty_hash, &amz_date, &date_stamp) {
+        if let Ok(auth) = self.sign_request(
+            "HEAD",
+            &canonical_uri,
+            "",
+            None,
+            &empty_hash,
+            &amz_date,
+            &date_stamp,
+        ) {
             let exists = self
                 .client
                 .head(&bucket_url)
@@ -219,7 +231,15 @@ impl S3ObjectStorage {
                 .unwrap_or(false);
 
             if !exists {
-                if let Ok(create_auth) = self.sign_request("PUT", &canonical_uri, "", None, &empty_hash, &amz_date, &date_stamp) {
+                if let Ok(create_auth) = self.sign_request(
+                    "PUT",
+                    &canonical_uri,
+                    "",
+                    None,
+                    &empty_hash,
+                    &amz_date,
+                    &date_stamp,
+                ) {
                     let _ = self
                         .client
                         .put(&bucket_url)
@@ -265,9 +285,10 @@ impl S3ObjectStorage {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.extension().and_then(|s| s.to_str()) == Some("png") {
-                        if let (Some(fname), Ok(bytes)) =
-                            (path.file_name().and_then(|s| s.to_str()), std::fs::read(&path))
-                        {
+                        if let (Some(fname), Ok(bytes)) = (
+                            path.file_name().and_then(|s| s.to_str()),
+                            std::fs::read(&path),
+                        ) {
                             let key = format!("seed/{}", fname);
                             let _ = self.upload_object(&key, "image/png", &bytes).await;
                         }
@@ -315,13 +336,17 @@ impl MediaStoragePort for S3ObjectStorage {
             .body(bytes.to_vec())
             .send()
             .await
-            .map_err(|e| DomainError::Internal(format!("CDN storage upload request failed: {}", e)))?;
+            .map_err(|e| {
+                DomainError::Internal(format!("CDN storage upload request failed: {}", e))
+            })?;
 
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
             tracing::error!(status = %status, body = %body, "S3/MinIO PUT upload rejected");
-            return Err(DomainError::Internal("Failed to upload photo to media CDN".into()));
+            return Err(DomainError::Internal(
+                "Failed to upload photo to media CDN".into(),
+            ));
         }
 
         Ok(self.build_public_url(clean_key))

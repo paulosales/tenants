@@ -17,9 +17,14 @@ pub async fn stripe_webhook(
     let sig_header = headers
         .get("stripe-signature")
         .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| DomainError::WebhookVerificationFailed("Missing stripe-signature header".into()))?;
+        .ok_or_else(|| {
+            DomainError::WebhookVerificationFailed("Missing stripe-signature header".into())
+        })?;
 
-    state.payment_service.handle_webhook(&body, sig_header).await?;
+    state
+        .payment_service
+        .handle_webhook(&body, sig_header)
+        .await?;
 
     Ok((StatusCode::OK, Json(json!({ "received": true }))))
 }

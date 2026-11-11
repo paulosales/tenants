@@ -65,7 +65,10 @@ pub async fn rate_limit_middleware(
             }));
             (
                 StatusCode::TOO_MANY_REQUESTS,
-                [(header::RETRY_AFTER, decision.retry_after_seconds.to_string())],
+                [(
+                    header::RETRY_AFTER,
+                    decision.retry_after_seconds.to_string(),
+                )],
                 body,
             )
                 .into_response()

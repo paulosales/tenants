@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{CreateAmenityRequest, UpdateAmenityRequest};
@@ -28,13 +28,20 @@ impl AdminAmenityService {
         self.property_repo
             .get_property(property_id)
             .await?
-            .ok_or_else(|| DomainError::NotFound(format!("Property with ID {} not found", property_id)))?;
+            .ok_or_else(|| {
+                DomainError::NotFound(format!("Property with ID {} not found", property_id))
+            })?;
         Ok(())
     }
 
-    pub async fn list_amenities_by_property(&self, property_id: Uuid) -> DomainResult<Vec<AdminAmenity>> {
+    pub async fn list_amenities_by_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<AdminAmenity>> {
         self.ensure_property_exists(property_id).await?;
-        self.amenity_repo.list_amenities_by_property(property_id).await
+        self.amenity_repo
+            .list_amenities_by_property(property_id)
+            .await
     }
 
     pub async fn get_amenity(&self, id: Uuid) -> DomainResult<AdminAmenity> {
@@ -44,10 +51,16 @@ impl AdminAmenityService {
             .ok_or_else(|| DomainError::NotFound(format!("Amenity with ID {} not found", id)))
     }
 
-    pub async fn create_amenity(&self, property_id: Uuid, req: CreateAmenityRequest) -> DomainResult<AdminAmenity> {
+    pub async fn create_amenity(
+        &self,
+        property_id: Uuid,
+        req: CreateAmenityRequest,
+    ) -> DomainResult<AdminAmenity> {
         self.ensure_property_exists(property_id).await?;
         if req.name.trim().is_empty() {
-            return Err(DomainError::ValidationError("Amenity name cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Amenity name cannot be empty".to_string(),
+            ));
         }
         let now = Utc::now();
         let amenity = AdminAmenity {
@@ -66,10 +79,16 @@ impl AdminAmenityService {
         self.amenity_repo.create_amenity(amenity).await
     }
 
-    pub async fn update_amenity(&self, id: Uuid, req: UpdateAmenityRequest) -> DomainResult<AdminAmenity> {
+    pub async fn update_amenity(
+        &self,
+        id: Uuid,
+        req: UpdateAmenityRequest,
+    ) -> DomainResult<AdminAmenity> {
         let mut amenity = self.get_amenity(id).await?;
         if req.name.trim().is_empty() {
-            return Err(DomainError::ValidationError("Amenity name cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Amenity name cannot be empty".to_string(),
+            ));
         }
         amenity.name = req.name.trim().to_string();
         amenity.description = req.description.map(|s| s.trim().to_string());
@@ -87,4 +106,3 @@ impl AdminAmenityService {
         self.amenity_repo.delete_amenity(id).await
     }
 }
-

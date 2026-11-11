@@ -45,15 +45,21 @@ fn build_auth_cookie_headers(
     let mut headers = HeaderMap::new();
     headers.append(
         header::SET_COOKIE,
-        cookie_access.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        cookie_access
+            .parse()
+            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
     headers.append(
         header::SET_COOKIE,
-        cookie_refresh.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        cookie_refresh
+            .parse()
+            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
     headers.append(
         header::SET_COOKIE,
-        cookie_csrf.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        cookie_csrf
+            .parse()
+            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
     Ok(headers)
 }
@@ -107,11 +113,14 @@ pub async fn refresh(
         .get("x-user-id")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| Uuid::parse_str(s).ok())
-        .ok_or_else(|| DomainError::Unauthorized("User session identifier required for refresh".into()))?;
+        .ok_or_else(|| {
+            DomainError::Unauthorized("User session identifier required for refresh".into())
+        })?;
 
     let (new_access, new_refresh) = state.auth_service.refresh(user_id, &token).await?;
     let ttl = state.token_provider.access_token_ttl_seconds();
-    let res_headers = build_auth_cookie_headers(&new_access, ttl, &new_refresh, state.cookie_secure)?;
+    let res_headers =
+        build_auth_cookie_headers(&new_access, ttl, &new_refresh, state.cookie_secure)?;
 
     Ok((
         StatusCode::OK,
@@ -134,9 +143,12 @@ pub async fn logout(
     let mut headers = HeaderMap::new();
     headers.append(
         header::SET_COOKIE,
-        format!("access_token=; Path=/; HttpOnly; SameSite=Strict{}; Max-Age=0", secure_attr)
-            .parse()
-            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        format!(
+            "access_token=; Path=/; HttpOnly; SameSite=Strict{}; Max-Age=0",
+            secure_attr
+        )
+        .parse()
+        .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
     headers.append(
         header::SET_COOKIE,
@@ -149,16 +161,22 @@ pub async fn logout(
     );
     headers.append(
         header::SET_COOKIE,
-        format!("csrf_token=; Path=/; SameSite=Strict{}; Max-Age=0", secure_attr)
-            .parse()
-            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        format!(
+            "csrf_token=; Path=/; SameSite=Strict{}; Max-Age=0",
+            secure_attr
+        )
+        .parse()
+        .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
 
-    Ok((StatusCode::OK, headers, Json(json!({ "message": "Successfully logged out" }))).into_response())
+    Ok((
+        StatusCode::OK,
+        headers,
+        Json(json!({ "message": "Successfully logged out" })),
+    )
+        .into_response())
 }
 
-pub async fn me(
-    AuthenticatedUser(user): AuthenticatedUser,
-) -> DomainResult<Json<UserSummary>> {
+pub async fn me(AuthenticatedUser(user): AuthenticatedUser) -> DomainResult<Json<UserSummary>> {
     Ok(Json(UserSummary::from(user)))
 }

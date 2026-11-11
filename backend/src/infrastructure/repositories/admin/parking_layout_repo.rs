@@ -5,19 +5,24 @@ use uuid::Uuid;
 
 use super::PostgresAdminRepository;
 use crate::domain::{
-    admin::{ParkingLayout, ParkingLayoutRepository, ParkingLayoutWithSpots, ParkingSpot, SpotType},
+    admin::{
+        ParkingLayout, ParkingLayoutRepository, ParkingLayoutWithSpots, ParkingSpot, SpotType,
+    },
     errors::{DomainError, DomainResult},
 };
 
 #[async_trait]
 impl ParkingLayoutRepository for PostgresAdminRepository {
-    async fn get_parking_layout(&self, property_id: Uuid) -> DomainResult<Option<ParkingLayoutWithSpots>> {
+    async fn get_parking_layout(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Option<ParkingLayoutWithSpots>> {
         let layout_row = sqlx::query(
             r#"
             SELECT id, property_id, canvas_width, canvas_height, grid_size, updated_at
             FROM parking_layouts
             WHERE property_id = $1
-            "#
+            "#,
         )
         .bind(property_id)
         .fetch_optional(&self.pool)
@@ -87,11 +92,9 @@ impl ParkingLayoutRepository for PostgresAdminRepository {
         grid_size: i32,
         spots: Vec<ParkingSpot>,
     ) -> DomainResult<ParkingLayoutWithSpots> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to start parking layout transaction: {}", e)))?;
+        let mut tx = self.pool.begin().await.map_err(|e| {
+            DomainError::Internal(format!("Failed to start parking layout transaction: {}", e))
+        })?;
 
         let layout_id = Uuid::new_v4();
 
@@ -130,11 +133,17 @@ impl ParkingLayoutRepository for PostgresAdminRepository {
             .bind(active_layout_id)
             .execute(&mut *tx)
             .await
-            .map_err(|e| DomainError::Internal(format!("Failed to clear old parking spots: {}", e)))?;
+            .map_err(|e| {
+                DomainError::Internal(format!("Failed to clear old parking spots: {}", e))
+            })?;
 
         let mut saved_spots = Vec::new();
         for spot in spots {
-            let spot_id = if spot.id.is_nil() { Uuid::new_v4() } else { spot.id };
+            let spot_id = if spot.id.is_nil() {
+                Uuid::new_v4()
+            } else {
+                spot.id
+            };
             let now = Utc::now();
 
             sqlx::query(
@@ -180,11 +189,17 @@ impl ParkingLayoutRepository for PostgresAdminRepository {
             });
         }
 
-        tx.commit()
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to commit parking layout transaction: {}", e)))?;
+        tx.commit().await.map_err(|e| {
+            DomainError::Internal(format!(
+                "Failed to commit parking layout transaction: {}",
+                e
+            ))
+        })?;
 
-        Ok(ParkingLayoutWithSpots { layout, spots: saved_spots })
+        Ok(ParkingLayoutWithSpots {
+            layout,
+            spots: saved_spots,
+        })
     }
 
     async fn assign_parking_spot(
@@ -254,4 +269,3 @@ impl ParkingLayoutRepository for PostgresAdminRepository {
         Ok(row.map(|r| r.get("property_id")))
     }
 }
-

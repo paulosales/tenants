@@ -67,7 +67,11 @@ pub async fn update_property(
     if !user.role.can_manage_properties() || !user.has_property_access(id) {
         return Err(DomainError::Forbidden);
     }
-    let property = state.admin_service.properties.update_property(id, req).await?;
+    let property = state
+        .admin_service
+        .properties
+        .update_property(id, req)
+        .await?;
     Ok(Json(property).into_response())
 }
 
@@ -91,7 +95,10 @@ pub async fn list_property_features(
     if !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let features = state.admin_service.list_property_features(property_id).await?;
+    let features = state
+        .admin_service
+        .list_property_features(property_id)
+        .await?;
     Ok(Json(features).into_response())
 }
 
@@ -134,7 +141,10 @@ pub async fn list_property_photos(
     if !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let photos = state.admin_service.list_property_photos(property_id).await?;
+    let photos = state
+        .admin_service
+        .list_property_photos(property_id)
+        .await?;
     Ok(Json(photos).into_response())
 }
 
@@ -196,4 +206,3 @@ pub async fn delete_property_photo(
         .await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

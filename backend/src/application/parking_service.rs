@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::dtos::UpsertSpotRequest;
@@ -91,7 +91,9 @@ impl ParkingService {
                 entity_type: "parking_spot".to_string(),
                 entity_id: Some(spot_id),
                 old_values: Some(serde_json::json!({ "status": "vacant" })),
-                new_values: Some(serde_json::json!({ "status": "reserved", "tenant_id": actor.id })),
+                new_values: Some(
+                    serde_json::json!({ "status": "reserved", "tenant_id": actor.id }),
+                ),
                 ip_address: client_ip,
                 user_agent,
                 created_at: Utc::now(),
@@ -145,7 +147,9 @@ impl ParkingService {
         }
 
         let sanitized_svg = self.svg_sanitizer.sanitize(raw_svg)?;
-        self.parking_repo.save_svg_layout(zone_id, &sanitized_svg).await?;
+        self.parking_repo
+            .save_svg_layout(zone_id, &sanitized_svg)
+            .await?;
 
         Ok(sanitized_svg)
     }

@@ -288,7 +288,9 @@ impl PropertyFeatureRepository for PostgresAdminRepository {
             .bind(property_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| DomainError::Internal(format!("Failed to delete property feature: {}", e)))?;
+            .map_err(|e| {
+                DomainError::Internal(format!("Failed to delete property feature: {}", e))
+            })?;
 
         if res.rows_affected() == 0 {
             return Err(DomainError::NotFound("Property feature not found".into()));
@@ -316,7 +318,11 @@ impl PropertyPhotoRepository for PostgresAdminRepository {
         Ok(rows.iter().map(map_photo_row).collect())
     }
 
-    async fn get_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<Option<PropertyPhoto>> {
+    async fn get_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<Option<PropertyPhoto>> {
         let row = sqlx::query(
             r#"
             SELECT id, property_id, storage_key, cdn_url, caption, is_cover, display_order, created_at
@@ -334,18 +340,18 @@ impl PropertyPhotoRepository for PostgresAdminRepository {
     }
 
     async fn add_photo(&self, photo: PropertyPhoto) -> DomainResult<PropertyPhoto> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to start photo transaction: {}", e)))?;
+        let mut tx = self.pool.begin().await.map_err(|e| {
+            DomainError::Internal(format!("Failed to start photo transaction: {}", e))
+        })?;
 
         if photo.is_cover {
             sqlx::query("UPDATE property_photos SET is_cover = FALSE WHERE property_id = $1")
                 .bind(photo.property_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|e| DomainError::Internal(format!("Failed to reset cover photo: {}", e)))?;
+                .map_err(|e| {
+                    DomainError::Internal(format!("Failed to reset cover photo: {}", e))
+                })?;
         }
 
         let row = sqlx::query(
@@ -367,9 +373,9 @@ impl PropertyPhotoRepository for PostgresAdminRepository {
         .await
         .map_err(|e| DomainError::Internal(format!("Failed to save property photo: {}", e)))?;
 
-        tx.commit()
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to commit property photo: {}", e)))?;
+        tx.commit().await.map_err(|e| {
+            DomainError::Internal(format!("Failed to commit property photo: {}", e))
+        })?;
 
         let _: DateTime<Utc> = row.get("created_at");
         Ok(map_photo_row(&row))
@@ -381,7 +387,9 @@ impl PropertyPhotoRepository for PostgresAdminRepository {
             .bind(property_id)
             .execute(&self.pool)
             .await
-            .map_err(|e| DomainError::Internal(format!("Failed to delete property photo: {}", e)))?;
+            .map_err(|e| {
+                DomainError::Internal(format!("Failed to delete property photo: {}", e))
+            })?;
 
         if res.rows_affected() == 0 {
             return Err(DomainError::NotFound("Property photo not found".into()));
@@ -389,12 +397,15 @@ impl PropertyPhotoRepository for PostgresAdminRepository {
         Ok(())
     }
 
-    async fn set_cover_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<PropertyPhoto> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to start cover photo tx: {}", e)))?;
+    async fn set_cover_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<PropertyPhoto> {
+        let mut tx =
+            self.pool.begin().await.map_err(|e| {
+                DomainError::Internal(format!("Failed to start cover photo tx: {}", e))
+            })?;
 
         sqlx::query("UPDATE property_photos SET is_cover = FALSE WHERE property_id = $1")
             .bind(property_id)
@@ -424,4 +435,3 @@ impl PropertyPhotoRepository for PostgresAdminRepository {
         Ok(map_photo_row(&row))
     }
 }
-

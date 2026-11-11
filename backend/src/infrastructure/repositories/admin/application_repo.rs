@@ -75,10 +75,9 @@ impl TenancyApplicationRepository for PostgresAdminRepository {
             query = query.bind(st);
         }
 
-        let rows = query
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to list tenancy applications: {}", e)))?;
+        let rows = query.fetch_all(&self.pool).await.map_err(|e| {
+            DomainError::Internal(format!("Failed to list tenancy applications: {}", e))
+        })?;
 
         Ok(rows.iter().map(map_application_row).collect())
     }
@@ -103,12 +102,17 @@ impl TenancyApplicationRepository for PostgresAdminRepository {
         .bind(id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to fetch tenancy application: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to fetch tenancy application: {}", e))
+        })?;
 
         Ok(row.as_ref().map(map_application_row))
     }
 
-    async fn create_application(&self, app: TenancyApplication) -> DomainResult<TenancyApplication> {
+    async fn create_application(
+        &self,
+        app: TenancyApplication,
+    ) -> DomainResult<TenancyApplication> {
         sqlx::query(
             r#"
             INSERT INTO tenancy_applications (
@@ -136,7 +140,9 @@ impl TenancyApplicationRepository for PostgresAdminRepository {
         .bind(app.updated_at)
         .execute(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to create tenancy application: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to create tenancy application: {}", e))
+        })?;
 
         self.get_application(app.id)
             .await?
@@ -179,4 +185,3 @@ impl TenancyApplicationRepository for PostgresAdminRepository {
             .ok_or_else(|| DomainError::NotFound("Updated application missing".into()))
     }
 }
-

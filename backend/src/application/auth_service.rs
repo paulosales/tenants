@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::{DateTime, Duration, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::dtos::{AuthResponse, LoginRequest, RegisterRequest};
@@ -62,14 +62,20 @@ impl AuthService {
             ));
         }
 
-        if self.user_repo.find_by_email(&normalized_email).await?.is_some() {
+        if self
+            .user_repo
+            .find_by_email(&normalized_email)
+            .await?
+            .is_some()
+        {
             return Err(DomainError::ValidationError(
                 "A user with this email already exists".into(),
             ));
         }
 
         let password_hash = self.password_hasher.hash(&req.password)?;
-        let (refresh_token, refresh_token_hash, refresh_expires) = self.issue_refresh_token_pair()?;
+        let (refresh_token, refresh_token_hash, refresh_expires) =
+            self.issue_refresh_token_pair()?;
 
         let new_user = User {
             id: Uuid::new_v4(),
@@ -115,12 +121,15 @@ impl AuthService {
             }
             None => {
                 // Constant-work mitigation against email-enumeration timing side channels (CWE-203/CWE-208).
-                let _ = self.password_hasher.verify(&req.password, DUMMY_ARGON2_HASH);
+                let _ = self
+                    .password_hasher
+                    .verify(&req.password, DUMMY_ARGON2_HASH);
                 return Err(DomainError::InvalidCredentials);
             }
         };
 
-        let (refresh_token, refresh_token_hash, refresh_expires) = self.issue_refresh_token_pair()?;
+        let (refresh_token, refresh_token_hash, refresh_expires) =
+            self.issue_refresh_token_pair()?;
 
         self.user_repo
             .update_refresh_token(user.id, Some(refresh_token_hash), Some(refresh_expires))
@@ -137,7 +146,11 @@ impl AuthService {
         Ok((response, refresh_token))
     }
 
-    pub async fn refresh(&self, user_id: Uuid, provided_token: &str) -> DomainResult<(String, String)> {
+    pub async fn refresh(
+        &self,
+        user_id: Uuid,
+        provided_token: &str,
+    ) -> DomainResult<(String, String)> {
         let user = self
             .user_repo
             .find_by_id(user_id)
@@ -154,14 +167,21 @@ impl AuthService {
             .ok_or_else(|| DomainError::Unauthorized("Invalid or expired session".into()))?;
 
         if Utc::now() > expires_at {
-            return Err(DomainError::Unauthorized("Invalid or expired session".into()));
+            return Err(DomainError::Unauthorized(
+                "Invalid or expired session".into(),
+            ));
         }
 
         if !self.password_hasher.verify(provided_token, stored_hash) {
             // Compromise detected: invalidate all active tokens for this user immediately.
-            let _ = self.user_repo.update_refresh_token(user.id, None, None).await;
+            let _ = self
+                .user_repo
+                .update_refresh_token(user.id, None, None)
+                .await;
             tracing::warn!(user_id = %user.id, "Refresh token mismatch; active session revoked");
-            return Err(DomainError::Unauthorized("Invalid or expired session".into()));
+            return Err(DomainError::Unauthorized(
+                "Invalid or expired session".into(),
+            ));
         }
 
         let (new_refresh_token, new_refresh_hash, new_expires) = self.issue_refresh_token_pair()?;
@@ -176,6 +196,8 @@ impl AuthService {
     }
 
     pub async fn logout(&self, user_id: Uuid) -> DomainResult<()> {
-        self.user_repo.update_refresh_token(user_id, None, None).await
+        self.user_repo
+            .update_refresh_token(user_id, None, None)
+            .await
     }
 }

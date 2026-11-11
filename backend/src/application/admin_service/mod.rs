@@ -112,13 +112,20 @@ impl AdminService {
     pub async fn create_property(&self, req: CreatePropertyRequest) -> DomainResult<Property> {
         self.properties.create_property(req).await
     }
-    pub async fn update_property(&self, id: Uuid, req: UpdatePropertyRequest) -> DomainResult<Property> {
+    pub async fn update_property(
+        &self,
+        id: Uuid,
+        req: UpdatePropertyRequest,
+    ) -> DomainResult<Property> {
         self.properties.update_property(id, req).await
     }
     pub async fn delete_property(&self, id: Uuid) -> DomainResult<()> {
         self.properties.delete_property(id).await
     }
-    pub async fn list_property_features(&self, property_id: Uuid) -> DomainResult<Vec<PropertyFeature>> {
+    pub async fn list_property_features(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<PropertyFeature>> {
         self.properties.list_features(property_id).await
     }
     pub async fn add_property_feature(
@@ -128,10 +135,19 @@ impl AdminService {
     ) -> DomainResult<PropertyFeature> {
         self.properties.add_feature(property_id, req).await
     }
-    pub async fn delete_property_feature(&self, property_id: Uuid, feature_id: Uuid) -> DomainResult<()> {
-        self.properties.delete_feature(property_id, feature_id).await
+    pub async fn delete_property_feature(
+        &self,
+        property_id: Uuid,
+        feature_id: Uuid,
+    ) -> DomainResult<()> {
+        self.properties
+            .delete_feature(property_id, feature_id)
+            .await
     }
-    pub async fn list_property_photos(&self, property_id: Uuid) -> DomainResult<Vec<PropertyPhoto>> {
+    pub async fn list_property_photos(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<PropertyPhoto>> {
         self.properties.list_photos(property_id).await
     }
     pub async fn upload_property_photo(
@@ -153,18 +169,29 @@ impl AdminService {
     ) -> DomainResult<PropertyPhoto> {
         self.properties.set_cover_photo(property_id, photo_id).await
     }
-    pub async fn delete_property_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<()> {
+    pub async fn delete_property_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<()> {
         self.properties.delete_photo(property_id, photo_id).await
     }
 
     // Units
-    pub async fn list_units_by_property(&self, property_id: Uuid) -> DomainResult<Vec<UnitWithTenant>> {
+    pub async fn list_units_by_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<UnitWithTenant>> {
         self.units.list_units_by_property(property_id).await
     }
     pub async fn get_unit(&self, id: Uuid) -> DomainResult<Unit> {
         self.units.get_unit(id).await
     }
-    pub async fn create_unit(&self, property_id: Uuid, req: CreateUnitRequest) -> DomainResult<Unit> {
+    pub async fn create_unit(
+        &self,
+        property_id: Uuid,
+        req: CreateUnitRequest,
+    ) -> DomainResult<Unit> {
         self.units.create_unit(property_id, req).await
     }
     pub async fn update_unit(&self, id: Uuid, req: UpdateUnitRequest) -> DomainResult<Unit> {
@@ -197,16 +224,27 @@ impl AdminService {
     }
 
     // Amenities
-    pub async fn list_amenities_by_property(&self, property_id: Uuid) -> DomainResult<Vec<AdminAmenity>> {
+    pub async fn list_amenities_by_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<AdminAmenity>> {
         self.amenities.list_amenities_by_property(property_id).await
     }
     pub async fn get_amenity(&self, id: Uuid) -> DomainResult<AdminAmenity> {
         self.amenities.get_amenity(id).await
     }
-    pub async fn create_amenity(&self, property_id: Uuid, req: CreateAmenityRequest) -> DomainResult<AdminAmenity> {
+    pub async fn create_amenity(
+        &self,
+        property_id: Uuid,
+        req: CreateAmenityRequest,
+    ) -> DomainResult<AdminAmenity> {
         self.amenities.create_amenity(property_id, req).await
     }
-    pub async fn update_amenity(&self, id: Uuid, req: UpdateAmenityRequest) -> DomainResult<AdminAmenity> {
+    pub async fn update_amenity(
+        &self,
+        id: Uuid,
+        req: UpdateAmenityRequest,
+    ) -> DomainResult<AdminAmenity> {
         self.amenities.update_amenity(id, req).await
     }
     pub async fn delete_amenity(&self, id: Uuid) -> DomainResult<()> {
@@ -214,7 +252,10 @@ impl AdminService {
     }
 
     // Parking Layouts
-    pub async fn get_parking_layout(&self, property_id: Uuid) -> DomainResult<ParkingLayoutWithSpots> {
+    pub async fn get_parking_layout(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<ParkingLayoutWithSpots> {
         self.parking_layouts.get_parking_layout(property_id).await
     }
     pub async fn save_parking_layout(
@@ -222,7 +263,9 @@ impl AdminService {
         property_id: Uuid,
         req: SaveParkingLayoutRequest,
     ) -> DomainResult<ParkingLayoutWithSpots> {
-        self.parking_layouts.save_parking_layout(property_id, req).await
+        self.parking_layouts
+            .save_parking_layout(property_id, req)
+            .await
     }
 
     // Maintenance Calls
@@ -232,12 +275,17 @@ impl AdminService {
         property_id: Option<Uuid>,
         status: Option<String>,
     ) -> DomainResult<Vec<MaintenanceCall>> {
-        self.maintenance.list_maintenance_calls(tenant_id, property_id, status).await
+        self.maintenance
+            .list_maintenance_calls(tenant_id, property_id, status)
+            .await
     }
     pub async fn get_maintenance_call(&self, id: Uuid) -> DomainResult<MaintenanceCall> {
         self.maintenance.get_maintenance_call(id).await
     }
-    pub async fn create_maintenance_call(&self, req: CreateMaintenanceCallRequest) -> DomainResult<MaintenanceCall> {
+    pub async fn create_maintenance_call(
+        &self,
+        req: CreateMaintenanceCallRequest,
+    ) -> DomainResult<MaintenanceCall> {
         self.maintenance.create_maintenance_call(req).await
     }
     pub async fn update_maintenance_call_status(
@@ -245,7 +293,9 @@ impl AdminService {
         id: Uuid,
         req: UpdateMaintenanceCallStatusRequest,
     ) -> DomainResult<MaintenanceCall> {
-        self.maintenance.update_maintenance_call_status(id, req).await
+        self.maintenance
+            .update_maintenance_call_status(id, req)
+            .await
     }
     pub async fn cancel_maintenance_call(&self, id: Uuid) -> DomainResult<()> {
         self.maintenance.cancel_maintenance_call(id).await
@@ -255,17 +305,25 @@ impl AdminService {
         call_id: Uuid,
         req: AssignMaintenanceCallStaffRequest,
     ) -> DomainResult<MaintenanceCall> {
-        self.maintenance.assign_maintenance_call_staff(call_id, req).await
+        self.maintenance
+            .assign_maintenance_call_staff(call_id, req)
+            .await
     }
 
     // Tenant Reservations
     pub async fn get_tenant_reservation(&self, id: Uuid) -> DomainResult<TenantReservation> {
         self.reservations.get_tenant_reservation(id).await
     }
-    pub async fn list_tenant_reservations(&self, tenant_id: Option<Uuid>) -> DomainResult<Vec<TenantReservation>> {
+    pub async fn list_tenant_reservations(
+        &self,
+        tenant_id: Option<Uuid>,
+    ) -> DomainResult<Vec<TenantReservation>> {
         self.reservations.list_tenant_reservations(tenant_id).await
     }
-    pub async fn create_tenant_reservation(&self, req: CreateTenantReservationRequest) -> DomainResult<TenantReservation> {
+    pub async fn create_tenant_reservation(
+        &self,
+        req: CreateTenantReservationRequest,
+    ) -> DomainResult<TenantReservation> {
         self.reservations.create_tenant_reservation(req).await
     }
     pub async fn cancel_tenant_reservation(&self, id: Uuid) -> DomainResult<()> {
@@ -283,7 +341,10 @@ impl AdminService {
     pub async fn get_property_staff(&self, id: Uuid) -> DomainResult<PropertyStaff> {
         self.staff.get_property_staff(id).await
     }
-    pub async fn create_property_staff(&self, req: CreatePropertyStaffRequest) -> DomainResult<PropertyStaff> {
+    pub async fn create_property_staff(
+        &self,
+        req: CreatePropertyStaffRequest,
+    ) -> DomainResult<PropertyStaff> {
         self.staff.create_property_staff(req).await
     }
     pub async fn update_property_staff(
@@ -343,7 +404,9 @@ impl AdminService {
         property_id: Option<Uuid>,
         status: Option<String>,
     ) -> DomainResult<Vec<TenancyApplication>> {
-        self.applications.list_applications(property_id, status).await
+        self.applications
+            .list_applications(property_id, status)
+            .await
     }
     pub async fn review_application(
         &self,
@@ -385,7 +448,10 @@ impl AdminService {
     pub async fn get_admin_user(&self, id: Uuid) -> DomainResult<ManagedUser> {
         self.users.get_user(id).await
     }
-    pub async fn create_admin_user(&self, req: CreateAdminUserRequest) -> DomainResult<ManagedUser> {
+    pub async fn create_admin_user(
+        &self,
+        req: CreateAdminUserRequest,
+    ) -> DomainResult<ManagedUser> {
         self.users.create_user(req).await
     }
     pub async fn update_admin_user(
@@ -403,4 +469,3 @@ impl AdminService {
         self.users.list_roles().await
     }
 }
-

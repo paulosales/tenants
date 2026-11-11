@@ -106,4 +106,3 @@ pub async fn delete_admin_user(
     state.admin_service.delete_admin_user(user.id, id).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

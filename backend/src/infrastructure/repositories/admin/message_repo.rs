@@ -133,4 +133,3 @@ impl StaffMessageRepository for PostgresAdminRepository {
         Ok(map_message_row(&row))
     }
 }
-

@@ -1,6 +1,6 @@
+use chrono::Utc;
 use std::collections::HashMap;
 use std::sync::Arc;
-use chrono::Utc;
 use uuid::Uuid;
 
 use super::dtos::{CreateAdminUserRequest, UpdateAdminUserRequest};
@@ -75,7 +75,12 @@ impl AdminUserService {
                 "A valid email address is required".into(),
             ));
         }
-        if self.user_repo.find_user_id_by_email(&email).await?.is_some() {
+        if self
+            .user_repo
+            .find_user_id_by_email(&email)
+            .await?
+            .is_some()
+        {
             return Err(DomainError::Conflict(
                 "A user account with this email already exists".into(),
             ));
@@ -90,7 +95,10 @@ impl AdminUserService {
             email,
             full_name,
             role: req.role,
-            phone: req.phone.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            phone: req
+                .phone
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
             unit_number: req
                 .unit_number
                 .map(|s| s.trim().to_string())
@@ -124,7 +132,9 @@ impl AdminUserService {
                     ));
                 }
                 if !normalized.eq_ignore_ascii_case(&existing.email) {
-                    if let Some(other_id) = self.user_repo.find_user_id_by_email(&normalized).await? {
+                    if let Some(other_id) =
+                        self.user_repo.find_user_id_by_email(&normalized).await?
+                    {
                         if other_id != id {
                             return Err(DomainError::Conflict(
                                 "Another user account already uses this email".into(),
@@ -245,4 +255,3 @@ impl AdminUserService {
             .collect())
     }
 }
-

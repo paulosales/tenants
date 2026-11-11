@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{CreateTenantReservationRequest, ReviewTenantReservationRequest};
@@ -56,12 +56,13 @@ impl TenantReservationService {
         &self,
         req: CreateTenantReservationRequest,
     ) -> DomainResult<TenantReservation> {
-        let tenant_id = req.tenant_id.unwrap_or_else(|| {
-            Uuid::parse_str("33333333-1111-1111-1111-111111111001").unwrap()
-        });
+        let tenant_id = req
+            .tenant_id
+            .unwrap_or_else(|| Uuid::parse_str("33333333-1111-1111-1111-111111111001").unwrap());
 
         let booking_date_ref = req.booking_date.as_deref();
-        let start_time = Self::parse_utc_timestamp("start time", &req.start_time, booking_date_ref)?;
+        let start_time =
+            Self::parse_utc_timestamp("start time", &req.start_time, booking_date_ref)?;
         let end_time = Self::parse_utc_timestamp("end time", &req.end_time, booking_date_ref)?;
 
         if end_time <= start_time {
@@ -126,4 +127,3 @@ impl TenantReservationService {
         self.repo.cancel_tenant_reservation(id).await
     }
 }
-

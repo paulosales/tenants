@@ -22,13 +22,13 @@ use crate::presentation::{
             delete_property_photo, delete_property_staff, delete_tenant, delete_unit,
             get_admin_user, get_maintenance_call, get_parking_layout, get_property,
             get_property_staff, get_tenant, list_admin_users, list_maintenance_calls,
-            list_properties, list_property_amenities, list_property_features,
-            list_property_photos, list_property_staff, list_roles, list_staff_messages,
-            list_tenancy_applications, list_tenant_reservations, list_tenants, list_units,
-            mark_staff_message_read, review_tenancy_application, review_tenant_reservation,
-            save_parking_layout, send_staff_message, set_cover_property_photo,
-            update_admin_user, update_amenity, update_maintenance_call_status, update_property,
-            update_property_staff, update_tenant, update_unit, upload_property_photo,
+            list_properties, list_property_amenities, list_property_features, list_property_photos,
+            list_property_staff, list_roles, list_staff_messages, list_tenancy_applications,
+            list_tenant_reservations, list_tenants, list_units, mark_staff_message_read,
+            review_tenancy_application, review_tenant_reservation, save_parking_layout,
+            send_staff_message, set_cover_property_photo, update_admin_user, update_amenity,
+            update_maintenance_call_status, update_property, update_property_staff, update_tenant,
+            update_unit, upload_property_photo,
         },
         amenities::{check_availability, get_amenity, list_amenities},
         audit::list_audit_logs,
@@ -39,11 +39,8 @@ use crate::presentation::{
         webhooks::stripe_webhook,
     },
     middleware::{
-        auth::AppState,
-        csrf::csrf_protection_middleware,
-        rate_limit::rate_limit_middleware,
-        request_id::request_id_middleware,
-        security_headers::security_headers_middleware,
+        auth::AppState, csrf::csrf_protection_middleware, rate_limit::rate_limit_middleware,
+        request_id::request_id_middleware, security_headers::security_headers_middleware,
     },
 };
 
@@ -110,53 +107,122 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
         .route("/audit/logs", get(list_audit_logs))
         // Admin & Property Manager: Tenancy Applications Review
         .route("/tenancy-applications", get(list_tenancy_applications))
-        .route("/tenancy-applications/:id/review", patch(review_tenancy_application))
+        .route(
+            "/tenancy-applications/:id/review",
+            patch(review_tenancy_application),
+        )
         // Admin: Properties, Showcase Features & CDN Photos API
         .route("/properties", get(list_properties).post(create_property))
-        .route("/properties/:id", get(get_property).put(update_property).delete(delete_property))
-        .route("/properties/:id/features", get(list_property_features).post(add_property_feature))
-        .route("/properties/:id/features/:feature_id", axum::routing::delete(delete_property_feature))
+        .route(
+            "/properties/:id",
+            get(get_property)
+                .put(update_property)
+                .delete(delete_property),
+        )
+        .route(
+            "/properties/:id/features",
+            get(list_property_features).post(add_property_feature),
+        )
+        .route(
+            "/properties/:id/features/:feature_id",
+            axum::routing::delete(delete_property_feature),
+        )
         .route(
             "/properties/:id/photos",
             get(list_property_photos)
                 .post(upload_property_photo)
                 .layer(DefaultBodyLimit::max(6 * 1024 * 1024)),
         )
-        .route("/properties/:id/photos/:photo_id/cover", patch(set_cover_property_photo))
-        .route("/properties/:id/photos/:photo_id", axum::routing::delete(delete_property_photo))
+        .route(
+            "/properties/:id/photos/:photo_id/cover",
+            patch(set_cover_property_photo),
+        )
+        .route(
+            "/properties/:id/photos/:photo_id",
+            axum::routing::delete(delete_property_photo),
+        )
         // Admin: Units API
-        .route("/properties/:property_id/units", get(list_units).post(create_unit))
+        .route(
+            "/properties/:property_id/units",
+            get(list_units).post(create_unit),
+        )
         .route("/units/:id", put(update_unit).delete(delete_unit))
         // Admin: Tenants API
         .route("/tenants", get(list_tenants).post(create_tenant))
-        .route("/tenants/:id", get(get_tenant).put(update_tenant).delete(delete_tenant))
+        .route(
+            "/tenants/:id",
+            get(get_tenant).put(update_tenant).delete(delete_tenant),
+        )
         // Admin: Amenities API
-        .route("/properties/:property_id/amenities", get(list_property_amenities).post(create_property_amenity))
+        .route(
+            "/properties/:property_id/amenities",
+            get(list_property_amenities).post(create_property_amenity),
+        )
         .route("/amenities/:id", put(update_amenity).delete(delete_amenity))
         // Admin & Manager: Parking Layout & Spot Assignment API
-        .route("/properties/:property_id/parking-layout", get(get_parking_layout).put(save_parking_layout))
+        .route(
+            "/properties/:property_id/parking-layout",
+            get(get_parking_layout).put(save_parking_layout),
+        )
         .route("/parking-spots/:id/assign", post(assign_parking_spot))
         // Tenant Portal & Admin & Maintainer: Maintenance Calls API
-        .route("/maintenance-calls", get(list_maintenance_calls).post(create_maintenance_call))
+        .route(
+            "/maintenance-calls",
+            get(list_maintenance_calls).post(create_maintenance_call),
+        )
         .route("/maintenance-calls/:id", get(get_maintenance_call))
-        .route("/maintenance-calls/:id/status", put(update_maintenance_call_status).patch(update_maintenance_call_status))
-        .route("/maintenance-calls/:id/cancel", post(cancel_maintenance_call))
-        .route("/maintenance-calls/:id/assign-staff", post(assign_maintenance_call_staff))
+        .route(
+            "/maintenance-calls/:id/status",
+            put(update_maintenance_call_status).patch(update_maintenance_call_status),
+        )
+        .route(
+            "/maintenance-calls/:id/cancel",
+            post(cancel_maintenance_call),
+        )
+        .route(
+            "/maintenance-calls/:id/assign-staff",
+            post(assign_maintenance_call_staff),
+        )
         // Tenant Portal & Property Manager Review: Amenity Sessions API
-        .route("/amenity-sessions", get(list_tenant_reservations).post(create_tenant_reservation))
+        .route(
+            "/amenity-sessions",
+            get(list_tenant_reservations).post(create_tenant_reservation),
+        )
         .route("/amenity-sessions/my", get(list_tenant_reservations))
-        .route("/amenity-sessions/:id/cancel", post(cancel_tenant_reservation))
-        .route("/amenity-sessions/:id/review", patch(review_tenant_reservation))
+        .route(
+            "/amenity-sessions/:id/cancel",
+            post(cancel_tenant_reservation),
+        )
+        .route(
+            "/amenity-sessions/:id/review",
+            patch(review_tenant_reservation),
+        )
         // Admin & Management: Property Staff API
-        .route("/staff", get(list_property_staff).post(create_property_staff))
-        .route("/staff/:id", get(get_property_staff).put(update_property_staff).delete(delete_property_staff))
+        .route(
+            "/staff",
+            get(list_property_staff).post(create_property_staff),
+        )
+        .route(
+            "/staff/:id",
+            get(get_property_staff)
+                .put(update_property_staff)
+                .delete(delete_property_staff),
+        )
         // Manager <-> Staff Messaging API
-        .route("/staff-messages", get(list_staff_messages).post(send_staff_message))
+        .route(
+            "/staff-messages",
+            get(list_staff_messages).post(send_staff_message),
+        )
         .route("/staff-messages/:id/read", patch(mark_staff_message_read))
         // Super Admin: Users & Roles Management API
         .route("/users", get(list_admin_users).post(create_admin_user))
         .route("/users/roles", get(list_roles))
-        .route("/users/:id", get(get_admin_user).put(update_admin_user).delete(delete_admin_user))
+        .route(
+            "/users/:id",
+            get(get_admin_user)
+                .put(update_admin_user)
+                .delete(delete_admin_user),
+        )
         .layer(DefaultBodyLimit::max(256 * 1024))
         .layer(axum_middleware::from_fn(csrf_protection_middleware));
 

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{AssignParkingSpotRequest, SaveParkingLayoutRequest};
@@ -29,11 +29,16 @@ impl ParkingLayoutService {
         self.property_repo
             .get_property(property_id)
             .await?
-            .ok_or_else(|| DomainError::NotFound(format!("Property with ID {} not found", property_id)))?;
+            .ok_or_else(|| {
+                DomainError::NotFound(format!("Property with ID {} not found", property_id))
+            })?;
         Ok(())
     }
 
-    pub async fn get_parking_layout(&self, property_id: Uuid) -> DomainResult<ParkingLayoutWithSpots> {
+    pub async fn get_parking_layout(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<ParkingLayoutWithSpots> {
         self.ensure_property_exists(property_id).await?;
         match self.layout_repo.get_parking_layout(property_id).await? {
             Some(layout) => Ok(layout),
@@ -116,7 +121,13 @@ impl ParkingLayoutService {
             .collect();
 
         self.layout_repo
-            .save_parking_layout(property_id, req.canvas_width, req.canvas_height, grid_size, spots)
+            .save_parking_layout(
+                property_id,
+                req.canvas_width,
+                req.canvas_height,
+                grid_size,
+                spots,
+            )
             .await
     }
 
@@ -131,4 +142,3 @@ impl ParkingLayoutService {
             .await
     }
 }
-

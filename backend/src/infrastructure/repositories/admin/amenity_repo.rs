@@ -26,7 +26,10 @@ fn map_amenity_row(r: &PgRow) -> AdminAmenity {
 
 #[async_trait]
 impl AdminAmenityRepository for PostgresAdminRepository {
-    async fn list_amenities_by_property(&self, property_id: Uuid) -> DomainResult<Vec<AdminAmenity>> {
+    async fn list_amenities_by_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Vec<AdminAmenity>> {
         let rows = sqlx::query(
             r#"
             SELECT id, property_id, name, description, capacity, fee_cents, deposit_cents, rules, is_active, created_at, updated_at
@@ -119,4 +122,3 @@ impl AdminAmenityRepository for PostgresAdminRepository {
         Ok(())
     }
 }
-

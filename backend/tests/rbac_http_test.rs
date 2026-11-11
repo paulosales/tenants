@@ -33,7 +33,8 @@ use backend::{
 
 async fn build_test_router() -> (axum::Router, PgPool) {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-        "postgres://postgres:postgres_dev_secret_change_in_prod@localhost:5432/tenants_db".to_string()
+        "postgres://postgres:postgres_dev_secret_change_in_prod@localhost:5432/tenants_db"
+            .to_string()
     });
     let pool = PgPool::connect(&database_url)
         .await
@@ -129,7 +130,12 @@ async fn login_with_cookies(
         .unwrap();
 
     let res = router.clone().oneshot(req).await.unwrap();
-    assert_eq!(res.status(), StatusCode::OK, "Expected login success for {}", email);
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "Expected login success for {}",
+        email
+    );
 
     let set_cookies: Vec<String> = res
         .headers()
@@ -145,7 +151,10 @@ async fn login_with_cookies(
         let kv = c.split(';').next().unwrap();
         if let Some(val) = kv.strip_prefix("access_token=") {
             assert!(c.contains("HttpOnly"), "access_token must be HttpOnly");
-            assert!(c.contains("SameSite=Strict"), "access_token must be SameSite=Strict");
+            assert!(
+                c.contains("SameSite=Strict"),
+                "access_token must be SameSite=Strict"
+            );
             access_cookie = val.to_string();
         } else if let Some(val) = kv.strip_prefix("csrf_token=") {
             csrf_token = val.to_string();
@@ -231,7 +240,10 @@ async fn test_public_portal_and_rbac_csrf_enforcement() {
             .unwrap(),
     )
     .unwrap();
-    let app_id = apply_json["application"]["id"].as_str().unwrap().to_string();
+    let app_id = apply_json["application"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert_eq!(apply_json["application"]["status"], "pending");
 
     // 3. Tenant login: allowed on tenant portal routes, FORBIDDEN on admin/manager/staff/application routes
@@ -382,7 +394,10 @@ async fn test_public_portal_and_rbac_csrf_enforcement() {
         .oneshot(
             Request::builder()
                 .method(Method::PUT)
-                .uri(format!("/api/v1/maintenance-calls/{}/status", created_call_id))
+                .uri(format!(
+                    "/api/v1/maintenance-calls/{}/status",
+                    created_call_id
+                ))
                 .header(header::AUTHORIZATION, format!("Bearer {}", maint_bearer))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
@@ -592,7 +607,12 @@ async fn test_owasp_security_controls_and_idor_blocking() {
             )
             .await
             .unwrap();
-        assert_eq!(res.status(), StatusCode::UNAUTHORIZED, "Expected 401 on {}", path);
+        assert_eq!(
+            res.status(),
+            StatusCode::UNAUTHORIZED,
+            "Expected 401 on {}",
+            path
+        );
     }
 
     // 2. Oversized JSON payload triggers 413 Payload Too Large (DefaultBodyLimit)
@@ -714,7 +734,12 @@ async fn test_owasp_security_controls_and_idor_blocking() {
             )
             .await
             .unwrap();
-        assert_eq!(res.status(), StatusCode::FORBIDDEN, "Expected 403 on {}", forbidden_uri);
+        assert_eq!(
+            res.status(),
+            StatusCode::FORBIDDEN,
+            "Expected 403 on {}",
+            forbidden_uri
+        );
     }
 
     let mgr_cross_review = router
@@ -722,7 +747,10 @@ async fn test_owasp_security_controls_and_idor_blocking() {
         .oneshot(
             Request::builder()
                 .method(Method::PATCH)
-                .uri(format!("/api/v1/tenancy-applications/{}/review", prop2_app_id))
+                .uri(format!(
+                    "/api/v1/tenancy-applications/{}/review",
+                    prop2_app_id
+                ))
                 .header(header::COOKIE, &mgr_cookie)
                 .header("x-csrf-token", &mgr_csrf)
                 .header(header::CONTENT_TYPE, "application/json")
@@ -867,7 +895,10 @@ async fn test_owasp_security_controls_and_idor_blocking() {
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri(format!("/api/v1/maintenance-calls/{}/assign-staff", p1_call_id))
+                .uri(format!(
+                    "/api/v1/maintenance-calls/{}/assign-staff",
+                    p1_call_id
+                ))
                 .header(header::COOKIE, &admin_cookie)
                 .header("x-csrf-token", &admin_csrf)
                 .header(header::CONTENT_TYPE, "application/json")
@@ -886,7 +917,9 @@ async fn test_owasp_security_controls_and_idor_blocking() {
                 .uri(format!("/api/v1/maintenance-calls/{}/status", p1_call_id))
                 .header(header::AUTHORIZATION, format!("Bearer {}", maint_bearer))
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(json!({ "status": "arbitrary_status" }).to_string()))
+                .body(Body::from(
+                    json!({ "status": "arbitrary_status" }).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -954,7 +987,10 @@ async fn test_owasp_security_controls_and_idor_blocking() {
             break;
         }
     }
-    assert!(hit_429, "Expected rate limiter to trigger 429 Too Many Requests");
+    assert!(
+        hit_429,
+        "Expected rate limiter to trigger 429 Too Many Requests"
+    );
 
     // 9. Public Property Showcase + Admin Features + Magic-Byte Photo CDN Upload & Rich Text XSS Check
     let pub_detail = router
@@ -1020,7 +1056,10 @@ async fn test_owasp_security_controls_and_idor_blocking() {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri(format!("/api/v1/properties/{}/features/{}", prop1_id, feat_id))
+                .uri(format!(
+                    "/api/v1/properties/{}/features/{}",
+                    prop1_id, feat_id
+                ))
                 .header(header::COOKIE, &admin_cookie)
                 .header("x-csrf-token", &admin_csrf)
                 .body(Body::empty())
@@ -1054,7 +1093,10 @@ async fn test_owasp_security_controls_and_idor_blocking() {
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri(format!("/api/v1/properties/{}/photos?caption=Skyline", prop1_id))
+                .uri(format!(
+                    "/api/v1/properties/{}/photos?caption=Skyline",
+                    prop1_id
+                ))
                 .header(header::COOKIE, &admin_cookie)
                 .header("x-csrf-token", &admin_csrf)
                 .header(header::CONTENT_TYPE, "image/png")
@@ -1071,14 +1113,20 @@ async fn test_owasp_security_controls_and_idor_blocking() {
     )
     .unwrap();
     let photo_id = photo_json["id"].as_str().unwrap().to_string();
-    assert!(photo_json["cdn_url"].as_str().unwrap().contains("property-media"));
+    assert!(photo_json["cdn_url"]
+        .as_str()
+        .unwrap()
+        .contains("property-media"));
 
     let del_photo = router
         .clone()
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri(format!("/api/v1/properties/{}/photos/{}", prop1_id, photo_id))
+                .uri(format!(
+                    "/api/v1/properties/{}/photos/{}",
+                    prop1_id, photo_id
+                ))
                 .header(header::COOKIE, &admin_cookie)
                 .header("x-csrf-token", &admin_csrf)
                 .body(Body::empty())

@@ -76,4 +76,3 @@ pub async fn mark_staff_message_read(
     let updated = state.admin_service.mark_message_read(&user, id).await?;
     Ok(Json(updated).into_response())
 }
-

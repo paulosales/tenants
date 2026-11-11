@@ -127,4 +127,3 @@ pub async fn delete_tenant(
     state.admin_service.tenants.delete_tenant(id).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

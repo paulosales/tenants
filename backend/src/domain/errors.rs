@@ -12,7 +12,10 @@ pub enum DomainError {
     Conflict(String),
 
     #[error("Requested time is outside operating hours ({open_time} - {close_time})")]
-    OutsideOperatingHours { open_time: String, close_time: String },
+    OutsideOperatingHours {
+        open_time: String,
+        close_time: String,
+    },
 
     #[error("Reservation duration {duration_mins}m is outside permitted limits ({min_mins}m - {max_mins}m)")]
     InvalidDuration {

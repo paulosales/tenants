@@ -1,21 +1,23 @@
 pub mod admin;
-pub mod user;
 pub mod amenity;
-pub mod reservation;
-pub mod parking;
-pub mod payment;
 pub mod audit;
 pub mod errors;
-pub mod repository;
+pub mod parking;
+pub mod payment;
 pub mod ports;
+pub mod repository;
+pub mod reservation;
+pub mod user;
 
 pub use admin::*;
-pub use user::*;
 pub use amenity::*;
-pub use reservation::*;
-pub use parking::{GeometryCoordinates, ParkingLayoutResponse, ParkingSpotNode, ParkingZone, SpotStatus};
-pub use payment::*;
 pub use audit::*;
 pub use errors::*;
-pub use repository::*;
+pub use parking::{
+    GeometryCoordinates, ParkingLayoutResponse, ParkingSpotNode, ParkingZone, SpotStatus,
+};
+pub use payment::*;
 pub use ports::*;
+pub use repository::*;
+pub use reservation::*;
+pub use user::*;

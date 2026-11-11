@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{AddPropertyFeatureRequest, CreatePropertyRequest, UpdatePropertyRequest};
@@ -41,7 +41,10 @@ impl PropertyService {
         }
     }
 
-    fn validate_coordinates(lat: Option<f64>, lng: Option<f64>) -> DomainResult<(Option<f64>, Option<f64>)> {
+    fn validate_coordinates(
+        lat: Option<f64>,
+        lng: Option<f64>,
+    ) -> DomainResult<(Option<f64>, Option<f64>)> {
         match (lat, lng) {
             (Some(la), Some(lo)) => {
                 if !la.is_finite() || !(-90.0..=90.0).contains(&la) {
@@ -76,10 +79,14 @@ impl PropertyService {
 
     pub async fn create_property(&self, req: CreatePropertyRequest) -> DomainResult<Property> {
         if req.name.trim().is_empty() {
-            return Err(DomainError::ValidationError("Property name cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Property name cannot be empty".to_string(),
+            ));
         }
         if req.address_line1.trim().is_empty() {
-            return Err(DomainError::ValidationError("Address line 1 cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Address line 1 cannot be empty".to_string(),
+            ));
         }
         let (latitude, longitude) = Self::validate_coordinates(req.latitude, req.longitude)?;
         let sanitized_desc = match req.rich_description.as_deref() {
@@ -99,8 +106,14 @@ impl PropertyService {
             rich_description: sanitized_desc,
             latitude,
             longitude,
-            pet_policy: req.pet_policy.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
-            lease_terms: req.lease_terms.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            pet_policy: req
+                .pet_policy
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
+            lease_terms: req
+                .lease_terms
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty()),
             features: Vec::new(),
             photos: Vec::new(),
             created_at: now,
@@ -109,10 +122,16 @@ impl PropertyService {
         self.repo.create_property(prop).await
     }
 
-    pub async fn update_property(&self, id: Uuid, req: UpdatePropertyRequest) -> DomainResult<Property> {
+    pub async fn update_property(
+        &self,
+        id: Uuid,
+        req: UpdatePropertyRequest,
+    ) -> DomainResult<Property> {
         let mut prop = self.get_property(id).await?;
         if req.name.trim().is_empty() {
-            return Err(DomainError::ValidationError("Property name cannot be empty".to_string()));
+            return Err(DomainError::ValidationError(
+                "Property name cannot be empty".to_string(),
+            ));
         }
         let (latitude, longitude) = Self::validate_coordinates(req.latitude, req.longitude)?;
         if let Some(raw_desc) = req.rich_description {
@@ -120,11 +139,19 @@ impl PropertyService {
         }
         if let Some(pet) = req.pet_policy {
             let trimmed = pet.trim().to_string();
-            prop.pet_policy = if trimmed.is_empty() { None } else { Some(trimmed) };
+            prop.pet_policy = if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            };
         }
         if let Some(terms) = req.lease_terms {
             let trimmed = terms.trim().to_string();
-            prop.lease_terms = if trimmed.is_empty() { None } else { Some(trimmed) };
+            prop.lease_terms = if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            };
         }
         if req.latitude.is_some() || req.longitude.is_some() {
             prop.latitude = latitude;
@@ -196,7 +223,9 @@ impl PropertyService {
 
     pub async fn delete_feature(&self, property_id: Uuid, feature_id: Uuid) -> DomainResult<()> {
         let _ = self.get_property(property_id).await?;
-        self.feature_repo.delete_feature(property_id, feature_id).await
+        self.feature_repo
+            .delete_feature(property_id, feature_id)
+            .await
     }
 
     // --- Property Photos (S3 / MinIO CDN) ---
@@ -218,7 +247,10 @@ impl PropertyService {
         let format = detect_verified_image_format(declared_content_type, bytes)?;
 
         let photo_id = Uuid::new_v4();
-        let storage_key = format!("properties/{}/{}.{}", property_id, photo_id, format.extension);
+        let storage_key = format!(
+            "properties/{}/{}.{}",
+            property_id, photo_id, format.extension
+        );
         let cdn_url = self
             .media_storage
             .upload_object(&storage_key, format.content_type, bytes)
@@ -250,7 +282,11 @@ impl PropertyService {
         }
     }
 
-    pub async fn set_cover_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<PropertyPhoto> {
+    pub async fn set_cover_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<PropertyPhoto> {
         let _ = self.get_property(property_id).await?;
         self.photo_repo.set_cover_photo(property_id, photo_id).await
     }
@@ -264,8 +300,10 @@ impl PropertyService {
             .ok_or_else(|| DomainError::NotFound("Property photo not found".into()))?;
 
         self.photo_repo.delete_photo(property_id, photo_id).await?;
-        let _ = self.media_storage.delete_object(&existing.storage_key).await;
+        let _ = self
+            .media_storage
+            .delete_object(&existing.storage_key)
+            .await;
         Ok(())
     }
 }
-

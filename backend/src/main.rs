@@ -46,10 +46,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     // 3. Database Connection Pool
-    let pool = create_postgres_pool(&config.database_url).await.map_err(|e| {
-        tracing::error!("Database initialization failed: {}", e);
-        e
-    })?;
+    let pool = create_postgres_pool(&config.database_url)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database initialization failed: {}", e);
+            e
+        })?;
 
     tracing::info!("PostgreSQL connection pool established successfully.");
 

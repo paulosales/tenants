@@ -1,26 +1,23 @@
-use std::sync::Arc;
 use sqlx::PgPool;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use backend::{
-    application::{
-        admin_service::*,
-    },
+    application::admin_service::*,
     domain::{
         admin::*,
         ports::{HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
     },
     infrastructure::{
-        html_sanitizer::DefaultHtmlSanitizer,
-        object_storage::InMemoryTestMediaStorage,
-        repositories::PostgresAdminRepository,
-        security::Argon2PasswordHasher,
+        html_sanitizer::DefaultHtmlSanitizer, object_storage::InMemoryTestMediaStorage,
+        repositories::PostgresAdminRepository, security::Argon2PasswordHasher,
     },
 };
 
 async fn setup_admin_service() -> (AdminService, Uuid) {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-        "postgres://postgres:postgres_dev_secret_change_in_prod@localhost:5432/tenants_db".to_string()
+        "postgres://postgres:postgres_dev_secret_change_in_prod@localhost:5432/tenants_db"
+            .to_string()
     });
     let pool = PgPool::connect(&database_url)
         .await
@@ -58,7 +55,10 @@ async fn test_property_crud_and_dependency_guard() {
     let (service, property_id) = setup_admin_service().await;
 
     // 1. Get property
-    let prop = service.get_property(property_id).await.expect("Failed to get property");
+    let prop = service
+        .get_property(property_id)
+        .await
+        .expect("Failed to get property");
     assert!(prop.name.starts_with("Test Property"));
 
     // 2. Add a unit to this property
@@ -81,13 +81,22 @@ async fn test_property_crud_and_dependency_guard() {
 
     // 3. Attempting to delete property while unit exists MUST fail with Conflict
     let delete_err = service.delete_property(property_id).await;
-    assert!(delete_err.is_err(), "Expected delete_property to fail due to existing units");
+    assert!(
+        delete_err.is_err(),
+        "Expected delete_property to fail due to existing units"
+    );
 
     // 4. Delete the unit first
-    service.delete_unit(unit.id).await.expect("Failed to delete unit");
+    service
+        .delete_unit(unit.id)
+        .await
+        .expect("Failed to delete unit");
 
     // 5. Now delete property succeeds
-    service.delete_property(property_id).await.expect("Expected delete_property to succeed after units are deleted");
+    service
+        .delete_property(property_id)
+        .await
+        .expect("Expected delete_property to succeed after units are deleted");
 }
 
 #[tokio::test]
@@ -133,12 +142,21 @@ async fn test_tenant_assignment_and_unit_status_transitions() {
         .expect("Failed to create tenant");
 
     // 3. Verify unit status transitioned to occupied
-    let updated_unit = service.get_unit(unit.id).await.expect("Failed to fetch unit");
+    let updated_unit = service
+        .get_unit(unit.id)
+        .await
+        .expect("Failed to fetch unit");
     assert_eq!(updated_unit.status, UnitStatus::Occupied);
 
     // 4. Delete tenant should release unit back to vacant
-    service.delete_tenant(tenant.id).await.expect("Failed to delete tenant");
-    let released_unit = service.get_unit(unit.id).await.expect("Failed to fetch unit");
+    service
+        .delete_tenant(tenant.id)
+        .await
+        .expect("Failed to delete tenant");
+    let released_unit = service
+        .get_unit(unit.id)
+        .await
+        .expect("Failed to fetch unit");
     assert_eq!(released_unit.status, UnitStatus::Vacant);
 
     // Clean up
@@ -196,7 +214,10 @@ async fn test_parking_layout_atomic_bulk_upsert() {
     assert_eq!(layout_res.spots.len(), 2);
 
     // 2. Query layout
-    let fetched = service.get_parking_layout(property_id).await.expect("Failed to get parking layout");
+    let fetched = service
+        .get_parking_layout(property_id)
+        .await
+        .expect("Failed to get parking layout");
     assert_eq!(fetched.layout.canvas_width, 1400);
     assert_eq!(fetched.spots.len(), 2);
     assert_eq!(fetched.spots[0].spot_label, "A-01");
@@ -294,7 +315,11 @@ async fn test_assign_single_unit_to_multiple_tenants() {
     assert!(created_unit_opt.is_some(), "Unit should be in list");
     let created_unit = created_unit_opt.unwrap();
 
-    assert_eq!(created_unit.tenants.len(), 2, "Unit should have 2 assigned tenants");
+    assert_eq!(
+        created_unit.tenants.len(),
+        2,
+        "Unit should have 2 assigned tenants"
+    );
     let tenant_ids_in_unit: Vec<Uuid> = created_unit.tenants.iter().map(|t| t.id).collect();
     assert!(tenant_ids_in_unit.contains(&tenant_a.id));
     assert!(tenant_ids_in_unit.contains(&tenant_b.id));
@@ -318,12 +343,25 @@ async fn test_assign_single_unit_to_multiple_tenants() {
         .expect("Failed to update unit tenants");
 
     // Check Alice is unassigned
-    let refreshed_a = service.get_tenant(tenant_a.id).await.expect("Failed to get tenant A");
-    assert_eq!(refreshed_a.assigned_unit_id, None, "Alice should now be unassigned");
+    let refreshed_a = service
+        .get_tenant(tenant_a.id)
+        .await
+        .expect("Failed to get tenant A");
+    assert_eq!(
+        refreshed_a.assigned_unit_id, None,
+        "Alice should now be unassigned"
+    );
 
     // Check Charlie is assigned
-    let refreshed_c = service.get_tenant(tenant_c.id).await.expect("Failed to get tenant C");
-    assert_eq!(refreshed_c.assigned_unit_id, Some(unit.id), "Charlie should now be assigned to unit");
+    let refreshed_c = service
+        .get_tenant(tenant_c.id)
+        .await
+        .expect("Failed to get tenant C");
+    assert_eq!(
+        refreshed_c.assigned_unit_id,
+        Some(unit.id),
+        "Charlie should now be assigned to unit"
+    );
 
     // 6. Update unit to have empty tenants -> status should become Vacant
     service
@@ -344,7 +382,11 @@ async fn test_assign_single_unit_to_multiple_tenants() {
         .expect("Failed to clear tenants");
 
     let vacant_unit = service.get_unit(unit.id).await.expect("Failed to get unit");
-    assert_eq!(vacant_unit.status, UnitStatus::Vacant, "Unit should now be Vacant");
+    assert_eq!(
+        vacant_unit.status,
+        UnitStatus::Vacant,
+        "Unit should now be Vacant"
+    );
 
     // Clean up
     let _ = service.delete_unit(unit.id).await;
@@ -412,8 +454,14 @@ async fn test_property_staff_and_maintenance_call_assignment() {
         .expect("Failed to assign staff to maintenance call");
 
     assert_eq!(assigned_call.assigned_staff_id, Some(staff.id));
-    assert!(assigned_call.assigned_technician.unwrap().contains("Carlos Mendez"));
-    assert_eq!(assigned_call.technician_phone, Some("+1 (555) 019-3321".to_string()));
+    assert!(assigned_call
+        .assigned_technician
+        .unwrap()
+        .contains("Carlos Mendez"));
+    assert_eq!(
+        assigned_call.technician_phone,
+        Some("+1 (555) 019-3321".to_string())
+    );
     assert_eq!(assigned_call.status, "dispatched");
 
     // Clean up
@@ -473,8 +521,14 @@ async fn test_create_tenant_reservation_stores_utc() {
         .await
         .expect("Failed to create tenant reservation with timezone offset");
 
-    assert_eq!(res_offset.start_time.to_rfc3339(), "2026-12-11T19:00:00+00:00");
-    assert_eq!(res_offset.end_time.to_rfc3339(), "2026-12-11T21:00:00+00:00");
+    assert_eq!(
+        res_offset.start_time.to_rfc3339(),
+        "2026-12-11T19:00:00+00:00"
+    );
+    assert_eq!(
+        res_offset.end_time.to_rfc3339(),
+        "2026-12-11T21:00:00+00:00"
+    );
 
     // Clean up
     let _ = service.cancel_tenant_reservation(res.id).await;
@@ -482,5 +536,3 @@ async fn test_create_tenant_reservation_stores_utc() {
     let _ = service.delete_amenity(amenity.id).await;
     let _ = service.delete_property(property_id).await;
 }
-
-

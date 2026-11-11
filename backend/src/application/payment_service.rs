@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::dtos::{CreatePaymentIntentRequest, PaymentIntentResponse};
@@ -95,7 +95,9 @@ impl PaymentService {
         if event_type == "payment_intent.succeeded" {
             if let Some(pi_id) = event["data"]["object"]["id"].as_str() {
                 if let Some(payment) = self.payment_repo.find_by_stripe_pi(pi_id).await? {
-                    self.payment_repo.update_status(payment.id, "succeeded").await?;
+                    self.payment_repo
+                        .update_status(payment.id, "succeeded")
+                        .await?;
 
                     let _ = self
                         .audit_repo

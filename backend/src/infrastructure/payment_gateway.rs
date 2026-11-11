@@ -54,7 +54,9 @@ impl StripePaymentGateway {
         })?;
 
         let t_num: i64 = t_val.parse().map_err(|_| {
-            DomainError::WebhookVerificationFailed("Invalid timestamp format in stripe-signature".into())
+            DomainError::WebhookVerificationFailed(
+                "Invalid timestamp format in stripe-signature".into(),
+            )
         })?;
         let now = Utc::now().timestamp();
         if (now - t_num).abs() > 300 {
@@ -140,7 +142,10 @@ mod tests {
         let sig_header = format!("t={},v1={}", old_time, sig);
         let res = StripePaymentGateway::verify_stripe_signature(payload, &sig_header, secret);
         assert!(res.is_err());
-        assert!(matches!(res.unwrap_err(), DomainError::WebhookVerificationFailed(_)));
+        assert!(matches!(
+            res.unwrap_err(),
+            DomainError::WebhookVerificationFailed(_)
+        ));
     }
 
     #[test]
@@ -155,9 +160,11 @@ mod tests {
         let sig = hex::encode(mac.finalize().into_bytes());
 
         let sig_header = format!("t={},v1={}", now, sig);
-        let tampered_payload = r#"{"id":"evt_123","type":"payment_intent.succeeded","amount":999999}"#;
+        let tampered_payload =
+            r#"{"id":"evt_123","type":"payment_intent.succeeded","amount":999999}"#;
 
-        let res = StripePaymentGateway::verify_stripe_signature(tampered_payload, &sig_header, secret);
+        let res =
+            StripePaymentGateway::verify_stripe_signature(tampered_payload, &sig_header, secret);
         assert!(res.is_err());
     }
 

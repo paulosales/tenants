@@ -105,7 +105,9 @@ impl PaymentRepository for PostgresPaymentRepository {
         .bind(stripe_pi)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to find payment by stripe PI: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to find payment by stripe PI: {}", e))
+        })?;
 
         Ok(row.map(Into::into))
     }

@@ -117,7 +117,11 @@ impl HtmlSanitizer {
                     let raw_tag = after_lt[..gt_idx].trim();
                     rest = &after_lt[gt_idx + 1..];
 
-                    if raw_tag.is_empty() || raw_tag.starts_with("!--") || raw_tag.starts_with('!') || raw_tag.starts_with('?') {
+                    if raw_tag.is_empty()
+                        || raw_tag.starts_with("!--")
+                        || raw_tag.starts_with('!')
+                        || raw_tag.starts_with('?')
+                    {
                         continue;
                     }
 
@@ -144,7 +148,10 @@ impl HtmlSanitizer {
                         continue;
                     }
 
-                    if !is_closing && Self::is_drop_content_tag(&tag_name) && !raw_tag.ends_with('/') {
+                    if !is_closing
+                        && Self::is_drop_content_tag(&tag_name)
+                        && !raw_tag.ends_with('/')
+                    {
                         skipping_tag = Some(tag_name);
                         continue;
                     }
@@ -201,7 +208,10 @@ mod tests {
     fn test_allows_safe_formatting_and_escapes_scripts() {
         let dirty = r#"<p onclick="alert(1)">Hello <strong>World</strong>!</p><script>stealCookies()</script><ul><li>Quiet</li></ul>"#;
         let clean = HtmlSanitizer::sanitize(dirty).unwrap();
-        assert_eq!(clean, "<p>Hello <strong>World</strong>!</p><ul><li>Quiet</li></ul>");
+        assert_eq!(
+            clean,
+            "<p>Hello <strong>World</strong>!</p><ul><li>Quiet</li></ul>"
+        );
         assert!(!clean.contains("script"));
         assert!(!clean.contains("onclick"));
         assert!(!clean.contains("stealCookies"));
@@ -217,4 +227,3 @@ mod tests {
         assert!(clean.contains(r#"rel="noopener noreferrer""#));
     }
 }
-

@@ -266,4 +266,3 @@ impl AdminUserRepository for PostgresAdminRepository {
             .collect())
     }
 }
-

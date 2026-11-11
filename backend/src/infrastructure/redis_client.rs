@@ -32,7 +32,10 @@ impl RedisRateLimiter {
                 }
             },
             Err(e) => {
-                tracing::warn!("Invalid Redis URL (using in-memory rate-limit fallback): {}", e);
+                tracing::warn!(
+                    "Invalid Redis URL (using in-memory rate-limit fallback): {}",
+                    e
+                );
                 None
             }
         };
@@ -124,7 +127,10 @@ impl RedisRateLimiter {
                     });
                 }
                 Err(e) => {
-                    tracing::warn!("Redis rate-limit check failed (falling back to memory): {}", e);
+                    tracing::warn!(
+                        "Redis rate-limit check failed (falling back to memory): {}",
+                        e
+                    );
                 }
             }
         }

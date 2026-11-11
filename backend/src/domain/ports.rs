@@ -79,4 +79,3 @@ pub trait PaymentGateway: Send + Sync {
 
     fn verify_webhook_signature(&self, payload: &str, sig_header: &str) -> DomainResult<()>;
 }
-

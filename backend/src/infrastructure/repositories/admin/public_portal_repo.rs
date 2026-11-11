@@ -221,22 +221,32 @@ fn map_public_listing_row(r: &PgRow) -> PublicPropertyListing {
 #[async_trait]
 impl PublicPortalRepository for PostgresAdminRepository {
     async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>> {
-        let query_str = format!("{} GROUP BY p.id ORDER BY p.name ASC", PUBLIC_PROPERTY_SELECT);
+        let query_str = format!(
+            "{} GROUP BY p.id ORDER BY p.name ASC",
+            PUBLIC_PROPERTY_SELECT
+        );
         let rows = sqlx::query(&query_str)
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| DomainError::Internal(format!("Failed to load public property listings: {}", e)))?;
+            .map_err(|e| {
+                DomainError::Internal(format!("Failed to load public property listings: {}", e))
+            })?;
 
         Ok(rows.iter().map(map_public_listing_row).collect())
     }
 
-    async fn get_public_property(&self, property_id: Uuid) -> DomainResult<Option<PublicPropertyListing>> {
+    async fn get_public_property(
+        &self,
+        property_id: Uuid,
+    ) -> DomainResult<Option<PublicPropertyListing>> {
         let query_str = format!("{} AND p.id = $1 GROUP BY p.id", PUBLIC_PROPERTY_SELECT);
         let row = sqlx::query(&query_str)
             .bind(property_id)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| DomainError::Internal(format!("Failed to load public property showcase: {}", e)))?;
+            .map_err(|e| {
+                DomainError::Internal(format!("Failed to load public property showcase: {}", e))
+            })?;
 
         Ok(row.as_ref().map(map_public_listing_row))
     }
@@ -257,4 +267,3 @@ impl PublicPortalRepository for PostgresAdminRepository {
         Ok(row.get("cnt"))
     }
 }
-

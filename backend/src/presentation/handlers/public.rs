@@ -8,8 +8,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    application::admin_service::CreateTenancyApplicationRequest,
-    domain::errors::DomainResult,
+    application::admin_service::CreateTenancyApplicationRequest, domain::errors::DomainResult,
     presentation::middleware::auth::AppState,
 };
 
@@ -45,4 +44,3 @@ pub async fn submit_public_application(
     )
         .into_response())
 }
-

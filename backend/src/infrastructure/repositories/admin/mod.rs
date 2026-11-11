@@ -24,4 +24,3 @@ impl PostgresAdminRepository {
         Self { pool }
     }
 }
-

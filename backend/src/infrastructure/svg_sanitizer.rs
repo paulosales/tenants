@@ -53,8 +53,8 @@ impl SvgSanitizer {
     /// Strict Allow-list of safe SVG element tags
     fn allowed_tags() -> HashSet<&'static str> {
         [
-            "svg", "g", "rect", "circle", "ellipse", "line", "polyline",
-            "polygon", "path", "text", "tspan", "defs", "use", "title", "desc",
+            "svg", "g", "rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text",
+            "tspan", "defs", "use", "title", "desc",
         ]
         .iter()
         .cloned()
@@ -79,7 +79,14 @@ impl SvgSanitizer {
         // Disallow script/data/external URIs in linking & resource attributes
         if matches!(
             name_lower.as_str(),
-            "href" | "xlink:href" | "src" | "srcdoc" | "action" | "formaction" | "background" | "poster"
+            "href"
+                | "xlink:href"
+                | "src"
+                | "srcdoc"
+                | "action"
+                | "formaction"
+                | "background"
+                | "poster"
         ) || name_lower.ends_with("href")
         {
             if val_compact.contains("javascript:")
@@ -189,14 +196,20 @@ impl SvgSanitizer {
                     ));
                 }
                 Ok(Event::Eof) => break,
-                Err(e) => return Err(DomainError::InvalidSvgMarkup(format!("XML parser error: {}", e))),
+                Err(e) => {
+                    return Err(DomainError::InvalidSvgMarkup(format!(
+                        "XML parser error: {}",
+                        e
+                    )))
+                }
                 _ => {}
             }
             buf.clear();
         }
 
         let result = writer.into_inner().into_inner();
-        let sanitized = String::from_utf8(result).map_err(|e| DomainError::Internal(e.to_string()))?;
+        let sanitized =
+            String::from_utf8(result).map_err(|e| DomainError::Internal(e.to_string()))?;
         Ok(sanitized)
     }
 }
@@ -220,7 +233,10 @@ mod tests {
         let malicious_svg = r#"<svg><script>alert('XSS')</script><rect x="10" y="10" width="80" height="140" /></svg>"#;
         let result = SvgSanitizer::sanitize(malicious_svg);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), DomainError::InvalidSvgMarkup(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            DomainError::InvalidSvgMarkup(_)
+        ));
     }
 
     #[test]
@@ -264,4 +280,3 @@ mod tests {
         assert!(!sanitized_entity.contains("href="));
     }
 }
-

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{
@@ -11,8 +11,13 @@ use crate::domain::{
     errors::{DomainError, DomainResult},
 };
 
-const ALLOWED_MAINTENANCE_STATUSES: [&str; 5] =
-    ["reported", "dispatched", "in_progress", "resolved", "cancelled"];
+const ALLOWED_MAINTENANCE_STATUSES: [&str; 5] = [
+    "reported",
+    "dispatched",
+    "in_progress",
+    "resolved",
+    "cancelled",
+];
 
 pub struct MaintenanceService {
     repo: Arc<dyn MaintenanceCallRepository>,
@@ -33,13 +38,16 @@ impl MaintenanceService {
         property_id: Option<Uuid>,
         status: Option<String>,
     ) -> DomainResult<Vec<MaintenanceCall>> {
-        self.repo.list_maintenance_calls(tenant_id, property_id, status).await
+        self.repo
+            .list_maintenance_calls(tenant_id, property_id, status)
+            .await
     }
 
     pub async fn get_maintenance_call(&self, id: Uuid) -> DomainResult<MaintenanceCall> {
-        self.repo.get_maintenance_call(id).await?.ok_or_else(|| {
-            DomainError::NotFound(format!("Maintenance call {} not found", id))
-        })
+        self.repo
+            .get_maintenance_call(id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("Maintenance call {} not found", id)))
     }
 
     pub async fn create_maintenance_call(
@@ -47,25 +55,37 @@ impl MaintenanceService {
         req: CreateMaintenanceCallRequest,
     ) -> DomainResult<MaintenanceCall> {
         if req.title.trim().len() < 3 {
-            return Err(DomainError::ValidationError("Title must be at least 3 characters".to_string()));
+            return Err(DomainError::ValidationError(
+                "Title must be at least 3 characters".to_string(),
+            ));
         }
         if req.description.trim().len() < 5 {
-            return Err(DomainError::ValidationError("Description must be at least 5 characters".to_string()));
+            return Err(DomainError::ValidationError(
+                "Description must be at least 5 characters".to_string(),
+            ));
         }
 
-        let tenant_id = req.tenant_id.unwrap_or_else(|| {
-            Uuid::parse_str("33333333-1111-1111-1111-111111111001").unwrap()
-        });
+        let tenant_id = req
+            .tenant_id
+            .unwrap_or_else(|| Uuid::parse_str("33333333-1111-1111-1111-111111111001").unwrap());
 
-        let property_id = req.property_id.unwrap_or_else(|| {
-            Uuid::parse_str("11111111-2222-3333-4444-555555555551").unwrap()
-        });
+        let property_id = req
+            .property_id
+            .unwrap_or_else(|| Uuid::parse_str("11111111-2222-3333-4444-555555555551").unwrap());
 
         let now = Utc::now();
-        let ticket_number = format!("MNT-2026-{:04}", (now.timestamp_subsec_millis() % 9000) + 1000);
+        let ticket_number = format!(
+            "MNT-2026-{:04}",
+            (now.timestamp_subsec_millis() % 9000) + 1000
+        );
         let priority = req.priority.unwrap_or_else(|| "routine".to_string());
         let is_emergency = priority == "emergency";
-        let status = if is_emergency { "dispatched" } else { "reported" }.to_string();
+        let status = if is_emergency {
+            "dispatched"
+        } else {
+            "reported"
+        }
+        .to_string();
         let assigned_technician = is_emergency.then(|| "On-Call Emergency Dispatch".to_string());
         let technician_phone = is_emergency.then(|| "+1 (800) 555-2739".to_string());
 
@@ -142,7 +162,9 @@ impl MaintenanceService {
         let scheduled = match req.scheduled_date {
             Some(ref d) => Some(
                 chrono::DateTime::parse_from_rfc3339(d)
-                    .map_err(|e| DomainError::ValidationError(format!("Invalid scheduled_date: {}", e)))?
+                    .map_err(|e| {
+                        DomainError::ValidationError(format!("Invalid scheduled_date: {}", e))
+                    })?
                     .with_timezone(&Utc),
             ),
             None => None,
@@ -153,4 +175,3 @@ impl MaintenanceService {
             .await
     }
 }
-

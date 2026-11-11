@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::dtos::{CheckAvailabilityQuery, CreateReservationRequest};
@@ -35,7 +35,9 @@ impl ReservationService {
         query: CheckAvailabilityQuery,
     ) -> DomainResult<Vec<Reservation>> {
         if query.end_date <= query.start_date {
-            return Err(DomainError::ValidationError("End date must be after start date".into()));
+            return Err(DomainError::ValidationError(
+                "End date must be after start date".into(),
+            ));
         }
 
         self.reservation_repo
@@ -82,7 +84,9 @@ impl ReservationService {
             .ok_or_else(|| DomainError::NotFound("Amenity not found".into()))?;
 
         if !amenity.is_active {
-            return Err(DomainError::ValidationError("This amenity is currently unavailable".into()));
+            return Err(DomainError::ValidationError(
+                "This amenity is currently unavailable".into(),
+            ));
         }
 
         // Validate duration and operating hours
@@ -105,22 +109,28 @@ impl ReservationService {
         };
 
         // Persist using transactional repository method; PostgreSQL GiST exclusion constraint guarantees no race condition double booking
-        let created = self.reservation_repo.create_transactional(&reservation).await?;
+        let created = self
+            .reservation_repo
+            .create_transactional(&reservation)
+            .await?;
 
         // Audit Trail
-        let _ = self.audit_repo.record(&AuditLog {
-            id: Uuid::new_v4(),
-            actor_id: Some(actor.id),
-            actor_email: Some(actor.email.clone()),
-            action: "CREATE_RESERVATION".to_string(),
-            entity_type: "reservation".to_string(),
-            entity_id: Some(created.id),
-            old_values: None,
-            new_values: Some(serde_json::to_value(&created).unwrap_or_default()),
-            ip_address: client_ip,
-            user_agent,
-            created_at: now,
-        }).await;
+        let _ = self
+            .audit_repo
+            .record(&AuditLog {
+                id: Uuid::new_v4(),
+                actor_id: Some(actor.id),
+                actor_email: Some(actor.email.clone()),
+                action: "CREATE_RESERVATION".to_string(),
+                entity_type: "reservation".to_string(),
+                entity_id: Some(created.id),
+                old_values: None,
+                new_values: Some(serde_json::to_value(&created).unwrap_or_default()),
+                ip_address: client_ip,
+                user_agent,
+                created_at: now,
+            })
+            .await;
 
         Ok(created)
     }
@@ -151,25 +161,32 @@ impl ReservationService {
         }
 
         if reservation.status == ReservationStatus::Cancelled {
-            return Err(DomainError::ValidationError("Reservation is already cancelled".into()));
+            return Err(DomainError::ValidationError(
+                "Reservation is already cancelled".into(),
+            ));
         }
 
-        self.reservation_repo.cancel(reservation_id, actor.id).await?;
+        self.reservation_repo
+            .cancel(reservation_id, actor.id)
+            .await?;
 
         // Audit Trail
-        let _ = self.audit_repo.record(&AuditLog {
-            id: Uuid::new_v4(),
-            actor_id: Some(actor.id),
-            actor_email: Some(actor.email.clone()),
-            action: "CANCEL_RESERVATION".to_string(),
-            entity_type: "reservation".to_string(),
-            entity_id: Some(reservation_id),
-            old_values: Some(serde_json::to_value(&reservation).unwrap_or_default()),
-            new_values: Some(serde_json::json!({ "status": "cancelled" })),
-            ip_address: client_ip,
-            user_agent,
-            created_at: Utc::now(),
-        }).await;
+        let _ = self
+            .audit_repo
+            .record(&AuditLog {
+                id: Uuid::new_v4(),
+                actor_id: Some(actor.id),
+                actor_email: Some(actor.email.clone()),
+                action: "CANCEL_RESERVATION".to_string(),
+                entity_type: "reservation".to_string(),
+                entity_id: Some(reservation_id),
+                old_values: Some(serde_json::to_value(&reservation).unwrap_or_default()),
+                new_values: Some(serde_json::json!({ "status": "cancelled" })),
+                ip_address: client_ip,
+                user_agent,
+                created_at: Utc::now(),
+            })
+            .await;
 
         Ok(())
     }

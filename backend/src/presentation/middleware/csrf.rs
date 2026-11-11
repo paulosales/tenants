@@ -88,4 +88,3 @@ pub async fn csrf_protection_middleware(req: Request, next: Next) -> Result<Resp
 
     Ok(next.run(req).await)
 }
-

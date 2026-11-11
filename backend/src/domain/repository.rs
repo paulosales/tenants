@@ -42,10 +42,7 @@ pub trait ReservationRepository: Send + Sync {
         end: DateTime<Utc>,
     ) -> DomainResult<Vec<Reservation>>;
     async fn list_by_user(&self, user_id: Uuid) -> DomainResult<Vec<ReservationWithDetails>>;
-    async fn create_transactional(
-        &self,
-        reservation: &Reservation,
-    ) -> DomainResult<Reservation>;
+    async fn create_transactional(&self, reservation: &Reservation) -> DomainResult<Reservation>;
     async fn cancel(&self, id: Uuid, user_id: Uuid) -> DomainResult<()>;
 }
 

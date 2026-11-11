@@ -51,7 +51,8 @@ impl PropertyStaffRepository for PostgresAdminRepository {
                 GROUP BY assigned_staff_id
             ) mc ON mc.assigned_staff_id = s.id
             WHERE s.deleted_at IS NULL
-        ".to_string();
+        "
+        .to_string();
 
         let mut param_index = 1;
         if property_id.is_some() {
@@ -96,7 +97,7 @@ impl PropertyStaffRepository for PostgresAdminRepository {
                 GROUP BY assigned_staff_id
             ) mc ON mc.assigned_staff_id = s.id
             WHERE s.id = $1 AND s.deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -115,7 +116,7 @@ impl PropertyStaffRepository for PostgresAdminRepository {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id
-            "#
+            "#,
         )
         .bind(staff.id)
         .bind(staff.property_id)
@@ -148,7 +149,7 @@ impl PropertyStaffRepository for PostgresAdminRepository {
                 title = $6, email = $7, phone = $8, specialization = $9,
                 shift = $10, status = $11, updated_at = $12
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(staff.id)
         .bind(staff.property_id)
@@ -178,7 +179,7 @@ impl PropertyStaffRepository for PostgresAdminRepository {
             UPDATE property_staff
             SET deleted_at = $2, updated_at = $2
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(now)
@@ -189,4 +190,3 @@ impl PropertyStaffRepository for PostgresAdminRepository {
         Ok(())
     }
 }
-

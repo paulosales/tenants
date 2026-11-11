@@ -63,13 +63,20 @@ impl UnitRepository for PostgresAdminRepository {
             .map(|r| {
                 let status_str: String = r.get("status");
                 let tenants_val: serde_json::Value = r.get("tenants_json");
-                let tenants: Vec<UnitTenantSummary> = serde_json::from_value(tenants_val).unwrap_or_default();
+                let tenants: Vec<UnitTenantSummary> =
+                    serde_json::from_value(tenants_val).unwrap_or_default();
                 let tenant_id = tenants.first().map(|t| t.id);
                 let tenant_email = tenants.first().map(|t| t.email.clone());
                 let tenant_name = if tenants.is_empty() {
                     None
                 } else {
-                    Some(tenants.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(", "))
+                    Some(
+                        tenants
+                            .iter()
+                            .map(|t| t.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    )
                 };
 
                 UnitWithTenant {
@@ -100,7 +107,7 @@ impl UnitRepository for PostgresAdminRepository {
                    square_feet, monthly_rent_cents, status, created_at, updated_at
             FROM units
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -187,12 +194,14 @@ impl UnitRepository for PostgresAdminRepository {
     }
 
     async fn set_unit_status(&self, unit_id: Uuid, status: UnitStatus) -> DomainResult<()> {
-        sqlx::query("UPDATE units SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
-            .bind(unit_id)
-            .bind(status.as_str())
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to update unit status: {}", e)))?;
+        sqlx::query(
+            "UPDATE units SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(unit_id)
+        .bind(status.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to update unit status: {}", e)))?;
         Ok(())
     }
 
@@ -227,7 +236,11 @@ impl UnitRepository for PostgresAdminRepository {
         Ok(())
     }
 
-    async fn count_active_tenants_for_unit(&self, unit_id: Uuid, exclude_tenant_id: Option<Uuid>) -> DomainResult<i64> {
+    async fn count_active_tenants_for_unit(
+        &self,
+        unit_id: Uuid,
+        exclude_tenant_id: Option<Uuid>,
+    ) -> DomainResult<i64> {
         let row = sqlx::query(
             "SELECT COUNT(*)::int8 as count FROM tenants WHERE assigned_unit_id = $1 AND ($2::uuid IS NULL OR id != $2) AND deleted_at IS NULL AND status = 'active'"
         )
@@ -240,4 +253,3 @@ impl UnitRepository for PostgresAdminRepository {
         Ok(row.get("count"))
     }
 }
-

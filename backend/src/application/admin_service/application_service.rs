@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::{NaiveDate, Utc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{CreateTenancyApplicationRequest, ReviewTenancyApplicationRequest};
@@ -75,7 +75,12 @@ impl TenancyApplicationService {
                 "Occupants count must be between 1 and 12".into(),
             ));
         }
-        if req.notes.as_deref().map(|n| n.len() > 2000).unwrap_or(false) {
+        if req
+            .notes
+            .as_deref()
+            .map(|n| n.len() > 2000)
+            .unwrap_or(false)
+        {
             return Err(DomainError::ValidationError(
                 "Application notes must not exceed 2000 characters".into(),
             ));
@@ -89,11 +94,9 @@ impl TenancyApplicationService {
 
         // Validate optional preferred unit belongs to property
         if let Some(unit_id) = req.preferred_unit_id {
-            let unit = self
-                .unit_repo
-                .get_unit(unit_id)
-                .await?
-                .ok_or_else(|| DomainError::NotFound("Selected preferred unit does not exist".into()))?;
+            let unit = self.unit_repo.get_unit(unit_id).await?.ok_or_else(|| {
+                DomainError::NotFound("Selected preferred unit does not exist".into())
+            })?;
             if unit.property_id != req.property_id {
                 return Err(DomainError::ValidationError(
                     "Preferred unit does not belong to selected property".into(),
@@ -129,7 +132,10 @@ impl TenancyApplicationService {
             },
             desired_move_in_date,
             occupants_count: req.occupants_count,
-            notes: req.notes.map(|n| n.trim().to_string()).filter(|n| !n.is_empty()),
+            notes: req
+                .notes
+                .map(|n| n.trim().to_string())
+                .filter(|n| !n.is_empty()),
             // Security: Public intake strictly initializes status as pending.
             status: "pending".into(),
             reviewed_by_user_id: None,
@@ -140,7 +146,10 @@ impl TenancyApplicationService {
         };
 
         let saved = self.app_repo.create_application(application).await?;
-        let managers_notified = self.portal_repo.count_property_managers(req.property_id).await?;
+        let managers_notified = self
+            .portal_repo
+            .count_property_managers(req.property_id)
+            .await?;
 
         Ok(PublicApplicationReceipt {
             application: saved,
@@ -175,24 +184,18 @@ impl TenancyApplicationService {
             "under_review" | "approved" | "rejected"
         ) {
             return Err(DomainError::ValidationError(
-                "Application review status must be 'under_review', 'approved', or 'rejected'".into(),
+                "Application review status must be 'under_review', 'approved', or 'rejected'"
+                    .into(),
             ));
         }
 
-        let existing = self
-            .app_repo
-            .get_application(id)
-            .await?
-            .ok_or_else(|| DomainError::NotFound(format!("Tenancy application {} not found", id)))?;
+        let existing = self.app_repo.get_application(id).await?.ok_or_else(|| {
+            DomainError::NotFound(format!("Tenancy application {} not found", id))
+        })?;
 
         let updated = self
             .app_repo
-            .update_application_review(
-                id,
-                &normalized_status,
-                reviewer_user_id,
-                req.review_notes,
-            )
+            .update_application_review(id, &normalized_status, reviewer_user_id, req.review_notes)
             .await?;
 
         // When approved with onboarding enabled (default true unless explicitly false),
@@ -239,4 +242,3 @@ impl TenancyApplicationService {
         Ok(updated)
     }
 }
-

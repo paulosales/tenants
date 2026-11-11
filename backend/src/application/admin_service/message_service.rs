@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::CreateStaffMessageRequest;
@@ -107,8 +107,7 @@ impl StaffMessagingService {
             let is_direct_user_recipient = msg.recipient_user_id == Some(actor.id);
             let is_direct_staff_recipient =
                 msg.recipient_staff_id.is_some() && msg.recipient_staff_id == actor.staff_id;
-            let is_broadcast =
-                msg.recipient_user_id.is_none() && msg.recipient_staff_id.is_none();
+            let is_broadcast = msg.recipient_user_id.is_none() && msg.recipient_staff_id.is_none();
 
             if !is_direct_user_recipient && !is_direct_staff_recipient && !is_broadcast {
                 return Err(DomainError::Forbidden);
@@ -118,4 +117,3 @@ impl StaffMessagingService {
         self.message_repo.mark_message_read(id).await
     }
 }
-

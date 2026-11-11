@@ -1,5 +1,8 @@
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash as Argon2ParsedHash, PasswordHasher as Argon2HasherTrait, PasswordVerifier, SaltString},
+    password_hash::{
+        rand_core::OsRng, PasswordHash as Argon2ParsedHash, PasswordHasher as Argon2HasherTrait,
+        PasswordVerifier, SaltString,
+    },
     Argon2,
 };
 use chrono::{Duration, Utc};
@@ -43,7 +46,11 @@ impl PasswordHasher for Argon2PasswordHasher {
             return false;
         }
         Argon2ParsedHash::new(hash)
-            .map(|parsed| Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok())
+            .map(|parsed| {
+                Argon2::default()
+                    .verify_password(password.as_bytes(), &parsed)
+                    .is_ok()
+            })
             .unwrap_or(false)
     }
 }
@@ -158,8 +165,12 @@ mod tests {
             deleted_at: None,
         };
 
-        let token = provider.generate_access_token(&user).expect("token generates");
-        let claims = provider.verify_access_token(&token).expect("token verifies");
+        let token = provider
+            .generate_access_token(&user)
+            .expect("token generates");
+        let claims = provider
+            .verify_access_token(&token)
+            .expect("token verifies");
         assert_eq!(claims.role, Role::PropertyManager);
         assert_eq!(claims.email, "manager@property.local");
         assert_eq!(claims.property_id, user.property_id);
@@ -170,4 +181,3 @@ mod tests {
         assert!(provider.verify_access_token(&parts.join(".")).is_err());
     }
 }
-

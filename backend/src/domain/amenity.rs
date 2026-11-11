@@ -13,7 +13,7 @@ pub struct Amenity {
     pub hourly_rate_cents: i32,
     pub min_duration_minutes: i32,
     pub max_duration_minutes: i32,
-    pub open_time_minutes: i32,  // minutes from midnight (e.g. 480 = 08:00)
+    pub open_time_minutes: i32, // minutes from midnight (e.g. 480 = 08:00)
     pub close_time_minutes: i32, // minutes from midnight (e.g. 1320 = 22:00)
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
@@ -23,20 +23,32 @@ pub struct Amenity {
 
 impl Amenity {
     pub fn open_time_formatted(&self) -> String {
-        format!("{:02}:{:02}", self.open_time_minutes / 60, self.open_time_minutes % 60)
+        format!(
+            "{:02}:{:02}",
+            self.open_time_minutes / 60,
+            self.open_time_minutes % 60
+        )
     }
 
     pub fn close_time_formatted(&self) -> String {
-        format!("{:02}:{:02}", self.close_time_minutes / 60, self.close_time_minutes % 60)
+        format!(
+            "{:02}:{:02}",
+            self.close_time_minutes / 60,
+            self.close_time_minutes % 60
+        )
     }
 
     pub fn validate_slot(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> DomainResult<()> {
         if end <= start {
-            return Err(DomainError::ValidationError("End time must be after start time".into()));
+            return Err(DomainError::ValidationError(
+                "End time must be after start time".into(),
+            ));
         }
 
         let duration_mins = (end - start).num_minutes();
-        if duration_mins < self.min_duration_minutes as i64 || duration_mins > self.max_duration_minutes as i64 {
+        if duration_mins < self.min_duration_minutes as i64
+            || duration_mins > self.max_duration_minutes as i64
+        {
             return Err(DomainError::InvalidDuration {
                 duration_mins,
                 min_mins: self.min_duration_minutes,
@@ -108,7 +120,10 @@ mod tests {
         let end = Utc.with_ymd_and_hms(2026, 11, 1, 7, 30, 0).unwrap();
 
         let res = amenity.validate_slot(start, end);
-        assert!(matches!(res, Err(DomainError::OutsideOperatingHours { .. })));
+        assert!(matches!(
+            res,
+            Err(DomainError::OutsideOperatingHours { .. })
+        ));
     }
 
     #[test]
@@ -132,4 +147,3 @@ mod tests {
         assert!(matches!(res, Err(DomainError::ValidationError(_))));
     }
 }
-

@@ -56,7 +56,8 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
             LEFT JOIN tenants t ON t.id = m.tenant_id
             LEFT JOIN properties p ON p.id = m.property_id
             WHERE m.deleted_at IS NULL
-        ".to_string();
+        "
+        .to_string();
 
         let mut param_index = 1;
         if tenant_id.is_some() {
@@ -83,10 +84,9 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
             query = query.bind(st);
         }
 
-        let rows = query
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to list maintenance calls: {}", e)))?;
+        let rows = query.fetch_all(&self.pool).await.map_err(|e| {
+            DomainError::Internal(format!("Failed to list maintenance calls: {}", e))
+        })?;
 
         Ok(rows.iter().map(map_maintenance_call_row).collect())
     }
@@ -105,7 +105,7 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
             LEFT JOIN tenants t ON t.id = m.tenant_id
             LEFT JOIN properties p ON p.id = m.property_id
             WHERE m.id = $1 AND m.deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -115,7 +115,10 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
         Ok(row.as_ref().map(map_maintenance_call_row))
     }
 
-    async fn create_maintenance_call(&self, call: MaintenanceCall) -> DomainResult<MaintenanceCall> {
+    async fn create_maintenance_call(
+        &self,
+        call: MaintenanceCall,
+    ) -> DomainResult<MaintenanceCall> {
         let row = sqlx::query(
             r#"
             INSERT INTO maintenance_calls (
@@ -193,7 +196,7 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
             UPDATE maintenance_calls
             SET status = $2, resolution_notes = COALESCE($3, resolution_notes), updated_at = $4
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(status)
@@ -201,7 +204,9 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
         .bind(now)
         .execute(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to update maintenance call status: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to update maintenance call status: {}", e))
+        })?;
 
         self.get_maintenance_call(id)
             .await?
@@ -215,7 +220,7 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
             UPDATE maintenance_calls
             SET status = 'cancelled', updated_at = $2
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(now)
@@ -233,9 +238,10 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
         scheduled_date: Option<DateTime<Utc>>,
         resolution_notes: Option<String>,
     ) -> DomainResult<MaintenanceCall> {
-        let staff = self.get_property_staff(staff_id).await?.ok_or_else(|| {
-            DomainError::NotFound(format!("Staff member {} not found", staff_id))
-        })?;
+        let staff = self
+            .get_property_staff(staff_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("Staff member {} not found", staff_id)))?;
 
         let now = Utc::now();
         let staff_name = format!("{} {} ({})", staff.first_name, staff.last_name, staff.title);
@@ -252,7 +258,7 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
                 resolution_notes = COALESCE($6, resolution_notes),
                 updated_at = $7
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(call_id)
         .bind(staff_id)
@@ -263,11 +269,12 @@ impl MaintenanceCallRepository for PostgresAdminRepository {
         .bind(now)
         .execute(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to assign staff to maintenance call: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to assign staff to maintenance call: {}", e))
+        })?;
 
-        self.get_maintenance_call(call_id).await?.ok_or_else(|| {
-            DomainError::NotFound(format!("Maintenance call {} not found", call_id))
-        })
+        self.get_maintenance_call(call_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("Maintenance call {} not found", call_id)))
     }
 }
-

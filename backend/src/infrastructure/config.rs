@@ -35,14 +35,17 @@ impl AppConfig {
         let app_env = std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string());
         let is_production = matches!(app_env.to_lowercase().as_str(), "production" | "staging");
 
-        let database_url = std::env::var("DATABASE_URL")
-            .map_err(|_| DomainError::Internal("DATABASE_URL environment variable is mandatory".into()))?;
+        let database_url = std::env::var("DATABASE_URL").map_err(|_| {
+            DomainError::Internal("DATABASE_URL environment variable is mandatory".into())
+        })?;
 
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        let redis_url =
+            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
         let jwt_secret = std::env::var("JWT_SECRET").map_err(|_| {
-            DomainError::Internal("JWT_SECRET environment variable is mandatory and cannot be empty".into())
+            DomainError::Internal(
+                "JWT_SECRET environment variable is mandatory and cannot be empty".into(),
+            )
         })?;
 
         if jwt_secret.len() < 32 {
@@ -78,12 +81,12 @@ impl AppConfig {
 
         let media_s3_endpoint = std::env::var("MEDIA_S3_ENDPOINT")
             .unwrap_or_else(|_| "http://localhost:9000".to_string());
-        let media_s3_bucket = std::env::var("MEDIA_S3_BUCKET")
-            .unwrap_or_else(|_| "property-media".to_string());
-        let media_s3_region = std::env::var("MEDIA_S3_REGION")
-            .unwrap_or_else(|_| "us-east-1".to_string());
-        let media_s3_access_key = std::env::var("MEDIA_S3_ACCESS_KEY")
-            .unwrap_or_else(|_| "minioadmin_dev".to_string());
+        let media_s3_bucket =
+            std::env::var("MEDIA_S3_BUCKET").unwrap_or_else(|_| "property-media".to_string());
+        let media_s3_region =
+            std::env::var("MEDIA_S3_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+        let media_s3_access_key =
+            std::env::var("MEDIA_S3_ACCESS_KEY").unwrap_or_else(|_| "minioadmin_dev".to_string());
         let media_s3_secret_key = std::env::var("MEDIA_S3_SECRET_KEY")
             .unwrap_or_else(|_| "minioadmin_dev_secret".to_string());
         let media_cdn_base_url = std::env::var("MEDIA_CDN_BASE_URL")

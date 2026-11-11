@@ -20,7 +20,11 @@ pub async fn list_property_amenities(
     if !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let amenities = state.admin_service.amenities.list_amenities_by_property(property_id).await?;
+    let amenities = state
+        .admin_service
+        .amenities
+        .list_amenities_by_property(property_id)
+        .await?;
     Ok(Json(amenities).into_response())
 }
 
@@ -33,7 +37,11 @@ pub async fn create_property_amenity(
     if !user.role.can_manage_properties() || !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let amenity = state.admin_service.amenities.create_amenity(property_id, req).await?;
+    let amenity = state
+        .admin_service
+        .amenities
+        .create_amenity(property_id, req)
+        .await?;
     Ok((StatusCode::CREATED, Json(amenity)).into_response())
 }
 
@@ -50,7 +58,11 @@ pub async fn update_amenity(
     if !user.has_property_access(existing.property_id) {
         return Err(DomainError::Forbidden);
     }
-    let amenity = state.admin_service.amenities.update_amenity(id, req).await?;
+    let amenity = state
+        .admin_service
+        .amenities
+        .update_amenity(id, req)
+        .await?;
     Ok(Json(amenity).into_response())
 }
 
@@ -69,4 +81,3 @@ pub async fn delete_amenity(
     state.admin_service.amenities.delete_amenity(id).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

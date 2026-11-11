@@ -53,7 +53,10 @@ pub async fn reserve_spot(
         .reserve_spot(&user, req.spot_id, client_ip, user_agent)
         .await?;
 
-    Ok((StatusCode::OK, Json(json!({ "message": "Parking spot reserved successfully" }))))
+    Ok((
+        StatusCode::OK,
+        Json(json!({ "message": "Parking spot reserved successfully" })),
+    ))
 }
 
 pub async fn upsert_spot(

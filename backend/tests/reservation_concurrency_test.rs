@@ -1,8 +1,9 @@
-use std::sync::Arc;
 use chrono::{Duration, Utc};
+use std::sync::Arc;
 use tokio::sync::Barrier;
 use uuid::Uuid;
 
+use backend::application::{CreateReservationRequest, ReservationService};
 use backend::domain::{
     amenity::Amenity,
     errors::DomainError,
@@ -10,7 +11,6 @@ use backend::domain::{
     reservation::{Reservation, ReservationStatus, ReservationWithDetails},
     user::{Role, User},
 };
-use backend::application::{CreateReservationRequest, ReservationService};
 
 // Concurrent Mock Repository simulating atomic GiST exclusion checking
 #[derive(Clone)]
@@ -34,7 +34,10 @@ impl ReservationRepository for ConcurrentMockReservationRepo {
         Ok(guard.iter().find(|r| r.id == id).cloned())
     }
 
-    async fn find_details_by_id(&self, _id: Uuid) -> Result<Option<ReservationWithDetails>, DomainError> {
+    async fn find_details_by_id(
+        &self,
+        _id: Uuid,
+    ) -> Result<Option<ReservationWithDetails>, DomainError> {
         Ok(None)
     }
 
@@ -47,13 +50,21 @@ impl ReservationRepository for ConcurrentMockReservationRepo {
         let guard = self.reservations.lock().await;
         let matched = guard
             .iter()
-            .filter(|r| r.amenity_id == amenity_id && r.start_time < end && r.end_time > start && r.status != ReservationStatus::Cancelled)
+            .filter(|r| {
+                r.amenity_id == amenity_id
+                    && r.start_time < end
+                    && r.end_time > start
+                    && r.status != ReservationStatus::Cancelled
+            })
             .cloned()
             .collect();
         Ok(matched)
     }
 
-    async fn list_by_user(&self, user_id: Uuid) -> Result<Vec<ReservationWithDetails>, DomainError> {
+    async fn list_by_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<ReservationWithDetails>, DomainError> {
         let guard = self.reservations.lock().await;
         let list = guard
             .iter()
@@ -76,7 +87,10 @@ impl ReservationRepository for ConcurrentMockReservationRepo {
         Ok(list)
     }
 
-    async fn create_transactional(&self, reservation: &Reservation) -> Result<Reservation, DomainError> {
+    async fn create_transactional(
+        &self,
+        reservation: &Reservation,
+    ) -> Result<Reservation, DomainError> {
         let mut guard = self.reservations.lock().await;
 
         // Simulate PostgreSQL GiST EXCLUDE constraint:
@@ -134,7 +148,10 @@ impl AuditRepository for MockAuditRepo {
         Ok(())
     }
 
-    async fn list_recent(&self, _limit: i64) -> Result<Vec<backend::domain::audit::AuditLog>, DomainError> {
+    async fn list_recent(
+        &self,
+        _limit: i64,
+    ) -> Result<Vec<backend::domain::audit::AuditLog>, DomainError> {
         Ok(Vec::new())
     }
 }
@@ -229,5 +246,8 @@ async fn test_high_concurrency_double_booking_prevention() {
 
     // Exactly 1 client must succeed, and exactly 9 clients must receive DomainError::ReservationConflict!
     assert_eq!(success_count, 1, "Exactly one booking must succeed");
-    assert_eq!(conflict_count, 9, "Remaining 9 attempts must receive 409 Conflict");
+    assert_eq!(
+        conflict_count, 9,
+        "Remaining 9 attempts must receive 409 Conflict"
+    );
 }

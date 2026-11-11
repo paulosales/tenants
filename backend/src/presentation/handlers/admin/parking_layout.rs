@@ -36,7 +36,11 @@ pub async fn save_parking_layout(
     if !user.role.can_manage_properties() || !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let layout = state.admin_service.parking_layouts.save_parking_layout(property_id, req).await?;
+    let layout = state
+        .admin_service
+        .parking_layouts
+        .save_parking_layout(property_id, req)
+        .await?;
     Ok(Json(json!({
         "message": "Parking layout and spots saved successfully",
         "data": layout
@@ -60,7 +64,9 @@ pub async fn assign_parking_spot(
     if !user.has_property_access(spot_property_id) {
         return Err(DomainError::Forbidden);
     }
-    let spot = state.admin_service.assign_parking_spot(spot_id, req).await?;
+    let spot = state
+        .admin_service
+        .assign_parking_spot(spot_id, req)
+        .await?;
     Ok(Json(spot).into_response())
 }
-

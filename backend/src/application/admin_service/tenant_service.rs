@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{CreateTenantRequest, UpdateTenantRequest};
@@ -14,10 +14,7 @@ pub struct TenantService {
 }
 
 impl TenantService {
-    pub fn new(
-        tenant_repo: Arc<dyn TenantRepository>,
-        unit_repo: Arc<dyn UnitRepository>,
-    ) -> Self {
+    pub fn new(tenant_repo: Arc<dyn TenantRepository>, unit_repo: Arc<dyn UnitRepository>) -> Self {
         Self {
             tenant_repo,
             unit_repo,
@@ -26,21 +23,31 @@ impl TenantService {
 
     fn validate_tenant_fields(first_name: &str, last_name: &str, email: &str) -> DomainResult<()> {
         if first_name.trim().is_empty() || last_name.trim().is_empty() {
-            return Err(DomainError::ValidationError("First and last names are required".to_string()));
+            return Err(DomainError::ValidationError(
+                "First and last names are required".to_string(),
+            ));
         }
         if email.trim().is_empty() || !email.contains('@') {
-            return Err(DomainError::ValidationError("A valid email address is required".to_string()));
+            return Err(DomainError::ValidationError(
+                "A valid email address is required".to_string(),
+            ));
         }
         Ok(())
     }
 
-    async fn release_unit_if_empty(&self, unit_id: Uuid, exclude_tenant_id: Uuid) -> DomainResult<()> {
+    async fn release_unit_if_empty(
+        &self,
+        unit_id: Uuid,
+        exclude_tenant_id: Uuid,
+    ) -> DomainResult<()> {
         let remaining_active = self
             .unit_repo
             .count_active_tenants_for_unit(unit_id, Some(exclude_tenant_id))
             .await?;
         if remaining_active == 0 {
-            self.unit_repo.set_unit_status(unit_id, UnitStatus::Vacant).await?;
+            self.unit_repo
+                .set_unit_status(unit_id, UnitStatus::Vacant)
+                .await?;
         }
         Ok(())
     }
@@ -51,7 +58,9 @@ impl TenantService {
         status: Option<TenantStatus>,
         query: Option<String>,
     ) -> DomainResult<Vec<TenantWithUnit>> {
-        self.tenant_repo.list_tenants(property_id, status, query).await
+        self.tenant_repo
+            .list_tenants(property_id, status, query)
+            .await
     }
 
     pub async fn get_tenant(&self, id: Uuid) -> DomainResult<TenantWithUnit> {
@@ -65,15 +74,18 @@ impl TenantService {
         Self::validate_tenant_fields(&req.first_name, &req.last_name, &req.email)?;
 
         if let Some(unit_id) = req.assigned_unit_id {
-            let unit = self
-                .unit_repo
-                .get_unit(unit_id)
-                .await?
-                .ok_or_else(|| DomainError::NotFound(format!("Unit with ID {} not found", unit_id)))?;
+            let unit = self.unit_repo.get_unit(unit_id).await?.ok_or_else(|| {
+                DomainError::NotFound(format!("Unit with ID {} not found", unit_id))
+            })?;
             if unit.status == UnitStatus::Occupied {
-                tracing::info!("Assigning tenant to already occupied unit {}", unit.unit_number);
+                tracing::info!(
+                    "Assigning tenant to already occupied unit {}",
+                    unit.unit_number
+                );
             }
-            self.unit_repo.set_unit_status(unit_id, UnitStatus::Occupied).await?;
+            self.unit_repo
+                .set_unit_status(unit_id, UnitStatus::Occupied)
+                .await?;
         }
 
         let now = Utc::now();
@@ -105,7 +117,9 @@ impl TenantService {
                 self.release_unit_if_empty(old_unit_id, id).await?;
             }
             if let Some(new_unit_id) = req.assigned_unit_id {
-                self.unit_repo.set_unit_status(new_unit_id, UnitStatus::Occupied).await?;
+                self.unit_repo
+                    .set_unit_status(new_unit_id, UnitStatus::Occupied)
+                    .await?;
             }
         }
 
@@ -136,4 +150,3 @@ impl TenantService {
         self.tenant_repo.delete_tenant(id).await
     }
 }
-

@@ -8,9 +8,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    application::admin_service::{
-        CreateTenantReservationRequest, ReviewTenantReservationRequest,
-    },
+    application::admin_service::{CreateTenantReservationRequest, ReviewTenantReservationRequest},
     domain::{
         errors::{DomainError, DomainResult},
         user::Role,
@@ -45,7 +43,11 @@ pub async fn list_tenant_reservations(
         res
     } else {
         res.into_iter()
-            .filter(|r| r.property_id.map(|p| user.has_property_access(p)).unwrap_or(true))
+            .filter(|r| {
+                r.property_id
+                    .map(|p| user.has_property_access(p))
+                    .unwrap_or(true)
+            })
             .collect()
     };
     Ok(Json(scoped).into_response())
@@ -63,7 +65,11 @@ pub async fn create_tenant_reservation(
         return Err(DomainError::Forbidden);
     }
 
-    let amenity = state.admin_service.amenities.get_amenity(req.amenity_id).await?;
+    let amenity = state
+        .admin_service
+        .amenities
+        .get_amenity(req.amenity_id)
+        .await?;
     if !user.has_property_access(amenity.property_id) {
         return Err(DomainError::Forbidden);
     }
@@ -106,7 +112,11 @@ pub async fn cancel_tenant_reservation(
         return Err(DomainError::Forbidden);
     }
 
-    state.admin_service.reservations.cancel_tenant_reservation(id).await?;
+    state
+        .admin_service
+        .reservations
+        .cancel_tenant_reservation(id)
+        .await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
 
@@ -132,4 +142,3 @@ pub async fn review_tenant_reservation(
         .await?;
     Ok(Json(res).into_response())
 }
-

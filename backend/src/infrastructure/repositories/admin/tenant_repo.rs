@@ -82,7 +82,7 @@ impl TenantRepository for PostgresAdminRepository {
                   u.unit_number ILIKE '%' || $3 || '%'
               ))
             ORDER BY t.created_at DESC
-            "#
+            "#,
         )
         .bind(property_id)
         .bind(status_str)
@@ -110,7 +110,7 @@ impl TenantRepository for PostgresAdminRepository {
             LEFT JOIN units u ON u.id = t.assigned_unit_id AND u.deleted_at IS NULL
             LEFT JOIN properties p ON p.id = u.property_id AND p.deleted_at IS NULL
             WHERE t.id = $1 AND t.deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -200,4 +200,3 @@ impl TenantRepository for PostgresAdminRepository {
         Ok(())
     }
 }
-

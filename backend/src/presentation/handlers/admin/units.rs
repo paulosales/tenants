@@ -20,7 +20,11 @@ pub async fn list_units(
     if !user.role.can_perform_maintenance() || !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let units = state.admin_service.units.list_units_by_property(property_id).await?;
+    let units = state
+        .admin_service
+        .units
+        .list_units_by_property(property_id)
+        .await?;
     Ok(Json(units).into_response())
 }
 
@@ -33,7 +37,11 @@ pub async fn create_unit(
     if !user.role.can_manage_properties() || !user.has_property_access(property_id) {
         return Err(DomainError::Forbidden);
     }
-    let unit = state.admin_service.units.create_unit(property_id, req).await?;
+    let unit = state
+        .admin_service
+        .units
+        .create_unit(property_id, req)
+        .await?;
     Ok((StatusCode::CREATED, Json(unit)).into_response())
 }
 
@@ -69,4 +77,3 @@ pub async fn delete_unit(
     state.admin_service.units.delete_unit(id).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
 }
-

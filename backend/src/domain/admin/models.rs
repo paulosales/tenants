@@ -462,4 +462,3 @@ pub struct RoleDefinition {
     pub permissions: Vec<String>,
     pub user_count: i64,
 }
-

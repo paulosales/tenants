@@ -107,7 +107,10 @@ impl Role {
     }
 
     pub fn can_perform_maintenance(&self) -> bool {
-        matches!(self, Role::SuperAdmin | Role::PropertyManager | Role::MaintenanceStaff)
+        matches!(
+            self,
+            Role::SuperAdmin | Role::PropertyManager | Role::MaintenanceStaff
+        )
     }
 
     pub fn can_access_staff_messages(&self) -> bool {
@@ -192,7 +195,10 @@ impl User {
     }
 
     /// Resolves and authorizes an optional query/body `property_id` filter against the caller's scope.
-    pub fn enforce_property_scope(&self, requested: Option<Uuid>) -> Result<Option<Uuid>, crate::domain::errors::DomainError> {
+    pub fn enforce_property_scope(
+        &self,
+        requested: Option<Uuid>,
+    ) -> Result<Option<Uuid>, crate::domain::errors::DomainError> {
         if self.role == Role::SuperAdmin {
             return Ok(requested);
         }

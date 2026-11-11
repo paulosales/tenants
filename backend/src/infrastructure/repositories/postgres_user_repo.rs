@@ -149,7 +149,9 @@ impl UserRepository for PostgresUserRepository {
         .bind(user_id)
         .execute(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Database error updating refresh token: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Database error updating refresh token: {}", e))
+        })?;
 
         Ok(())
     }

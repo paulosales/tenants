@@ -11,7 +11,10 @@ use crate::domain::{
 
 #[async_trait]
 impl TenantReservationRepository for PostgresAdminRepository {
-    async fn list_tenant_reservations(&self, tenant_id: Option<Uuid>) -> DomainResult<Vec<TenantReservation>> {
+    async fn list_tenant_reservations(
+        &self,
+        tenant_id: Option<Uuid>,
+    ) -> DomainResult<Vec<TenantReservation>> {
         let mut q = "
             SELECT r.id, r.amenity_id, a.name as amenity_name, r.tenant_id,
                    CONCAT(t.first_name, ' ', t.last_name) as tenant_name,
@@ -24,7 +27,8 @@ impl TenantReservationRepository for PostgresAdminRepository {
             LEFT JOIN tenants t ON t.id = r.tenant_id
             LEFT JOIN units u ON u.id = t.assigned_unit_id
             WHERE r.deleted_at IS NULL
-        ".to_string();
+        "
+        .to_string();
 
         if tenant_id.is_some() {
             q.push_str(" AND r.tenant_id = $1");
@@ -36,10 +40,9 @@ impl TenantReservationRepository for PostgresAdminRepository {
             query = query.bind(tid);
         }
 
-        let rows = query
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| DomainError::Internal(format!("Failed to list tenant reservations: {}", e)))?;
+        let rows = query.fetch_all(&self.pool).await.map_err(|e| {
+            DomainError::Internal(format!("Failed to list tenant reservations: {}", e))
+        })?;
 
         Ok(rows
             .into_iter()
@@ -66,7 +69,10 @@ impl TenantReservationRepository for PostgresAdminRepository {
             .collect())
     }
 
-    async fn create_tenant_reservation(&self, res: TenantReservation) -> DomainResult<TenantReservation> {
+    async fn create_tenant_reservation(
+        &self,
+        res: TenantReservation,
+    ) -> DomainResult<TenantReservation> {
         let row = sqlx::query(
             r#"
             INSERT INTO reservations (
@@ -111,7 +117,9 @@ impl TenantReservationRepository for PostgresAdminRepository {
             tenant_name: res.tenant_name,
             property_id: res.property_id,
             unit_number: res.unit_number,
-            booking_date: res.booking_date.or_else(|| Some(start_time.format("%Y-%m-%d").to_string())),
+            booking_date: res
+                .booking_date
+                .or_else(|| Some(start_time.format("%Y-%m-%d").to_string())),
             start_time,
             end_time: row.get("end_time"),
             attendees_count: row.get("attendees_count"),
@@ -129,13 +137,15 @@ impl TenantReservationRepository for PostgresAdminRepository {
             UPDATE reservations
             SET status = 'cancelled', updated_at = $2
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(now)
         .execute(&self.pool)
         .await
-        .map_err(|e| DomainError::Internal(format!("Failed to cancel tenant reservation: {}", e)))?;
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to cancel tenant reservation: {}", e))
+        })?;
 
         Ok(())
     }
@@ -154,7 +164,7 @@ impl TenantReservationRepository for PostgresAdminRepository {
             LEFT JOIN tenants t ON t.id = r.tenant_id
             LEFT JOIN units u ON u.id = t.assigned_unit_id
             WHERE r.id = $1 AND r.deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -198,7 +208,7 @@ impl TenantReservationRepository for PostgresAdminRepository {
                 updated_at = $4
             WHERE id = $1 AND deleted_at IS NULL
             RETURNING id
-            "#
+            "#,
         )
         .bind(id)
         .bind(status)
@@ -215,4 +225,3 @@ impl TenantReservationRepository for PostgresAdminRepository {
             .ok_or_else(|| DomainError::NotFound("Updated reservation missing".into()))
     }
 }
-

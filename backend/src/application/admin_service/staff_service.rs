@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::dtos::{CreatePropertyStaffRequest, UpdatePropertyStaffRequest};
@@ -21,7 +21,10 @@ impl PropertyStaffService {
         repo: Arc<dyn PropertyStaffRepository>,
         property_repo: Arc<dyn PropertyRepository>,
     ) -> Self {
-        Self { repo, property_repo }
+        Self {
+            repo,
+            property_repo,
+        }
     }
 
     pub async fn list_property_staff(
@@ -54,7 +57,9 @@ impl PropertyStaffService {
             ));
         }
         if req.phone.trim().is_empty() {
-            return Err(DomainError::ValidationError("Phone number is required".to_string()));
+            return Err(DomainError::ValidationError(
+                "Phone number is required".to_string(),
+            ));
         }
 
         let role = req.role.to_lowercase();
@@ -93,7 +98,9 @@ impl PropertyStaffService {
             email: req.email.trim().to_string(),
             phone: req.phone.trim().to_string(),
             specialization: req.specialization.map(|s| s.trim().to_string()),
-            shift: req.shift.unwrap_or_else(|| "Day (08:00 - 17:00)".to_string()),
+            shift: req
+                .shift
+                .unwrap_or_else(|| "Day (08:00 - 17:00)".to_string()),
             status,
             assigned_calls_count: 0,
             created_at: now,
@@ -143,4 +150,3 @@ impl PropertyStaffService {
         self.repo.delete_property_staff(id).await
     }
 }
-
