@@ -1,11 +1,17 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiProvider } from '../context/ApiContext';
 import { PublicPortalView } from '../components/public/PublicPortalView';
 import { PropertyShowcaseModal } from '../components/admin/PropertyShowcaseModal';
 import { sanitizeRichHtml } from '../utils/htmlSanitizer';
+import {
+  calculateDistanceKm,
+  matchCityNameFromAvailable,
+  matchPropertyCityByCoordinates,
+  reverseGeocodeCityName,
+} from '../utils/locationMatcher';
 import {
   DEFAULT_RENTAL_FILTERS,
   filterAndSortProperties,
@@ -196,8 +202,21 @@ function renderWithProviders(ui: React.ReactElement, gateways: IApiGateways) {
 }
 
 describe('Rental Showcase, Filters, OpenStreetMap Price Pins & XSS Sanitization', () => {
+  const originalGeolocation = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
+
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
+  });
+
+  afterEach(() => {
+    if (originalGeolocation) {
+      Object.defineProperty(navigator, 'geolocation', originalGeolocation);
+    } else {
+      Object.defineProperty(navigator, 'geolocation', {
+        configurable: true,
+        value: undefined,
+      });
+    }
   });
 
   it('strips scripts, inline event handlers, and javascript: hrefs in sanitizeRichHtml', () => {
@@ -346,6 +365,130 @@ describe('Rental Showcase, Filters, OpenStreetMap Price Pins & XSS Sanitization'
         'prop-aurora',
         'photo-1'
       );
+    });
+  });
+
+  it('matches user coordinates locally to portfolio city within metro radius and handles reverse-geocode fallback', async () => {
+    // Winnipeg downtown (~7.3 km from Aurora Heights)
+    expect(calculateDistanceKm(49.8951, -97.1384, 49.9612, -97.1394)).toBeLessThan(10);
+    const localMatch = matchPropertyCityByCoordinates(49.8951, -97.1384, [
+      auroraProperty,
+      harborProperty,
+    ]);
+    expect(localMatch?.city).toBe('Winnipeg');
+
+    // Toronto (far outside any listed property metro area)
+    const outsideMatch = matchPropertyCityByCoordinates(43.6532, -79.3832, [
+      auroraProperty,
+      harborProperty,
+    ]);
+    expect(outsideMatch).toBeNull();
+
+    // Case-insensitive city matcher returns canonical option casing
+    expect(matchCityNameFromAvailable(' winnipeg ', ['Seattle', 'Winnipeg'])).toBe('Winnipeg');
+
+    // Injectable Nominatim fallback parses city safely
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ address: { city: 'Winnipeg' } }),
+    }) as unknown as typeof fetch;
+    await expect(reverseGeocodeCityName(49.8951, -97.1384, mockFetch)).resolves.toBe('Winnipeg');
+  });
+
+  it('automatically filters properties by detected user city and supports View all cities override', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (success: PositionCallback) => {
+          success({
+            coords: {
+              latitude: 49.8951,
+              longitude: -97.1384,
+              accuracy: 25,
+              altitude: null,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null,
+            },
+            timestamp: Date.now(),
+          } as GeolocationPosition);
+        },
+      },
+    });
+
+    const gateways = makeFakeGateways();
+    renderWithProviders(<PublicPortalView onOpenLogin={vi.fn()} />, gateways);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('detected-city-banner')).toHaveTextContent(
+        'Showing properties in Winnipeg based on your current location'
+      );
+      expect((screen.getByLabelText(/Filter by city/i) as HTMLSelectElement).value).toBe(
+        'Winnipeg'
+      );
+      expect(screen.getAllByText('Aurora Heights Commons').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('Harborview Terrace')).not.toBeInTheDocument();
+    });
+
+    // Clicking "View all cities" clears auto city filter and shows Seattle listing too
+    fireEvent.click(screen.getByRole('button', { name: /View all cities/i }));
+    await waitFor(() => {
+      expect((screen.getByLabelText(/Filter by city/i) as HTMLSelectElement).value).toBe('all');
+      expect(screen.getByText('Harborview Terrace')).toBeInTheDocument();
+    });
+  });
+
+  it('leaves all cities visible when user location is in a city without listed properties and honors ?city URL override', async () => {
+    // 1. User located in Toronto (no listed properties)
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (success: PositionCallback) => {
+          success({
+            coords: {
+              latitude: 43.6532,
+              longitude: -79.3832,
+              accuracy: 25,
+            },
+            timestamp: Date.now(),
+          } as GeolocationPosition);
+        },
+      },
+    });
+
+    const gateways = makeFakeGateways();
+    const firstRender = renderWithProviders(<PublicPortalView onOpenLogin={vi.fn()} />, gateways);
+
+    await waitFor(() => {
+      expect(screen.getByText('Aurora Heights Commons')).toBeInTheDocument();
+      expect(screen.getByText('Harborview Terrace')).toBeInTheDocument();
+      expect((screen.getByLabelText(/Filter by city/i) as HTMLSelectElement).value).toBe('all');
+    });
+    firstRender.unmount();
+
+    // 2. Explicit ?city=Seattle in URL must NOT be overridden even when GPS says Winnipeg
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (success: PositionCallback) => {
+          success({
+            coords: {
+              latitude: 49.8951,
+              longitude: -97.1384,
+              accuracy: 25,
+            },
+            timestamp: Date.now(),
+          } as GeolocationPosition);
+        },
+      },
+    });
+    window.history.replaceState({}, '', '/?city=Seattle');
+
+    renderWithProviders(<PublicPortalView onOpenLogin={vi.fn()} />, gateways);
+    await waitFor(() => {
+      expect((screen.getByLabelText(/Filter by city/i) as HTMLSelectElement).value).toBe('Seattle');
+      expect(screen.getByText('Harborview Terrace')).toBeInTheDocument();
+      expect(screen.queryByText('Aurora Heights Commons')).not.toBeInTheDocument();
     });
   });
 });

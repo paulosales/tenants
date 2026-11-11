@@ -4,12 +4,15 @@ import {
   Bath,
   DollarSign,
   Filter,
+  Loader2,
+  LocateFixed,
   MapPin,
   Search,
   SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react';
+import type { LocationDetectionStatus } from '../../hooks/useUserCityDetection';
 import {
   DEFAULT_RENTAL_FILTERS,
   type BathroomFilter,
@@ -25,6 +28,8 @@ interface RentalFilterBarProps {
   totalCount: number;
   filteredCount: number;
   matchingSuitesCount: number;
+  locationStatus?: LocationDetectionStatus;
+  onDetectLocation?: () => void;
   onChange: (next: RentalFiltersState) => void;
 }
 
@@ -43,6 +48,8 @@ export const RentalFilterBar: React.FC<RentalFilterBarProps> = ({
   totalCount,
   filteredCount,
   matchingSuitesCount,
+  locationStatus = 'idle',
+  onDetectLocation,
   onChange,
 }) => {
   const [showFeaturesDrawer, setShowFeaturesDrawer] = useState(false);
@@ -120,21 +127,44 @@ export const RentalFilterBar: React.FC<RentalFilterBarProps> = ({
           )}
         </div>
 
-        <div className="lg:col-span-3 relative">
-          <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <select
-            aria-label="Filter by city"
-            value={filters.city}
-            onChange={(e) => updateField('city', e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer"
-          >
-            <option value="all">All Cities ({availableCities.length})</option>
-            {availableCities.map((city) => (
-              <option key={city} value={city}>
-                {city}
-              </option>
-            ))}
-          </select>
+        <div className="lg:col-span-3 flex items-center gap-1.5">
+          <div className="relative flex-1 min-w-0">
+            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              aria-label="Filter by city"
+              value={filters.city}
+              onChange={(e) => updateField('city', e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer"
+            >
+              <option value="all">All Cities ({availableCities.length})</option>
+              {availableCities.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+          </div>
+          {onDetectLocation && (
+            <button
+              type="button"
+              aria-label="Detect my city"
+              title="Filter by my current city"
+              disabled={locationStatus === 'detecting'}
+              onClick={onDetectLocation}
+              className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer disabled:opacity-60 ${
+                locationStatus === 'matched' && filters.city !== 'all'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+              }`}
+            >
+              {locationStatus === 'detecting' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <LocateFixed className="w-4 h-4" />
+              )}
+              <span className="hidden xl:inline">Near Me</span>
+            </button>
+          )}
         </div>
 
         <div className="lg:col-span-4 flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl overflow-x-auto">

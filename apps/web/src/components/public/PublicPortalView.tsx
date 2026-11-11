@@ -1,15 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Building2,
   Columns2,
   LayoutGrid,
+  LocateFixed,
   LogIn,
   Map as MapIcon,
   Sparkles,
+  X,
 } from 'lucide-react';
 import type { CreateTenancyApplicationDto, PublicPropertyListing } from '@tenants/shared-types';
 import { usePublicPortalGateway } from '../../context/ApiContext';
+import { useUserCityDetection } from '../../hooks/useUserCityDetection';
 import { AlertBanner } from '../common/AlertBanner';
 import {
   DEFAULT_RENTAL_FILTERS,
@@ -50,6 +53,8 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({ onOpenLogin 
     ...DEFAULT_RENTAL_FILTERS,
     ...readInitialFiltersFromUrl(),
   }));
+  const initialUrlHasCity = useMemo(() => Boolean(readInitialFiltersFromUrl().city), []);
+  const userChangedCityRef = useRef(false);
   const [viewMode, setViewMode] = useState<LayoutViewMode>('split');
   const [detailPropertyId, setDetailPropertyId] = useState<string | null>(() =>
     readInitialDetailPropertyId()
@@ -115,6 +120,35 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({ onOpenLogin 
     }
     return Array.from(cities).sort((a, b) => a.localeCompare(b));
   }, [properties]);
+
+  const {
+    status: locationStatus,
+    detectedCity,
+    wasManualTrigger,
+    detectNow,
+    dismissStatusFeedback,
+  } = useUserCityDetection({
+    properties,
+    availableCities,
+    disabled: initialUrlHasCity || Boolean(detailPropertyId),
+    onCityDetected: (city) => {
+      if (!userChangedCityRef.current) {
+        setFilters((prev) => ({ ...prev, city }));
+      }
+    },
+  });
+
+  const handleFiltersChange = (next: RentalFiltersState) => {
+    if (next.city !== filters.city) {
+      userChangedCityRef.current = true;
+    }
+    setFilters(next);
+  };
+
+  const handleDetectLocation = () => {
+    userChangedCityRef.current = false;
+    detectNow();
+  };
 
   const availableFeatureTags = useMemo(() => {
     const tags = new Map<string, string>();
@@ -339,8 +373,59 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({ onOpenLogin 
               totalCount={properties.length}
               filteredCount={filteredProperties.length}
               matchingSuitesCount={matchingSuitesCount}
-              onChange={setFilters}
+              locationStatus={locationStatus}
+              onDetectLocation={handleDetectLocation}
+              onChange={handleFiltersChange}
             />
+
+            {/* Contextual Auto-Detected Local City Indicator */}
+            {detectedCity && filters.city.toLowerCase() === detectedCity.toLowerCase() && (
+              <div
+                data-testid="detected-city-banner"
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900"
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <LocateFixed className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>
+                    Showing properties in <strong>{detectedCity}</strong> based on your current
+                    location.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleFiltersChange({ ...filters, city: 'all' })}
+                  className="font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+                >
+                  View all cities
+                </button>
+              </div>
+            )}
+
+            {wasManualTrigger &&
+              (locationStatus === 'outside_area' ||
+                locationStatus === 'denied' ||
+                locationStatus === 'unavailable') && (
+                <div className="flex items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs text-slate-700">
+                  <div className="flex items-center gap-2">
+                    <LocateFixed className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>
+                      {locationStatus === 'outside_area'
+                        ? 'We currently have no listed properties in your detected city — showing all communities.'
+                        : locationStatus === 'denied'
+                        ? 'Location permission is blocked in your browser — please choose a city manually.'
+                        : 'Browser location is unavailable on this device — please choose a city manually.'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Dismiss location notice"
+                    onClick={dismissStatusFeedback}
+                    className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
             {/* View Switcher Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3">
