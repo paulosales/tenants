@@ -114,6 +114,32 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
     },
   });
 
+  // Quick instant single-spot tenant assignment mutation
+  const assignSpotMutation = useMutation({
+    mutationFn: ({
+      spotId,
+      tenantId,
+      isOccupied,
+    }: {
+      spotId: string;
+      tenantId: string | null;
+      isOccupied: boolean;
+    }) =>
+      parkingGateway.assignParkingSpot(spotId, {
+        tenant_id: tenantId,
+        is_occupied: isOccupied,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['parking-layout', activePropertyId] });
+      setSaveSuccess(true);
+      setSaveError(null);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    },
+    onError: (err: any) => {
+      setSaveError(err.message || 'Failed to assign parking spot');
+    },
+  });
+
   // Add new spot
   const handleAddSpot = (type: AdminSpotType) => {
     const dim = DEFAULT_SPOT_DIMS[type];
@@ -749,6 +775,22 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
                   clearLabel="-- Unassigned --"
                   clearValue="none"
                 />
+                {!selectedSpot.id.startsWith('new-') && (
+                  <button
+                    type="button"
+                    disabled={assignSpotMutation.isPending}
+                    onClick={() =>
+                      assignSpotMutation.mutate({
+                        spotId: selectedSpot.id,
+                        tenantId: selectedSpot.assigned_tenant_id || null,
+                        isOccupied: selectedSpot.is_occupied,
+                      })
+                    }
+                    className="mt-2 w-full py-1.5 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    {assignSpotMutation.isPending ? 'Assigning Spot...' : 'Apply Assignment Immediately'}
+                  </button>
+                )}
               </div>
 
               {/* Occupied Toggle */}

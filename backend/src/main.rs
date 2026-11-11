@@ -115,6 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         amenity_repo,
         audit_repo,
         admin_service,
+        cookie_secure: config.is_production,
     };
 
     let router = build_router(app_state, &config.allowed_origins);

@@ -1,6 +1,9 @@
 import React, { createContext, useContext } from 'react';
 import type {
   IMobileAmenityService,
+  IMobileAuthService,
+  IMobileMaintenanceService,
+  IMobileMessagingService,
   IMobileParkingService,
   IMobileServices,
   IResidentDashboardService,
@@ -28,3 +31,14 @@ export function useMobileAmenityService(): IMobileAmenityService {
   return useContext(MobileServicesContext).amenities;
 }
 
+export function useMobileAuthService(): IMobileAuthService {
+  return useContext(MobileServicesContext).auth;
+}
+
+export function useMobileMaintenanceService(): IMobileMaintenanceService {
+  return useContext(MobileServicesContext).maintenance;
+}
+
+export function useMobileMessagingService(): IMobileMessagingService {
+  return useContext(MobileServicesContext).messages;
+}

@@ -1,9 +1,66 @@
 import React, { useMemo } from 'react';
-import { Building2, DoorClosed, Users, Sparkles, Car, ShieldCheck, Home } from 'lucide-react';
-import type { PropertyWithStats } from '@tenants/shared-types';
+import {
+  Building2,
+  CalendarCheck,
+  Car,
+  DoorClosed,
+  FileCheck2,
+  Home,
+  MessageSquare,
+  ShieldCheck,
+  Sparkles,
+  UserCog,
+  Users,
+  Wrench,
+} from 'lucide-react';
+import type { PropertyWithStats, Role } from '@tenants/shared-types';
 import { SearchableSelect, type SearchableOption } from './SearchableSelect';
 
-export type AdminTab = 'properties' | 'units' | 'tenants' | 'staff' | 'amenities' | 'parking' | 'tenant-view';
+export type AdminTab =
+  | 'properties'
+  | 'units'
+  | 'tenants'
+  | 'applications'
+  | 'staff'
+  | 'messages'
+  | 'amenities'
+  | 'amenity-approvals'
+  | 'parking'
+  | 'maintenance'
+  | 'users'
+  | 'tenant-view';
+
+export const ROLE_ALLOWED_TABS: Record<Role, AdminTab[]> = {
+  super_admin: [
+    'properties',
+    'units',
+    'tenants',
+    'applications',
+    'staff',
+    'messages',
+    'amenities',
+    'amenity-approvals',
+    'parking',
+    'maintenance',
+    'users',
+    'tenant-view',
+  ],
+  property_manager: [
+    'applications',
+    'amenity-approvals',
+    'staff',
+    'messages',
+    'parking',
+    'maintenance',
+    'properties',
+    'units',
+    'tenants',
+    'amenities',
+  ],
+  maintenance_staff: ['maintenance', 'messages'],
+  staff: ['messages'],
+  tenant: ['tenant-view'],
+};
 
 interface SidebarProps {
   currentTab: AdminTab;
@@ -11,7 +68,27 @@ interface SidebarProps {
   properties: PropertyWithStats[];
   selectedPropertyId: string | null;
   onSelectProperty: (id: string | null) => void;
+  userRole?: Role;
 }
+
+const ALL_NAV_ITEMS: Array<{
+  id: AdminTab;
+  label: string;
+  icon: React.FC<{ className?: string }>;
+}> = [
+  { id: 'properties', label: 'Properties', icon: Building2 },
+  { id: 'units', label: 'Units', icon: DoorClosed },
+  { id: 'tenants', label: 'Tenants', icon: Users },
+  { id: 'applications', label: 'Applications', icon: FileCheck2 },
+  { id: 'staff', label: 'Staff & Team', icon: ShieldCheck },
+  { id: 'messages', label: 'Staff Messages', icon: MessageSquare },
+  { id: 'amenities', label: 'Amenities', icon: Sparkles },
+  { id: 'amenity-approvals', label: 'Amenity Approvals', icon: CalendarCheck },
+  { id: 'parking', label: 'Parking Map', icon: Car },
+  { id: 'maintenance', label: 'Maintenance Calls', icon: Wrench },
+  { id: 'users', label: 'Users & Roles', icon: UserCog },
+  { id: 'tenant-view', label: 'Tenant View', icon: Home },
+];
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
@@ -19,6 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   properties,
   selectedPropertyId,
   onSelectProperty,
+  userRole = 'super_admin',
 }) => {
   const propertyOptions: SearchableOption[] = useMemo(() => {
     return [
@@ -31,15 +109,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       })),
     ];
   }, [properties]);
-  const navItems = [
-    { id: 'properties' as AdminTab, label: 'Properties', icon: Building2 },
-    { id: 'units' as AdminTab, label: 'Units', icon: DoorClosed },
-    { id: 'tenants' as AdminTab, label: 'Tenants', icon: Users },
-    { id: 'staff' as AdminTab, label: 'Staff & Team', icon: ShieldCheck },
-    { id: 'amenities' as AdminTab, label: 'Amenities', icon: Sparkles },
-    { id: 'parking' as AdminTab, label: 'Parking Map', icon: Car },
-    { id: 'tenant-view' as AdminTab, label: 'Tenant View', icon: Home },
-  ];
+
+  const allowedSet = useMemo(() => new Set(ROLE_ALLOWED_TABS[userRole] || []), [userRole]);
+  const navItems = useMemo(
+    () => ALL_NAV_ITEMS.filter((item) => allowedSet.has(item.id)),
+    [allowedSet]
+  );
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 text-slate-200 flex flex-col shrink-0 min-h-screen">

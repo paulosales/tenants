@@ -24,6 +24,7 @@ pub struct AppState {
     pub amenity_repo: Arc<dyn crate::domain::repository::AmenityRepository>,
     pub audit_repo: Arc<dyn crate::domain::repository::AuditRepository>,
     pub admin_service: Arc<crate::application::AdminService>,
+    pub cookie_secure: bool,
 }
 
 #[derive(Debug, Clone)]

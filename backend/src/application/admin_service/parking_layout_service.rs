@@ -2,7 +2,7 @@ use std::sync::Arc;
 use chrono::Utc;
 use uuid::Uuid;
 
-use super::dtos::SaveParkingLayoutRequest;
+use super::dtos::{AssignParkingSpotRequest, SaveParkingLayoutRequest};
 use crate::domain::{
     admin::{ParkingLayoutRepository, ParkingLayoutWithSpots, ParkingSpot, PropertyRepository},
     errors::{DomainError, DomainResult},
@@ -82,6 +82,17 @@ impl ParkingLayoutService {
 
         self.layout_repo
             .save_parking_layout(property_id, req.canvas_width, req.canvas_height, grid_size, spots)
+            .await
+    }
+
+    pub async fn assign_parking_spot(
+        &self,
+        spot_id: Uuid,
+        req: AssignParkingSpotRequest,
+    ) -> DomainResult<ParkingSpot> {
+        let is_occupied = req.is_occupied.unwrap_or_else(|| req.tenant_id.is_some());
+        self.layout_repo
+            .assign_parking_spot(spot_id, req.tenant_id, is_occupied)
             .await
     }
 }

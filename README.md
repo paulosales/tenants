@@ -8,11 +8,17 @@
 
 An enterprise-grade, highly secure, and maintainable Property & Tenant Management Platform featuring a Clean/Hexagonal Architecture Rust backend, an interactive React Web application, and a cross-platform React Native mobile client.
 
+## Documentation & Sales Resources
+
+- **[Application User Manual & Operations Guide](docs/USER_MANUAL.md)** — Complete role-by-role documentation (Public Visitor, Admin, Property Manager, Maintainer, Building Staff, Tenant), Mobile App guide, security architecture, and API reference.
+- **[Product Overview & Sales Presentation](docs/SALES_PRESENTATION.md)** — Concise slide-by-slide commercial presentation and ROI pitch deck.
+
 ---
 
 ## Table of Contents
 
 - [Architectural Overview](#architectural-overview)
+- [Documentation & Sales Resources](#documentation--sales-resources)
 - [Key Features](#key-features)
 - [Monorepo Structure](#monorepo-structure)
 - [Quick Start (Docker Turnkey)](#quick-start-docker-turnkey)

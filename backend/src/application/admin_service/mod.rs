@@ -2,26 +2,42 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 pub mod amenity_service;
+pub mod application_service;
 pub mod dtos;
 pub mod maintenance_service;
+pub mod message_service;
 pub mod parking_layout_service;
 pub mod property_service;
+pub mod public_portal_service;
 pub mod staff_service;
 pub mod tenant_reservation_service;
 pub mod tenant_service;
 pub mod unit_service;
+pub mod user_admin_service;
 
 pub use amenity_service::AdminAmenityService;
+pub use application_service::{PublicApplicationReceipt, TenancyApplicationService};
 pub use dtos::*;
 pub use maintenance_service::MaintenanceService;
+pub use message_service::StaffMessagingService;
 pub use parking_layout_service::ParkingLayoutService;
 pub use property_service::PropertyService;
+pub use public_portal_service::PublicPortalService;
 pub use staff_service::PropertyStaffService;
 pub use tenant_reservation_service::TenantReservationService;
 pub use tenant_service::TenantService;
 pub use unit_service::UnitService;
+pub use user_admin_service::AdminUserService;
 
-use crate::domain::{admin::*, errors::DomainResult};
+use crate::{
+    domain::{
+        admin::*,
+        errors::DomainResult,
+        ports::PasswordHasher,
+        user::{Role, User},
+    },
+    infrastructure::security::Argon2PasswordHasher,
+};
 
 /// Facade composing single-responsibility domain services over segregated repository traits (ISP + SRP).
 pub struct AdminService {
@@ -33,10 +49,21 @@ pub struct AdminService {
     pub maintenance: MaintenanceService,
     pub reservations: TenantReservationService,
     pub staff: PropertyStaffService,
+    pub public_portal: PublicPortalService,
+    pub applications: TenancyApplicationService,
+    pub messages: StaffMessagingService,
+    pub users: AdminUserService,
 }
 
 impl AdminService {
     pub fn new(repo: Arc<dyn AdminRepository>) -> Self {
+        Self::with_password_hasher(repo, Arc::new(Argon2PasswordHasher))
+    }
+
+    pub fn with_password_hasher(
+        repo: Arc<dyn AdminRepository>,
+        password_hasher: Arc<dyn PasswordHasher>,
+    ) -> Self {
         let property_repo: Arc<dyn PropertyRepository> = repo.clone();
         let unit_repo: Arc<dyn UnitRepository> = repo.clone();
         let tenant_repo: Arc<dyn TenantRepository> = repo.clone();
@@ -44,17 +71,31 @@ impl AdminService {
         let parking_layout_repo: Arc<dyn ParkingLayoutRepository> = repo.clone();
         let maintenance_repo: Arc<dyn MaintenanceCallRepository> = repo.clone();
         let reservation_repo: Arc<dyn TenantReservationRepository> = repo.clone();
-        let staff_repo: Arc<dyn PropertyStaffRepository> = repo;
+        let staff_repo: Arc<dyn PropertyStaffRepository> = repo.clone();
+        let portal_repo: Arc<dyn PublicPortalRepository> = repo.clone();
+        let app_repo: Arc<dyn TenancyApplicationRepository> = repo.clone();
+        let message_repo: Arc<dyn StaffMessageRepository> = repo.clone();
+        let admin_user_repo: Arc<dyn AdminUserRepository> = repo;
 
         Self {
             properties: PropertyService::new(property_repo.clone()),
             units: UnitService::new(unit_repo.clone(), property_repo.clone()),
-            tenants: TenantService::new(tenant_repo, unit_repo),
+            tenants: TenantService::new(tenant_repo.clone(), unit_repo.clone()),
             amenities: AdminAmenityService::new(amenity_repo, property_repo.clone()),
-            parking_layouts: ParkingLayoutService::new(parking_layout_repo, property_repo),
+            parking_layouts: ParkingLayoutService::new(parking_layout_repo, property_repo.clone()),
             maintenance: MaintenanceService::new(maintenance_repo),
             reservations: TenantReservationService::new(reservation_repo),
             staff: PropertyStaffService::new(staff_repo),
+            public_portal: PublicPortalService::new(portal_repo.clone()),
+            applications: TenancyApplicationService::new(
+                app_repo,
+                property_repo.clone(),
+                portal_repo,
+                tenant_repo,
+                unit_repo,
+            ),
+            messages: StaffMessagingService::new(message_repo, property_repo.clone()),
+            users: AdminUserService::new(admin_user_repo, property_repo, password_hasher),
         }
     }
 
@@ -210,6 +251,95 @@ impl AdminService {
     }
     pub async fn delete_property_staff(&self, id: Uuid) -> DomainResult<()> {
         self.staff.delete_property_staff(id).await
+    }
+
+    // Parking Spot Assignment & Public Portal & Applications & Messaging
+    pub async fn assign_parking_spot(
+        &self,
+        spot_id: Uuid,
+        req: AssignParkingSpotRequest,
+    ) -> DomainResult<ParkingSpot> {
+        self.parking_layouts.assign_parking_spot(spot_id, req).await
+    }
+    pub async fn review_tenant_reservation(
+        &self,
+        id: Uuid,
+        req: ReviewTenantReservationRequest,
+    ) -> DomainResult<TenantReservation> {
+        self.reservations.review_tenant_reservation(id, req).await
+    }
+    pub async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>> {
+        self.public_portal.list_public_properties().await
+    }
+    pub async fn submit_public_application(
+        &self,
+        req: CreateTenancyApplicationRequest,
+    ) -> DomainResult<PublicApplicationReceipt> {
+        self.applications.submit_public_application(req).await
+    }
+    pub async fn list_applications(
+        &self,
+        property_id: Option<Uuid>,
+        status: Option<String>,
+    ) -> DomainResult<Vec<TenancyApplication>> {
+        self.applications.list_applications(property_id, status).await
+    }
+    pub async fn review_application(
+        &self,
+        id: Uuid,
+        reviewer_user_id: Uuid,
+        req: ReviewTenancyApplicationRequest,
+    ) -> DomainResult<TenancyApplication> {
+        self.applications
+            .review_application(id, reviewer_user_id, req)
+            .await
+    }
+    pub async fn list_messages(
+        &self,
+        property_id: Uuid,
+        staff_id: Option<Uuid>,
+    ) -> DomainResult<Vec<StaffMessage>> {
+        self.messages.list_messages(property_id, staff_id).await
+    }
+    pub async fn send_message(
+        &self,
+        sender: &User,
+        req: CreateStaffMessageRequest,
+    ) -> DomainResult<StaffMessage> {
+        self.messages.send_message(sender, req).await
+    }
+    pub async fn mark_message_read(&self, id: Uuid) -> DomainResult<StaffMessage> {
+        self.messages.mark_read(id).await
+    }
+
+    // Users & Roles Administration
+    pub async fn list_admin_users(
+        &self,
+        role: Option<Role>,
+        property_id: Option<Uuid>,
+        search: Option<String>,
+    ) -> DomainResult<Vec<ManagedUser>> {
+        self.users.list_users(role, property_id, search).await
+    }
+    pub async fn get_admin_user(&self, id: Uuid) -> DomainResult<ManagedUser> {
+        self.users.get_user(id).await
+    }
+    pub async fn create_admin_user(&self, req: CreateAdminUserRequest) -> DomainResult<ManagedUser> {
+        self.users.create_user(req).await
+    }
+    pub async fn update_admin_user(
+        &self,
+        actor_user_id: Uuid,
+        id: Uuid,
+        req: UpdateAdminUserRequest,
+    ) -> DomainResult<ManagedUser> {
+        self.users.update_user(actor_user_id, id, req).await
+    }
+    pub async fn delete_admin_user(&self, actor_user_id: Uuid, id: Uuid) -> DomainResult<()> {
+        self.users.delete_user(actor_user_id, id).await
+    }
+    pub async fn list_roles(&self) -> DomainResult<Vec<RoleDefinition>> {
+        self.users.list_roles().await
     }
 }
 

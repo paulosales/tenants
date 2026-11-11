@@ -1,5 +1,15 @@
 import type {
+  AuthResponse,
+  MaintenanceCall,
+  MaintenanceStatus,
+  StaffMessage,
+  UserSummary,
+} from '@tenants/shared-types';
+import type {
   IMobileAmenityService,
+  IMobileAuthService,
+  IMobileMaintenanceService,
+  IMobileMessagingService,
   IMobileParkingService,
   IMobileServices,
   IResidentDashboardService,
@@ -7,19 +17,20 @@ import type {
   MobileParkingSpot,
   ResidentDashboardData,
 } from '../domain/services';
+import { mobileHttpClient, type MobileHttpClient } from './mobileHttpClient';
 
 const DEFAULT_DASHBOARD_SUMMARY: ResidentDashboardData = {
-  residentName: 'Alex Resident',
-  unitLabel: 'Unit PH-402 • Verified Resident',
+  residentName: 'Marcus Vance',
+  unitLabel: 'Unit 101 • Verified Resident',
   currentSpot: {
-    spotNumber: 'P1-01',
+    spotNumber: 'P-01',
     level: 'Subterranean Level P1',
     bayType: 'EV Fast Charging Bay',
   },
   upcomingReservation: {
     amenityName: 'Skyline Rooftop Lounge',
-    timeLabel: 'Tomorrow • 18:00 - 20:00',
-    statusLabel: 'Confirmed & Paid',
+    timeLabel: 'Pending / Scheduled',
+    statusLabel: 'Synced with Property Portal',
   },
 };
 
@@ -70,9 +81,93 @@ export class ApiMobileAmenityService implements IMobileAmenityService {
   }
 }
 
+export class ApiMobileAuthService implements IMobileAuthService {
+  constructor(private readonly http: MobileHttpClient = mobileHttpClient) {}
+
+  async login(email: string, password: string): Promise<UserSummary> {
+    const res = await this.http.request<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    await this.http.setToken(res.access_token);
+    return res.user;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.http.request('/auth/logout', { method: 'POST' });
+    } finally {
+      await this.http.setToken(null);
+    }
+  }
+
+  async restoreSession(): Promise<UserSummary | null> {
+    const token = await this.http.getToken();
+    if (!token) {
+      return null;
+    }
+    try {
+      return await this.http.request<UserSummary>('/auth/me');
+    } catch {
+      await this.http.setToken(null);
+      return null;
+    }
+  }
+}
+
+export class ApiMobileMaintenanceService implements IMobileMaintenanceService {
+  constructor(private readonly http: MobileHttpClient = mobileHttpClient) {}
+
+  async getCalls(propertyId?: string): Promise<MaintenanceCall[]> {
+    const query = propertyId ? `?property_id=${encodeURIComponent(propertyId)}` : '';
+    return this.http.request<MaintenanceCall[]>(`/maintenance-calls${query}`);
+  }
+
+  async updateCallStatus(
+    callId: string,
+    status: MaintenanceStatus,
+    resolutionNotes?: string
+  ): Promise<MaintenanceCall> {
+    return this.http.request<MaintenanceCall>(`/maintenance-calls/${callId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status,
+        ...(resolutionNotes !== undefined ? { resolution_notes: resolutionNotes } : {}),
+      }),
+    });
+  }
+}
+
+export class ApiMobileMessagingService implements IMobileMessagingService {
+  constructor(private readonly http: MobileHttpClient = mobileHttpClient) {}
+
+  async getMessages(propertyId: string, staffId?: string): Promise<StaffMessage[]> {
+    const params = new URLSearchParams({ property_id: propertyId });
+    if (staffId) params.set('staff_id', staffId);
+    return this.http.request<StaffMessage[]>(`/staff-messages?${params.toString()}`);
+  }
+
+  async sendMessage(
+    propertyId: string,
+    body: string,
+    recipientStaffId?: string | null
+  ): Promise<StaffMessage> {
+    return this.http.request<StaffMessage>('/staff-messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        property_id: propertyId,
+        recipient_staff_id: recipientStaffId ?? null,
+        body,
+      }),
+    });
+  }
+}
+
 export const defaultMobileServices: IMobileServices = {
   dashboard: new ApiResidentDashboardService(),
   parking: new ApiMobileParkingService(),
   amenities: new ApiMobileAmenityService(),
+  auth: new ApiMobileAuthService(),
+  maintenance: new ApiMobileMaintenanceService(),
+  messages: new ApiMobileMessagingService(),
 };
-

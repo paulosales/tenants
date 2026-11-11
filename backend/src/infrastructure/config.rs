@@ -5,6 +5,7 @@ pub struct AppConfig {
     pub port: u16,
     pub host: String,
     pub app_env: String,
+    pub is_production: bool,
     pub database_url: String,
     pub redis_url: String,
     pub jwt_secret: String,
@@ -26,6 +27,7 @@ impl AppConfig {
 
         let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
         let app_env = std::env::var("APP_ENV").unwrap_or_else(|_| "development".to_string());
+        let is_production = matches!(app_env.to_lowercase().as_str(), "production" | "staging");
 
         let database_url = std::env::var("DATABASE_URL")
             .map_err(|_| DomainError::Internal("DATABASE_URL environment variable is mandatory".into()))?;
@@ -40,6 +42,15 @@ impl AppConfig {
         if jwt_secret.len() < 32 {
             return Err(DomainError::Internal(
                 "JWT_SECRET must be at least 32 characters long for cryptographic security".into(),
+            ));
+        }
+
+        if is_production
+            && (jwt_secret.contains("development") || jwt_secret.contains("change_in_prod"))
+        {
+            return Err(DomainError::Internal(
+                "Refusing to start production environment with a development/placeholder JWT_SECRET"
+                    .into(),
             ));
         }
 
@@ -71,6 +82,7 @@ impl AppConfig {
             port,
             host,
             app_env,
+            is_production,
             database_url,
             redis_url,
             jwt_secret,

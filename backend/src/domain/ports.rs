@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::domain::{
     errors::DomainResult,
@@ -12,6 +13,12 @@ pub struct TokenClaims {
     pub sub: String,
     pub email: String,
     pub role: Role,
+    #[serde(default)]
+    pub property_id: Option<Uuid>,
+    #[serde(default)]
+    pub tenant_id: Option<Uuid>,
+    #[serde(default)]
+    pub staff_id: Option<Uuid>,
     pub exp: i64,
     pub iat: i64,
     pub jti: String,

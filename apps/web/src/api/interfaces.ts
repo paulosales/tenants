@@ -3,6 +3,7 @@ import type {
   Amenity,
   AmenitySessionBooking,
   AssignMaintenanceCallStaffDto,
+  AssignParkingSpotDto,
   AuthResponse,
   CreateAmenityDto,
   CreateAmenitySessionDto,
@@ -10,20 +11,32 @@ import type {
   CreatePropertyDto,
   CreateReservationRequest,
   CreateStaffDto,
+  CreateStaffMessageDto,
+  CreateTenancyApplicationDto,
   CreateTenantDto,
   CreateUnitDto,
+  CreateUserDto,
   MaintenanceCall,
   MaintenanceStatus,
+  ManagedUser,
   ParkingLayoutResponse,
   ParkingLayoutWithSpots,
+  ParkingSpot,
   ParkingZone,
   Property,
   PropertyStaff,
   PropertyWithStats,
+  PublicPropertyListing,
   Reservation,
   ReservationWithDetails,
+  ReviewAmenitySessionDto,
+  ReviewTenancyApplicationDto,
+  Role,
+  RoleDefinition,
   SaveParkingLayoutRequest,
+  StaffMessage,
   StaffRole,
+  TenancyApplication,
   Tenant,
   TenantStatus,
   TenantWithUnit,
@@ -34,6 +47,7 @@ import type {
   UpdateStaffDto,
   UpdateTenantDto,
   UpdateUnitDto,
+  UpdateUserDto,
   UserSummary,
 } from '@tenants/shared-types';
 
@@ -83,6 +97,7 @@ export interface IParkingGateway {
     propertyId: string,
     data: SaveParkingLayoutRequest
   ): Promise<{ message: string; data: ParkingLayoutWithSpots }>;
+  assignParkingSpot(spotId: string, dto: AssignParkingSpotDto): Promise<ParkingSpot>;
 }
 
 export interface IReservationGateway {
@@ -100,7 +115,11 @@ export interface IMaintenanceGateway {
   }): Promise<MaintenanceCall[]>;
   getMaintenanceCall(id: string): Promise<MaintenanceCall>;
   createMaintenanceCall(dto: CreateMaintenanceCallDto): Promise<MaintenanceCall>;
-  updateMaintenanceCallStatus(id: string, status: MaintenanceStatus): Promise<MaintenanceCall>;
+  updateMaintenanceCallStatus(
+    id: string,
+    status: MaintenanceStatus,
+    resolutionNotes?: string
+  ): Promise<MaintenanceCall>;
   cancelMaintenanceCall(id: string): Promise<void>;
   assignMaintenanceCallStaff(id: string, dto: AssignMaintenanceCallStaffDto): Promise<MaintenanceCall>;
 }
@@ -117,6 +136,35 @@ export interface ITenantSessionGateway {
   getTenantAmenitySessions(tenantId?: string): Promise<AmenitySessionBooking[]>;
   bookAmenitySession(dto: CreateAmenitySessionDto): Promise<AmenitySessionBooking>;
   cancelAmenitySession(id: string): Promise<void>;
+  reviewAmenitySession(id: string, dto: ReviewAmenitySessionDto): Promise<AmenitySessionBooking>;
+}
+
+export interface IPublicPortalGateway {
+  getPublicProperties(): Promise<PublicPropertyListing[]>;
+  submitPublicApplication(dto: CreateTenancyApplicationDto): Promise<{
+    application: TenancyApplication;
+    managers_notified: number;
+    message: string;
+  }>;
+}
+
+export interface IApplicationGateway {
+  getApplications(filters?: { property_id?: string; status?: string }): Promise<TenancyApplication[]>;
+  reviewApplication(id: string, dto: ReviewTenancyApplicationDto): Promise<TenancyApplication>;
+}
+
+export interface IMessageGateway {
+  getMessages(propertyId: string, staffId?: string): Promise<StaffMessage[]>;
+  sendMessage(dto: CreateStaffMessageDto): Promise<StaffMessage>;
+  markMessageRead(id: string): Promise<StaffMessage>;
+}
+
+export interface IUserAdminGateway {
+  getUsers(filters?: { role?: Role | string; property_id?: string; q?: string }): Promise<ManagedUser[]>;
+  getRoles(): Promise<RoleDefinition[]>;
+  createUser(dto: CreateUserDto): Promise<ManagedUser>;
+  updateUser(id: string, dto: UpdateUserDto): Promise<ManagedUser>;
+  deleteUser(id: string): Promise<void>;
 }
 
 export interface IApiGateways {
@@ -130,4 +178,8 @@ export interface IApiGateways {
   maintenance: IMaintenanceGateway;
   staff: IStaffGateway;
   tenantSessions: ITenantSessionGateway;
+  publicPortal: IPublicPortalGateway;
+  applications: IApplicationGateway;
+  messages: IMessageGateway;
+  users: IUserAdminGateway;
 }

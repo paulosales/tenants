@@ -1,11 +1,15 @@
-export type Role = 'super_admin' | 'property_manager' | 'maintenance_staff' | 'tenant';
+export type Role = 'super_admin' | 'property_manager' | 'maintenance_staff' | 'staff' | 'tenant';
 
 export interface UserSummary {
   id: string;
   email: string;
   full_name: string;
   role: Role;
+  phone?: string | null;
   unit_number?: string | null;
+  property_id?: string | null;
+  tenant_id?: string | null;
+  staff_id?: string | null;
 }
 
 export interface AuthResponse {
@@ -397,7 +401,7 @@ export interface CreateMaintenanceCallDto {
 // Amenity Session Scheduling Types
 // ==========================================
 
-export type AmenityBookingStatus = 'confirmed' | 'pending' | 'cancelled' | 'completed';
+export type AmenityBookingStatus = 'confirmed' | 'pending' | 'rejected' | 'cancelled' | 'completed';
 
 export interface AmenitySessionBooking {
   id: string;
@@ -485,5 +489,170 @@ export interface AssignMaintenanceCallStaffDto {
   scheduled_date?: string;
   resolution_notes?: string;
 }
+
+// ==========================================
+// Public Property Portal & Tenancy Applications
+// ==========================================
+
+export interface PublicUnitSummary {
+  id: string;
+  unit_number: string;
+  floor: number;
+  bedrooms: number;
+  bathrooms: number;
+  square_feet: number;
+  status: UnitStatus;
+}
+
+export interface PublicPropertyListing {
+  id: string;
+  name: string;
+  address_line1: string;
+  address_line2?: string | null;
+  city: string;
+  state_province: string;
+  postal_code: string;
+  total_units: number;
+  available_units: number;
+  manager_count: number;
+  vacant_units: PublicUnitSummary[];
+  amenities: string[];
+}
+
+export type TenancyApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected';
+
+export interface TenancyApplication {
+  id: string;
+  property_id: string;
+  property_name?: string | null;
+  preferred_unit_id?: string | null;
+  preferred_unit_number?: string | null;
+  applicant_first_name: string;
+  applicant_last_name: string;
+  applicant_email: string;
+  applicant_phone: string;
+  monthly_income_cents: number;
+  employment_status: string;
+  desired_move_in_date?: string | null;
+  occupants_count: number;
+  notes?: string | null;
+  status: TenancyApplicationStatus;
+  reviewed_by_user_id?: string | null;
+  review_notes?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTenancyApplicationDto {
+  property_id: string;
+  preferred_unit_id?: string | null;
+  applicant_first_name: string;
+  applicant_last_name: string;
+  applicant_email: string;
+  applicant_phone: string;
+  monthly_income_cents: number;
+  employment_status: string;
+  desired_move_in_date?: string | null;
+  occupants_count: number;
+  notes?: string;
+}
+
+export interface ReviewTenancyApplicationDto {
+  status: TenancyApplicationStatus;
+  review_notes?: string;
+  onboard_as_tenant?: boolean;
+}
+
+export interface ReviewAmenitySessionDto {
+  status: 'confirmed' | 'rejected';
+  notes?: string;
+}
+
+export interface AssignParkingSpotDto {
+  tenant_id?: string | null;
+  is_occupied?: boolean;
+}
+
+// ==========================================
+// Staff & Property Manager Messaging Types
+// ==========================================
+
+export interface StaffMessage {
+  id: string;
+  property_id: string;
+  sender_user_id: string;
+  sender_staff_id?: string | null;
+  recipient_user_id?: string | null;
+  recipient_staff_id?: string | null;
+  sender_name: string;
+  sender_role: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface CreateStaffMessageDto {
+  property_id: string;
+  recipient_staff_id?: string | null;
+  recipient_user_id?: string | null;
+  body: string;
+}
+
+// ==========================================
+// User & Role Management Types (Super Admin)
+// ==========================================
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: Role;
+  phone?: string | null;
+  unit_number?: string | null;
+  property_id?: string | null;
+  property_name?: string | null;
+  tenant_id?: string | null;
+  staff_id?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  full_name: string;
+  role: Role;
+  phone?: string;
+  unit_number?: string;
+  property_id?: string | null;
+  tenant_id?: string | null;
+  staff_id?: string | null;
+  is_active?: boolean;
+}
+
+export interface UpdateUserDto {
+  email?: string;
+  password?: string;
+  full_name?: string;
+  role?: Role;
+  phone?: string | null;
+  unit_number?: string | null;
+  property_id?: string | null;
+  tenant_id?: string | null;
+  staff_id?: string | null;
+  is_active?: boolean;
+}
+
+export interface RoleDefinition {
+  role: Role;
+  label: string;
+  description: string;
+  permissions: string[];
+  user_count: number;
+}
+
+
 
 

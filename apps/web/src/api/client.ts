@@ -3,6 +3,7 @@ import type {
   Amenity,
   AmenitySessionBooking,
   AssignMaintenanceCallStaffDto,
+  AssignParkingSpotDto,
   AuthResponse,
   CreateAmenityDto,
   CreateAmenitySessionDto,
@@ -10,20 +11,32 @@ import type {
   CreatePropertyDto,
   CreateReservationRequest,
   CreateStaffDto,
+  CreateStaffMessageDto,
+  CreateTenancyApplicationDto,
   CreateTenantDto,
   CreateUnitDto,
+  CreateUserDto,
   MaintenanceCall,
   MaintenanceStatus,
+  ManagedUser,
   ParkingLayoutResponse,
   ParkingLayoutWithSpots,
+  ParkingSpot,
   ParkingZone,
   Property,
   PropertyStaff,
   PropertyWithStats,
+  PublicPropertyListing,
   Reservation,
   ReservationWithDetails,
+  ReviewAmenitySessionDto,
+  ReviewTenancyApplicationDto,
+  Role,
+  RoleDefinition,
   SaveParkingLayoutRequest,
+  StaffMessage,
   StaffRole,
+  TenancyApplication,
   Tenant,
   TenantStatus,
   TenantWithUnit,
@@ -34,21 +47,26 @@ import type {
   UpdateStaffDto,
   UpdateTenantDto,
   UpdateUnitDto,
+  UpdateUserDto,
   UserSummary,
 } from '@tenants/shared-types';
 import { FetchHttpClient, type IHttpClient } from './httpClient';
 import type {
   IAmenityGateway,
   IApiGateways,
+  IApplicationGateway,
   IAuthGateway,
   IMaintenanceGateway,
+  IMessageGateway,
   IParkingGateway,
   IPropertyGateway,
+  IPublicPortalGateway,
   IReservationGateway,
   IStaffGateway,
   ITenantGateway,
   ITenantSessionGateway,
   IUnitGateway,
+  IUserAdminGateway,
 } from './interfaces';
 
 export class ApiClient
@@ -62,7 +80,11 @@ export class ApiClient
     IReservationGateway,
     IMaintenanceGateway,
     IStaffGateway,
-    ITenantSessionGateway
+    ITenantSessionGateway,
+    IPublicPortalGateway,
+    IApplicationGateway,
+    IMessageGateway,
+    IUserAdminGateway
 {
   constructor(private readonly http: IHttpClient = new FetchHttpClient()) {}
 
@@ -78,13 +100,14 @@ export class ApiClient
     return this.http.request<T>(endpoint, options);
   }
 
-  // --- Auth Endpoints ---
+  // --- Auth Endpoints (HttpOnly cookie session; no localStorage token storage) ---
   async login(email: string, password: string): Promise<AuthResponse> {
     const res = await this.request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    this.setToken(res.access_token);
+    // Web uses HttpOnly SameSite=Strict cookies + X-CSRF-Token automatically
+    this.setToken(null);
     return res;
   }
 
@@ -227,6 +250,13 @@ export class ApiClient
     });
   }
 
+  async assignParkingSpot(spotId: string, dto: AssignParkingSpotDto): Promise<ParkingSpot> {
+    return this.request<ParkingSpot>(`/parking-spots/${spotId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
   // --- Amenities & Reservations ---
   async getAmenities(): Promise<Amenity[]> {
     return this.request<Amenity[]>('/amenities');
@@ -313,10 +343,17 @@ export class ApiClient
     });
   }
 
-  async updateMaintenanceCallStatus(id: string, status: MaintenanceStatus): Promise<MaintenanceCall> {
+  async updateMaintenanceCallStatus(
+    id: string,
+    status: MaintenanceStatus,
+    resolutionNotes?: string
+  ): Promise<MaintenanceCall> {
     return this.request<MaintenanceCall>(`/maintenance-calls/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(resolutionNotes !== undefined ? { resolution_notes: resolutionNotes } : {}),
+      }),
     });
   }
 
@@ -387,6 +424,113 @@ export class ApiClient
   async cancelAmenitySession(id: string): Promise<void> {
     return this.request<void>(`/amenity-sessions/${id}/cancel`, { method: 'POST' });
   }
+
+  async reviewAmenitySession(
+    id: string,
+    dto: ReviewAmenitySessionDto
+  ): Promise<AmenitySessionBooking> {
+    return this.request<AmenitySessionBooking>(`/amenity-sessions/${id}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  // ==========================================
+  // Public Property Portal & Tenancy Applications
+  // ==========================================
+  async getPublicProperties(): Promise<PublicPropertyListing[]> {
+    return this.request<PublicPropertyListing[]>('/public/properties');
+  }
+
+  async submitPublicApplication(dto: CreateTenancyApplicationDto): Promise<{
+    application: TenancyApplication;
+    managers_notified: number;
+    message: string;
+  }> {
+    return this.request('/public/applications', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async getApplications(filters?: {
+    property_id?: string;
+    status?: string;
+  }): Promise<TenancyApplication[]> {
+    const params = new URLSearchParams();
+    if (filters?.property_id) params.set('property_id', filters.property_id);
+    if (filters?.status && filters.status !== 'all') params.set('status', filters.status);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<TenancyApplication[]>(`/tenancy-applications${query}`);
+  }
+
+  async reviewApplication(
+    id: string,
+    dto: ReviewTenancyApplicationDto
+  ): Promise<TenancyApplication> {
+    return this.request<TenancyApplication>(`/tenancy-applications/${id}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  // ==========================================
+  // Manager <-> Staff Messaging Endpoints
+  // ==========================================
+  async getMessages(propertyId: string, staffId?: string): Promise<StaffMessage[]> {
+    const params = new URLSearchParams({ property_id: propertyId });
+    if (staffId) params.set('staff_id', staffId);
+    return this.request<StaffMessage[]>(`/staff-messages?${params.toString()}`);
+  }
+
+  async sendMessage(dto: CreateStaffMessageDto): Promise<StaffMessage> {
+    return this.request<StaffMessage>('/staff-messages', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async markMessageRead(id: string): Promise<StaffMessage> {
+    return this.request<StaffMessage>(`/staff-messages/${id}/read`, { method: 'PATCH' });
+  }
+
+  // ==========================================
+  // Super Admin: Users & Roles Endpoints
+  // ==========================================
+  async getUsers(filters?: {
+    role?: Role | string;
+    property_id?: string;
+    q?: string;
+  }): Promise<ManagedUser[]> {
+    const params = new URLSearchParams();
+    if (filters?.role && filters.role !== 'all') params.set('role', filters.role);
+    if (filters?.property_id) params.set('property_id', filters.property_id);
+    if (filters?.q?.trim()) params.set('q', filters.q.trim());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<ManagedUser[]>(`/users${query}`);
+  }
+
+  async getRoles(): Promise<RoleDefinition[]> {
+    return this.request<RoleDefinition[]>('/users/roles');
+  }
+
+  async createUser(dto: CreateUserDto): Promise<ManagedUser> {
+    return this.request<ManagedUser>('/users', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async updateUser(id: string, dto: UpdateUserDto): Promise<ManagedUser> {
+    return this.request<ManagedUser>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    return this.request<void>(`/users/${id}`, { method: 'DELETE' });
+  }
 }
 
 export const api = new ApiClient();
@@ -435,6 +579,7 @@ export function createSegregatedGateways(client: ApiClient = api): IApiGateways 
       reserveSpot: (spotId) => client.reserveSpot(spotId),
       getAdminParkingLayout: (propertyId) => client.getAdminParkingLayout(propertyId),
       saveAdminParkingLayout: (propertyId, data) => client.saveAdminParkingLayout(propertyId, data),
+      assignParkingSpot: (spotId, dto) => client.assignParkingSpot(spotId, dto),
     },
     reservations: {
       getAmenityReservations: (amenityId, startDate, endDate) =>
@@ -447,7 +592,8 @@ export function createSegregatedGateways(client: ApiClient = api): IApiGateways 
       getMaintenanceCalls: (filters) => client.getMaintenanceCalls(filters),
       getMaintenanceCall: (id) => client.getMaintenanceCall(id),
       createMaintenanceCall: (dto) => client.createMaintenanceCall(dto),
-      updateMaintenanceCallStatus: (id, status) => client.updateMaintenanceCallStatus(id, status),
+      updateMaintenanceCallStatus: (id, status, notes) =>
+        client.updateMaintenanceCallStatus(id, status, notes),
       cancelMaintenanceCall: (id) => client.cancelMaintenanceCall(id),
       assignMaintenanceCallStaff: (id, dto) => client.assignMaintenanceCallStaff(id, dto),
     },
@@ -462,6 +608,27 @@ export function createSegregatedGateways(client: ApiClient = api): IApiGateways 
       getTenantAmenitySessions: (tenantId) => client.getTenantAmenitySessions(tenantId),
       bookAmenitySession: (dto) => client.bookAmenitySession(dto),
       cancelAmenitySession: (id) => client.cancelAmenitySession(id),
+      reviewAmenitySession: (id, dto) => client.reviewAmenitySession(id, dto),
+    },
+    publicPortal: {
+      getPublicProperties: () => client.getPublicProperties(),
+      submitPublicApplication: (dto) => client.submitPublicApplication(dto),
+    },
+    applications: {
+      getApplications: (filters) => client.getApplications(filters),
+      reviewApplication: (id, dto) => client.reviewApplication(id, dto),
+    },
+    messages: {
+      getMessages: (propertyId, staffId) => client.getMessages(propertyId, staffId),
+      sendMessage: (dto) => client.sendMessage(dto),
+      markMessageRead: (id) => client.markMessageRead(id),
+    },
+    users: {
+      getUsers: (filters) => client.getUsers(filters),
+      getRoles: () => client.getRoles(),
+      createUser: (dto) => client.createUser(dto),
+      updateUser: (id, dto) => client.updateUser(id, dto),
+      deleteUser: (id) => client.deleteUser(id),
     },
   };
 }

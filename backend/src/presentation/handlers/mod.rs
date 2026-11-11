@@ -5,6 +5,7 @@ pub mod parking;
 pub mod webhooks;
 pub mod audit;
 pub mod admin;
+pub mod public;
 
 pub use auth::*;
 pub use amenities::*;
@@ -13,3 +14,4 @@ pub use parking::*;
 pub use webhooks::*;
 pub use audit::*;
 pub use admin::*;
+pub use public::*;

@@ -311,3 +311,95 @@ pub struct TenantReservation {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublicUnitSummary {
+    pub id: Uuid,
+    pub unit_number: String,
+    pub floor: i32,
+    pub bedrooms: i32,
+    pub bathrooms: f64,
+    pub square_feet: i32,
+    pub status: UnitStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PublicPropertyListing {
+    pub id: Uuid,
+    pub name: String,
+    pub address_line1: String,
+    pub address_line2: Option<String>,
+    pub city: String,
+    pub state_province: String,
+    pub postal_code: String,
+    pub total_units: i64,
+    pub available_units: i64,
+    pub manager_count: i64,
+    pub vacant_units: Vec<PublicUnitSummary>,
+    pub amenities: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TenancyApplication {
+    pub id: Uuid,
+    pub property_id: Uuid,
+    pub property_name: Option<String>,
+    pub preferred_unit_id: Option<Uuid>,
+    pub preferred_unit_number: Option<String>,
+    pub applicant_first_name: String,
+    pub applicant_last_name: String,
+    pub applicant_email: String,
+    pub applicant_phone: String,
+    pub monthly_income_cents: i64,
+    pub employment_status: String,
+    pub desired_move_in_date: Option<NaiveDate>,
+    pub occupants_count: i32,
+    pub notes: Option<String>,
+    pub status: String,
+    pub reviewed_by_user_id: Option<Uuid>,
+    pub review_notes: Option<String>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StaffMessage {
+    pub id: Uuid,
+    pub property_id: Uuid,
+    pub sender_user_id: Uuid,
+    pub sender_staff_id: Option<Uuid>,
+    pub recipient_user_id: Option<Uuid>,
+    pub recipient_staff_id: Option<Uuid>,
+    pub sender_name: String,
+    pub sender_role: String,
+    pub body: String,
+    pub is_read: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManagedUser {
+    pub id: Uuid,
+    pub email: String,
+    pub full_name: String,
+    pub role: crate::domain::user::Role,
+    pub phone: Option<String>,
+    pub unit_number: Option<String>,
+    pub property_id: Option<Uuid>,
+    pub property_name: Option<String>,
+    pub tenant_id: Option<Uuid>,
+    pub staff_id: Option<Uuid>,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleDefinition {
+    pub role: crate::domain::user::Role,
+    pub label: String,
+    pub description: String,
+    pub permissions: Vec<String>,
+    pub user_count: i64,
+}
+

@@ -186,5 +186,55 @@ impl ParkingLayoutRepository for PostgresAdminRepository {
 
         Ok(ParkingLayoutWithSpots { layout, spots: saved_spots })
     }
+
+    async fn assign_parking_spot(
+        &self,
+        spot_id: Uuid,
+        tenant_id: Option<Uuid>,
+        is_occupied: bool,
+    ) -> DomainResult<ParkingSpot> {
+        let now = Utc::now();
+        let row = sqlx::query(
+            r#"
+            UPDATE parking_spots s
+            SET assigned_tenant_id = $2,
+                is_occupied = $3,
+                updated_at = $4
+            FROM (SELECT $1::uuid AS target_id) q
+            LEFT JOIN tenants t ON t.id = $2 AND t.deleted_at IS NULL
+            WHERE s.id = q.target_id
+            RETURNING s.id, s.layout_id, s.spot_label, s.x, s.y, s.width, s.height, s.rotation,
+                      s.spot_type, s.is_occupied, s.assigned_tenant_id,
+                      CASE WHEN t.id IS NOT NULL THEN t.first_name || ' ' || t.last_name ELSE NULL END AS tenant_name,
+                      s.created_at, s.updated_at
+            "#,
+        )
+        .bind(spot_id)
+        .bind(tenant_id)
+        .bind(is_occupied)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to assign parking spot: {}", e)))?
+        .ok_or_else(|| DomainError::NotFound(format!("Parking spot {} not found", spot_id)))?;
+
+        let type_str: String = row.get("spot_type");
+        Ok(ParkingSpot {
+            id: row.get("id"),
+            layout_id: row.get("layout_id"),
+            spot_label: row.get("spot_label"),
+            x: row.get("x"),
+            y: row.get("y"),
+            width: row.get("width"),
+            height: row.get("height"),
+            rotation: row.get("rotation"),
+            spot_type: SpotType::from_str(&type_str),
+            is_occupied: row.get("is_occupied"),
+            assigned_tenant_id: row.get("assigned_tenant_id"),
+            tenant_name: row.get("tenant_name"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        })
+    }
 }
 

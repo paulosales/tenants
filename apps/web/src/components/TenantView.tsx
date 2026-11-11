@@ -1,6 +1,6 @@
 import React from 'react';
 import { PhoneCall, ShieldAlert } from 'lucide-react';
-import type { PropertyWithStats } from '@tenants/shared-types';
+import type { PropertyWithStats, UserSummary } from '@tenants/shared-types';
 import { useTenantPortal } from '../hooks/useTenantPortal';
 import { AlertBanner } from './common/AlertBanner';
 import { AmenitySchedulingPanel } from './tenant/AmenitySchedulingPanel';
@@ -20,6 +20,7 @@ interface TenantViewProps {
   properties?: PropertyWithStats[];
   selectedPropertyId?: string | null;
   initialTenantId?: string | null;
+  currentUser?: UserSummary | null;
   onBackToAdmin?: () => void;
 }
 
@@ -27,9 +28,10 @@ export const TenantView: React.FC<TenantViewProps> = ({
   properties = [],
   selectedPropertyId,
   initialTenantId,
+  currentUser,
   onBackToAdmin,
 }) => {
-  const portal = useTenantPortal({ properties, selectedPropertyId, initialTenantId });
+  const portal = useTenantPortal({ properties, selectedPropertyId, initialTenantId, currentUser });
 
   return (
     <div className="space-y-6">

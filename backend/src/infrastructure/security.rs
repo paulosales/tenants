@@ -3,7 +3,7 @@ use argon2::{
     Argon2,
 };
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use rand::RngCore;
 use uuid::Uuid;
 
@@ -64,13 +64,16 @@ impl TokenProvider for JwtTokenProvider {
             sub: user.id.to_string(),
             email: user.email.clone(),
             role: user.role,
+            property_id: user.property_id,
+            tenant_id: user.tenant_id,
+            staff_id: user.staff_id,
             exp: exp.timestamp(),
             iat: now.timestamp(),
             jti: Uuid::new_v4().to_string(),
         };
 
         encode(
-            &Header::default(),
+            &Header::new(Algorithm::HS256),
             &claims,
             &EncodingKey::from_secret(self.secret.as_bytes()),
         )
@@ -78,7 +81,8 @@ impl TokenProvider for JwtTokenProvider {
     }
 
     fn verify_access_token(&self, token: &str) -> DomainResult<TokenClaims> {
-        let mut validation = Validation::default();
+        // Security: Lock algorithm explicitly to HS256 to reject 'alg: none' or key-confusion attacks.
+        let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_exp = true;
 
         decode::<TokenClaims>(
@@ -98,6 +102,60 @@ impl TokenProvider for JwtTokenProvider {
 
     fn access_token_ttl_seconds(&self) -> i64 {
         self.access_token_exp_seconds
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::user::Role;
+
+    #[test]
+    fn password_hasher_round_trip_and_min_length() {
+        const SEED_DEV_HASH: &str =
+            "$argon2id$v=19$m=19456,t=2,p=1$Y9tk2yYGbPe7nli24xmzfA$z2srHuwDKMjfa/BuVk8jaPWFbIahDNQQgq8MEzYlscY";
+
+        let hasher = Argon2PasswordHasher;
+        assert!(hasher.hash("short").is_err());
+
+        let hashed = hasher.hash("Password123!").expect("hash succeeds");
+        assert!(hasher.verify("Password123!", &hashed));
+        assert!(hasher.verify("Password123!", SEED_DEV_HASH));
+        assert!(!hasher.verify("WrongPassword!", &hashed));
+    }
+
+    #[test]
+    fn jwt_provider_enforces_hs256_and_expiration() {
+        let provider = JwtTokenProvider::new("super_secret_test_key_at_least_32_chars".into(), 900);
+        let now = Utc::now();
+        let user = User {
+            id: Uuid::new_v4(),
+            email: "manager@property.local".into(),
+            password_hash: "unused".into(),
+            full_name: "Sarah Jenkins".into(),
+            role: Role::PropertyManager,
+            phone: None,
+            unit_number: None,
+            property_id: Some(Uuid::new_v4()),
+            tenant_id: None,
+            staff_id: Some(Uuid::new_v4()),
+            refresh_token_hash: None,
+            refresh_token_expires_at: None,
+            created_at: now,
+            updated_at: now,
+            deleted_at: None,
+        };
+
+        let token = provider.generate_access_token(&user).expect("token generates");
+        let claims = provider.verify_access_token(&token).expect("token verifies");
+        assert_eq!(claims.role, Role::PropertyManager);
+        assert_eq!(claims.email, "manager@property.local");
+        assert_eq!(claims.property_id, user.property_id);
+
+        // Tampered / alg=none token must fail
+        let mut parts: Vec<&str> = token.split('.').collect();
+        parts[2] = "";
+        assert!(provider.verify_access_token(&parts.join(".")).is_err());
     }
 }
 

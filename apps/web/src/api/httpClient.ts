@@ -4,7 +4,30 @@ export interface IHttpClient {
   request<T>(endpoint: string, options?: RequestInit): Promise<T>;
 }
 
-const DEFAULT_API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+function resolveDefaultApiBase(): string {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location?.hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:8080/api/v1';
+  }
+  return 'http://localhost:8080/api/v1';
+}
+
+function readCsrfCookie(): string | null {
+  if (typeof document === 'undefined' || !document.cookie) {
+    return null;
+  }
+  for (const part of document.cookie.split(';')) {
+    const [rawKey, ...rest] = part.trim().split('=');
+    if (rawKey === 'csrf_token' && rest.length > 0) {
+      return decodeURIComponent(rest.join('='));
+    }
+  }
+  return null;
+}
+
+const DEFAULT_API_BASE = resolveDefaultApiBase();
 
 export class FetchHttpClient implements IHttpClient {
   private token: string | null = null;
@@ -26,6 +49,14 @@ export class FetchHttpClient implements IHttpClient {
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
     headers.set('x-request-id', `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+
+    const method = (options.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      const csrf = readCsrfCookie();
+      if (csrf) {
+        headers.set('x-csrf-token', csrf);
+      }
+    }
 
     if (this.token) {
       headers.set('Authorization', `Bearer ${this.token}`);

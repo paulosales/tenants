@@ -23,24 +23,29 @@ import type {
   MaintenanceStatus,
   PropertyWithStats,
   TenantWithUnit,
+  UserSummary,
 } from '@tenants/shared-types';
 
 interface UseTenantPortalOptions {
   properties: PropertyWithStats[];
   selectedPropertyId?: string | null;
   initialTenantId?: string | null;
+  currentUser?: UserSummary | null;
 }
 
 export function useTenantPortal({
   properties,
   selectedPropertyId,
   initialTenantId,
+  currentUser,
 }: UseTenantPortalOptions) {
   const queryClient = useQueryClient();
   const tenantsGateway = useTenantsGateway();
   const amenitiesGateway = useAmenitiesGateway();
   const sessionsGateway = useTenantSessionsGateway();
   const maintenanceGateway = useMaintenanceGateway();
+
+  const isLockedResident = currentUser?.role === 'tenant';
 
   const [activeFeature, setActiveFeature] = useState<'amenities' | 'maintenance'>('amenities');
   const [amenitySubTab, setAmenitySubTab] = useState<'schedule' | 'my-sessions'>('schedule');
@@ -52,7 +57,7 @@ export function useTenantPortal({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [activeTenantId, setActiveTenantId] = useState<string>(
-    initialTenantId || '33333333-1111-1111-1111-111111111001'
+    currentUser?.tenant_id || initialTenantId || '33333333-1111-1111-1111-111111111001'
   );
 
   const todayLocalStr = useMemo(() => getTodayLocalStr(), []);
@@ -61,9 +66,34 @@ export function useTenantPortal({
   const { data: tenantsList = [] } = useQuery({
     queryKey: ['tenants-for-resident-view', selectedPropertyId],
     queryFn: () => tenantsGateway.getTenants({ property_id: selectedPropertyId || undefined }),
+    enabled: !isLockedResident,
   });
 
   const activeTenant: TenantWithUnit = useMemo(() => {
+    if (isLockedResident && currentUser) {
+      const parts = currentUser.full_name.trim().split(' ');
+      const first_name = parts[0] || 'Resident';
+      const last_name = parts.slice(1).join(' ') || '';
+      const matchedProp = properties.find((p) => p.id === currentUser.property_id);
+      return {
+        id: currentUser.tenant_id || '33333333-1111-1111-1111-111111111001',
+        first_name,
+        last_name,
+        email: currentUser.email,
+        phone: currentUser.phone || '+1 (206) 555-0192',
+        unit_number: currentUser.unit_number || '101',
+        property_id:
+          currentUser.property_id || properties[0]?.id || '11111111-2222-3333-4444-555555555551',
+        property_name: matchedProp?.name || properties[0]?.name || 'Apex Living Property',
+        assigned_unit_id: undefined,
+        lease_start_date: '2026-01-01',
+        lease_end_date: '2027-01-01',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     const found = tenantsList.find((t) => t.id === activeTenantId);
     if (found) return found;
     if (tenantsList.length > 0) return tenantsList[0];
@@ -83,7 +113,7 @@ export function useTenantPortal({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-  }, [tenantsList, activeTenantId, properties]);
+  }, [isLockedResident, currentUser, tenantsList, activeTenantId, properties]);
 
   const { data: backendAmenities = [] } = useQuery({
     queryKey: ['amenities-tenant-view'],

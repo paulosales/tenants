@@ -3,15 +3,19 @@ import { createSegregatedGateways } from '../api/client';
 import type {
   IAmenityGateway,
   IApiGateways,
+  IApplicationGateway,
   IAuthGateway,
   IMaintenanceGateway,
+  IMessageGateway,
   IParkingGateway,
   IPropertyGateway,
+  IPublicPortalGateway,
   IReservationGateway,
   IStaffGateway,
   ITenantGateway,
   ITenantSessionGateway,
   IUnitGateway,
+  IUserAdminGateway,
 } from '../api/interfaces';
 
 const defaultGateways = createSegregatedGateways();
@@ -63,5 +67,21 @@ export function useStaffGateway(): IStaffGateway {
 
 export function useTenantSessionsGateway(): ITenantSessionGateway {
   return useContext(ApiContext).tenantSessions;
+}
+
+export function usePublicPortalGateway(): IPublicPortalGateway {
+  return useContext(ApiContext).publicPortal;
+}
+
+export function useApplicationsGateway(): IApplicationGateway {
+  return useContext(ApiContext).applications;
+}
+
+export function useMessagesGateway(): IMessageGateway {
+  return useContext(ApiContext).messages;
+}
+
+export function useUsersAdminGateway(): IUserAdminGateway {
+  return useContext(ApiContext).users;
 }
 

@@ -1,3 +1,9 @@
+import type {
+  MaintenanceCall,
+  MaintenanceStatus,
+  StaffMessage,
+  UserSummary,
+} from '@tenants/shared-types';
 import type { MobileSpotStatus } from '../theme/mobileTheme';
 
 export interface MobileParkingSpot {
@@ -53,9 +59,39 @@ export interface IMobileAmenityService {
   scheduleAmenitySession(amenityName: string, timeSlot: string): Promise<void>;
 }
 
+/** Segregated service port for Mobile Authentication (ISP + DIP). */
+export interface IMobileAuthService {
+  login(email: string, password: string): Promise<UserSummary>;
+  logout(): Promise<void>;
+  restoreSession(): Promise<UserSummary | null>;
+}
+
+/** Segregated service port for Maintainer Call Queue & Resolution (ISP + DIP). */
+export interface IMobileMaintenanceService {
+  getCalls(propertyId?: string): Promise<MaintenanceCall[]>;
+  updateCallStatus(
+    callId: string,
+    status: MaintenanceStatus,
+    resolutionNotes?: string
+  ): Promise<MaintenanceCall>;
+}
+
+/** Segregated service port for Staff <-> Property Manager Messaging (ISP + DIP). */
+export interface IMobileMessagingService {
+  getMessages(propertyId: string, staffId?: string): Promise<StaffMessage[]>;
+  sendMessage(
+    propertyId: string,
+    body: string,
+    recipientStaffId?: string | null
+  ): Promise<StaffMessage>;
+}
+
 export interface IMobileServices {
   dashboard: IResidentDashboardService;
   parking: IMobileParkingService;
   amenities: IMobileAmenityService;
+  auth: IMobileAuthService;
+  maintenance: IMobileMaintenanceService;
+  messages: IMobileMessagingService;
 }
 

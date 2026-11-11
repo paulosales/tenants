@@ -1,48 +1,81 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { Role, UserSummary } from '@tenants/shared-types';
 import { InfoCard } from '../components/InfoCard';
 import { useResidentDashboard } from '../hooks/useResidentDashboard';
 import { mobileTheme } from '../theme/mobileTheme';
 
-export type MobileDestinationScreen = 'parking' | 'amenities';
+export type MobileDestinationScreen = 'parking' | 'amenities' | 'maintenance' | 'messages';
 
 interface DashboardProps {
+  user: UserSummary;
+  onLogout: () => void;
   onNavigate: (screen: MobileDestinationScreen) => void;
 }
 
-const QUICK_ACTION_TILES: Array<{
+const ALL_TILES: Array<{
   screen: MobileDestinationScreen;
+  roles: Role[];
   icon: string;
   title: string;
   subtitle: string;
 }> = [
   {
+    screen: 'maintenance',
+    roles: ['super_admin', 'property_manager', 'maintenance_staff'],
+    icon: '🔧',
+    title: 'Maintenance Calls',
+    subtitle: 'Update & solve work orders',
+  },
+  {
+    screen: 'messages',
+    roles: ['super_admin', 'property_manager', 'maintenance_staff', 'staff'],
+    icon: '💬',
+    title: 'Manager Chat',
+    subtitle: 'Talk to Property Management',
+  },
+  {
     screen: 'parking',
+    roles: ['super_admin', 'property_manager', 'tenant'],
     icon: '🚗',
     title: 'Reserve Parking',
     subtitle: 'Level P1 Interactive Map',
   },
   {
     screen: 'amenities',
+    roles: ['super_admin', 'property_manager', 'tenant'],
     icon: '🎾',
     title: 'Book Amenity',
     subtitle: 'Tennis, Lounge & BBQ',
   },
 ];
 
-export const DashboardScreen: React.FC<DashboardProps> = ({ onNavigate }) => {
+export const DashboardScreen: React.FC<DashboardProps> = ({ user, onLogout, onNavigate }) => {
   const { data: summary } = useResidentDashboard();
+  const visibleTiles = useMemo(
+    () => ALL_TILES.filter((t) => t.roles.includes(user.role)),
+    [user.role]
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.greeting}>Welcome back,</Text>
-        <Text style={styles.tenantName}>{summary?.residentName ?? 'Resident'}</Text>
-        <Text style={styles.unitBadge}>{summary?.unitLabel ?? 'Loading resident profile...'}</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <Text style={styles.tenantName}>{user.full_name}</Text>
+          <Text style={styles.unitBadge}>
+            {user.role.replace('_', ' ').toUpperCase()}
+            {user.unit_number ? ` • Unit ${user.unit_number}` : ''}
+          </Text>
+        </View>
+
+        <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tilesGrid}>
-        {QUICK_ACTION_TILES.map((tile) => (
+        {visibleTiles.map((tile) => (
           <TouchableOpacity
             key={tile.screen}
             style={styles.tile}
@@ -55,7 +88,7 @@ export const DashboardScreen: React.FC<DashboardProps> = ({ onNavigate }) => {
         ))}
       </View>
 
-      {summary && (
+      {user.role === 'tenant' && summary && (
         <>
           <InfoCard title="Current Reserved Spot">
             <View style={styles.spotRow}>
@@ -91,8 +124,27 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 50,
   },
-  header: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 24,
+  },
+  header: {
+    flex: 1,
+  },
+  logoutBtn: {
+    backgroundColor: mobileTheme.surface,
+    borderColor: mobileTheme.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  logoutText: {
+    color: mobileTheme.textSecondary,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   greeting: {
     color: mobileTheme.textMuted,
@@ -110,10 +162,12 @@ const styles = StyleSheet.create({
   },
   tilesGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 24,
   },
   tile: {
+    minWidth: '47%',
     flex: 1,
     backgroundColor: mobileTheme.surface,
     padding: 16,

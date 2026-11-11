@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::admin::{SpotType, TenantStatus, UnitStatus};
+use crate::domain::{
+    admin::{SpotType, TenantStatus, UnitStatus},
+    user::Role,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePropertyRequest {
@@ -183,5 +186,88 @@ pub struct AssignMaintenanceCallStaffRequest {
     pub staff_id: Uuid,
     pub scheduled_date: Option<String>,
     pub resolution_notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssignParkingSpotRequest {
+    pub tenant_id: Option<Uuid>,
+    pub is_occupied: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewTenantReservationRequest {
+    pub status: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTenancyApplicationRequest {
+    pub property_id: Uuid,
+    pub preferred_unit_id: Option<Uuid>,
+    pub applicant_first_name: String,
+    pub applicant_last_name: String,
+    pub applicant_email: String,
+    pub applicant_phone: String,
+    pub monthly_income_cents: i64,
+    pub employment_status: String,
+    pub desired_move_in_date: Option<String>,
+    pub occupants_count: i32,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewTenancyApplicationRequest {
+    pub status: String,
+    pub review_notes: Option<String>,
+    pub onboard_as_tenant: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateStaffMessageRequest {
+    pub property_id: Uuid,
+    pub recipient_staff_id: Option<Uuid>,
+    pub recipient_user_id: Option<Uuid>,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAdminUserRequest {
+    pub email: String,
+    pub password: String,
+    pub full_name: String,
+    pub role: Role,
+    pub phone: Option<String>,
+    pub unit_number: Option<String>,
+    pub property_id: Option<Uuid>,
+    pub tenant_id: Option<Uuid>,
+    pub staff_id: Option<Uuid>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateAdminUserRequest {
+    pub email: Option<String>,
+    pub password: Option<String>,
+    pub full_name: Option<String>,
+    pub role: Option<Role>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub phone: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub unit_number: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub property_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub tenant_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "deserialize_optional_nullable")]
+    pub staff_id: Option<Option<Uuid>>,
+    pub is_active: Option<bool>,
+}
+
+fn deserialize_optional_nullable<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    Ok(Some(Option::<T>::deserialize(deserializer)?))
 }
 

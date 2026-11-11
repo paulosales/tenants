@@ -139,5 +139,80 @@ impl TenantReservationRepository for PostgresAdminRepository {
 
         Ok(())
     }
+
+    async fn get_tenant_reservation(&self, id: Uuid) -> DomainResult<Option<TenantReservation>> {
+        let row = sqlx::query(
+            r#"
+            SELECT r.id, r.amenity_id, a.name as amenity_name, r.tenant_id,
+                   CONCAT(t.first_name, ' ', t.last_name) as tenant_name,
+                   a.property_id, u.unit_number,
+                   lower(r.reservation_period) AT TIME ZONE 'UTC' as start_time,
+                   upper(r.reservation_period) AT TIME ZONE 'UTC' as end_time,
+                   r.attendees_count, r.total_price_cents, r.status, r.notes, r.created_at
+            FROM reservations r
+            JOIN amenities a ON a.id = r.amenity_id
+            LEFT JOIN tenants t ON t.id = r.tenant_id
+            LEFT JOIN units u ON u.id = t.assigned_unit_id
+            WHERE r.id = $1 AND r.deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to fetch tenant reservation: {}", e)))?;
+
+        Ok(row.map(|r| {
+            let start_time: DateTime<Utc> = r.get("start_time");
+            TenantReservation {
+                id: r.get("id"),
+                amenity_id: r.get("amenity_id"),
+                amenity_name: r.get("amenity_name"),
+                tenant_id: r.get("tenant_id"),
+                tenant_name: r.get("tenant_name"),
+                property_id: r.get("property_id"),
+                unit_number: r.get("unit_number"),
+                booking_date: Some(start_time.format("%Y-%m-%d").to_string()),
+                start_time,
+                end_time: r.get("end_time"),
+                attendees_count: r.get("attendees_count"),
+                total_price_cents: r.get("total_price_cents"),
+                status: r.get("status"),
+                notes: r.get("notes"),
+                created_at: r.get("created_at"),
+            }
+        }))
+    }
+
+    async fn review_tenant_reservation(
+        &self,
+        id: Uuid,
+        status: &str,
+        notes: Option<String>,
+    ) -> DomainResult<TenantReservation> {
+        let now = Utc::now();
+        let row = sqlx::query(
+            r#"
+            UPDATE reservations
+            SET status = $2,
+                notes = COALESCE($3, notes),
+                updated_at = $4
+            WHERE id = $1 AND deleted_at IS NULL
+            RETURNING id
+            "#
+        )
+        .bind(id)
+        .bind(status)
+        .bind(notes)
+        .bind(now)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DomainError::Internal(format!("Failed to review tenant reservation: {}", e)))?
+        .ok_or_else(|| DomainError::NotFound(format!("Amenity reservation {} not found", id)))?;
+
+        let updated_id: Uuid = row.get("id");
+        self.get_tenant_reservation(updated_id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("Updated reservation missing".into()))
+    }
 }
 

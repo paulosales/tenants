@@ -28,6 +28,9 @@ struct UserRow {
     role: Role,
     phone: Option<String>,
     unit_number: Option<String>,
+    property_id: Option<Uuid>,
+    tenant_id: Option<Uuid>,
+    staff_id: Option<Uuid>,
     refresh_token_hash: Option<String>,
     refresh_token_expires_at: Option<DateTime<Utc>>,
     created_at: DateTime<Utc>,
@@ -45,6 +48,9 @@ impl From<UserRow> for User {
             role: r.role,
             phone: r.phone,
             unit_number: r.unit_number,
+            property_id: r.property_id,
+            tenant_id: r.tenant_id,
+            staff_id: r.staff_id,
             refresh_token_hash: r.refresh_token_hash,
             refresh_token_expires_at: r.refresh_token_expires_at,
             created_at: r.created_at,
@@ -60,9 +66,10 @@ impl UserRepository for PostgresUserRepository {
         let row = sqlx::query_as::<_, UserRow>(
             r#"
             SELECT id, email, password_hash, full_name, role, phone, unit_number,
+                   property_id, tenant_id, staff_id,
                    refresh_token_hash, refresh_token_expires_at, created_at, updated_at, deleted_at
             FROM users
-            WHERE id = $1 AND deleted_at IS NULL
+            WHERE id = $1 AND deleted_at IS NULL AND COALESCE(is_active, TRUE) = TRUE
             "#,
         )
         .bind(id)
@@ -77,9 +84,10 @@ impl UserRepository for PostgresUserRepository {
         let row = sqlx::query_as::<_, UserRow>(
             r#"
             SELECT id, email, password_hash, full_name, role, phone, unit_number,
+                   property_id, tenant_id, staff_id,
                    refresh_token_hash, refresh_token_expires_at, created_at, updated_at, deleted_at
             FROM users
-            WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL
+            WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL AND COALESCE(is_active, TRUE) = TRUE
             "#,
         )
         .bind(email)
@@ -94,9 +102,11 @@ impl UserRepository for PostgresUserRepository {
         let row = sqlx::query_as::<_, UserRow>(
             r#"
             INSERT INTO users (id, email, password_hash, full_name, role, phone, unit_number,
+                               property_id, tenant_id, staff_id,
                                refresh_token_hash, refresh_token_expires_at, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING id, email, password_hash, full_name, role, phone, unit_number,
+                      property_id, tenant_id, staff_id,
                       refresh_token_hash, refresh_token_expires_at, created_at, updated_at, deleted_at
             "#,
         )
@@ -107,6 +117,9 @@ impl UserRepository for PostgresUserRepository {
         .bind(user.role)
         .bind(&user.phone)
         .bind(&user.unit_number)
+        .bind(user.property_id)
+        .bind(user.tenant_id)
+        .bind(user.staff_id)
         .bind(&user.refresh_token_hash)
         .bind(user.refresh_token_expires_at)
         .bind(user.created_at)

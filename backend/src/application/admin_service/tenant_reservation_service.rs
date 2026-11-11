@@ -2,7 +2,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::dtos::CreateTenantReservationRequest;
+use super::dtos::{CreateTenantReservationRequest, ReviewTenantReservationRequest};
 use crate::domain::{
     admin::{TenantReservation, TenantReservationRepository},
     errors::{DomainError, DomainResult},
@@ -89,12 +89,37 @@ impl TenantReservationService {
             end_time,
             attendees_count: req.attendees_count.unwrap_or(1),
             total_price_cents: 0,
-            status: "confirmed".to_string(),
+            // Tenant amenity requests start pending until a Property Manager accepts or rejects them.
+            status: "pending".to_string(),
             notes: req.notes,
             created_at: now,
         };
 
         self.repo.create_tenant_reservation(res).await
+    }
+
+    pub async fn get_tenant_reservation(&self, id: Uuid) -> DomainResult<TenantReservation> {
+        self.repo
+            .get_tenant_reservation(id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("Amenity reservation {} not found", id)))
+    }
+
+    pub async fn review_tenant_reservation(
+        &self,
+        id: Uuid,
+        req: ReviewTenantReservationRequest,
+    ) -> DomainResult<TenantReservation> {
+        let normalized = req.status.trim().to_lowercase();
+        if !matches!(normalized.as_str(), "confirmed" | "rejected") {
+            return Err(DomainError::ValidationError(
+                "Amenity session decision must be 'confirmed' or 'rejected'".into(),
+            ));
+        }
+
+        self.repo
+            .review_tenant_reservation(id, &normalized, req.notes)
+            .await
     }
 
     pub async fn cancel_tenant_reservation(&self, id: Uuid) -> DomainResult<()> {

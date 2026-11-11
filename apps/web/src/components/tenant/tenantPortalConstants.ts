@@ -161,7 +161,8 @@ export const PRIORITY_OPTIONS: Array<{
 export const SESSION_STATUS_BADGE: Record<AmenityBookingStatus, string> = {
   confirmed: 'bg-emerald-100 text-emerald-800',
   pending: 'bg-amber-100 text-amber-800',
-  cancelled: 'bg-rose-100 text-rose-800',
+  rejected: 'bg-rose-100 text-rose-800',
+  cancelled: 'bg-slate-200 text-slate-600',
   completed: 'bg-slate-100 text-slate-800',
 };
 

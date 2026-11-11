@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install cargo-watch and sqlx-cli via cargo-binstall for near-instant multi-arch binary provisioning
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
-    cargo binstall -y cargo-watch sqlx-cli
+    cargo binstall -y cargo-watch && \
+    cargo binstall -y sqlx-cli@0.7.4
 
 # Expose Axum HTTP server port
 EXPOSE 8080

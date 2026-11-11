@@ -71,6 +71,12 @@ pub trait ParkingLayoutRepository: Send + Sync {
         grid_size: i32,
         spots: Vec<ParkingSpot>,
     ) -> DomainResult<ParkingLayoutWithSpots>;
+    async fn assign_parking_spot(
+        &self,
+        spot_id: Uuid,
+        tenant_id: Option<Uuid>,
+        is_occupied: bool,
+    ) -> DomainResult<ParkingSpot>;
 }
 
 #[async_trait]
@@ -107,6 +113,13 @@ pub trait TenantReservationRepository: Send + Sync {
     ) -> DomainResult<Vec<TenantReservation>>;
     async fn create_tenant_reservation(&self, res: TenantReservation) -> DomainResult<TenantReservation>;
     async fn cancel_tenant_reservation(&self, id: Uuid) -> DomainResult<()>;
+    async fn get_tenant_reservation(&self, id: Uuid) -> DomainResult<Option<TenantReservation>>;
+    async fn review_tenant_reservation(
+        &self,
+        id: Uuid,
+        status: &str,
+        notes: Option<String>,
+    ) -> DomainResult<TenantReservation>;
 }
 
 #[async_trait]
@@ -122,6 +135,67 @@ pub trait PropertyStaffRepository: Send + Sync {
     async fn delete_property_staff(&self, id: Uuid) -> DomainResult<()>;
 }
 
+#[async_trait]
+pub trait PublicPortalRepository: Send + Sync {
+    async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>>;
+    async fn count_property_managers(&self, property_id: Uuid) -> DomainResult<i64>;
+}
+
+#[async_trait]
+pub trait TenancyApplicationRepository: Send + Sync {
+    async fn list_applications(
+        &self,
+        property_id: Option<Uuid>,
+        status: Option<String>,
+    ) -> DomainResult<Vec<TenancyApplication>>;
+    async fn get_application(&self, id: Uuid) -> DomainResult<Option<TenancyApplication>>;
+    async fn create_application(&self, app: TenancyApplication) -> DomainResult<TenancyApplication>;
+    async fn update_application_review(
+        &self,
+        id: Uuid,
+        status: &str,
+        reviewed_by_user_id: Uuid,
+        review_notes: Option<String>,
+    ) -> DomainResult<TenancyApplication>;
+}
+
+#[async_trait]
+pub trait StaffMessageRepository: Send + Sync {
+    async fn list_messages(
+        &self,
+        property_id: Uuid,
+        staff_id: Option<Uuid>,
+    ) -> DomainResult<Vec<StaffMessage>>;
+    async fn create_message(&self, msg: StaffMessage) -> DomainResult<StaffMessage>;
+    async fn mark_message_read(&self, id: Uuid) -> DomainResult<StaffMessage>;
+}
+
+#[async_trait]
+pub trait AdminUserRepository: Send + Sync {
+    async fn list_users(
+        &self,
+        role: Option<crate::domain::user::Role>,
+        property_id: Option<Uuid>,
+        search: Option<String>,
+    ) -> DomainResult<Vec<ManagedUser>>;
+    async fn get_user(&self, id: Uuid) -> DomainResult<Option<ManagedUser>>;
+    async fn find_user_id_by_email(&self, email: &str) -> DomainResult<Option<Uuid>>;
+    async fn create_user(
+        &self,
+        user: ManagedUser,
+        password_hash: String,
+    ) -> DomainResult<ManagedUser>;
+    async fn update_user(
+        &self,
+        user: ManagedUser,
+        new_password_hash: Option<String>,
+        revoke_refresh: bool,
+    ) -> DomainResult<ManagedUser>;
+    async fn delete_user(&self, id: Uuid) -> DomainResult<()>;
+    async fn count_active_super_admins(&self, exclude_user_id: Option<Uuid>) -> DomainResult<i64>;
+    async fn count_users_by_role(&self) -> DomainResult<Vec<(crate::domain::user::Role, i64)>>;
+}
+
 /// Composed supertrait combining all domain repository capabilities.
 /// Blanket-implemented for any adapter providing all segregated traits.
 pub trait AdminRepository:
@@ -133,6 +207,10 @@ pub trait AdminRepository:
     + MaintenanceCallRepository
     + TenantReservationRepository
     + PropertyStaffRepository
+    + PublicPortalRepository
+    + TenancyApplicationRepository
+    + StaffMessageRepository
+    + AdminUserRepository
     + Send
     + Sync
 {
@@ -147,6 +225,10 @@ impl<T> AdminRepository for T where
         + MaintenanceCallRepository
         + TenantReservationRepository
         + PropertyStaffRepository
+        + PublicPortalRepository
+        + TenancyApplicationRepository
+        + StaffMessageRepository
+        + AdminUserRepository
         + Send
         + Sync
 {
