@@ -61,6 +61,15 @@ pub trait MediaStoragePort: Send + Sync {
     async fn delete_object(&self, key: &str) -> DomainResult<()>;
 }
 
+/// Port for distributed/in-memory cache backends (DIP: swaps Redis / in-memory doubles cleanly).
+#[async_trait]
+pub trait CachePort: Send + Sync {
+    async fn get_string(&self, key: &str) -> Option<String>;
+    async fn set_string(&self, key: &str, value: &str, ttl_seconds: u64);
+    async fn get_namespace_version(&self, namespace: &str) -> u64;
+    async fn bump_namespace_version(&self, namespace: &str);
+}
+
 /// Output returned by a PaymentGateway when creating an intent.
 #[derive(Debug, Clone)]
 pub struct GatewayPaymentIntent {

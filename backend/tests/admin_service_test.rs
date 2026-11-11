@@ -6,11 +6,12 @@ use backend::{
     application::admin_service::*,
     domain::{
         admin::*,
-        ports::{HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
+        ports::{CachePort, HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
     },
     infrastructure::{
         html_sanitizer::DefaultHtmlSanitizer, object_storage::InMemoryTestMediaStorage,
-        repositories::PostgresAdminRepository, security::Argon2PasswordHasher,
+        redis_cache::RedisJsonCache, repositories::PostgresAdminRepository,
+        security::Argon2PasswordHasher,
     },
 };
 
@@ -27,7 +28,8 @@ async fn setup_admin_service() -> (AdminService, Uuid) {
     let hasher: Arc<dyn PasswordHasher> = Arc::new(Argon2PasswordHasher);
     let html_sanitizer: Arc<dyn HtmlSanitizerPort> = Arc::new(DefaultHtmlSanitizer);
     let media_storage: Arc<dyn MediaStoragePort> = Arc::new(InMemoryTestMediaStorage::default());
-    let service = AdminService::new(repo, hasher, html_sanitizer, media_storage);
+    let cache: Arc<dyn CachePort> = Arc::new(RedisJsonCache::in_memory());
+    let service = AdminService::new(repo, hasher, html_sanitizer, media_storage, cache, 300);
 
     // Create a dedicated test property
     let prop = service

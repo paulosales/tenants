@@ -67,6 +67,8 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
             header::CONTENT_TYPE,
             header::ACCEPT,
             header::COOKIE,
+            header::IF_NONE_MATCH,
+            header::CACHE_CONTROL,
             header::HeaderName::from_static("x-request-id"),
             header::HeaderName::from_static("x-csrf-token"),
             header::HeaderName::from_static("traceparent"),
@@ -76,6 +78,8 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
         .expose_headers([
             header::HeaderName::from_static("x-request-id"),
             header::HeaderName::from_static("x-trace-id"),
+            header::HeaderName::from_static("x-cache"),
+            header::ETAG,
         ])
         .allow_credentials(true);
 

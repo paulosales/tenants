@@ -12,13 +12,14 @@ use uuid::Uuid;
 use backend::{
     application::{AdminService, AuthService, ParkingService, PaymentService, ReservationService},
     domain::ports::{
-        HtmlSanitizerPort, MediaStoragePort, PasswordHasher, PaymentGateway, SvgSanitizerPort,
-        TokenProvider,
+        CachePort, HtmlSanitizerPort, MediaStoragePort, PasswordHasher, PaymentGateway,
+        SvgSanitizerPort, TokenProvider,
     },
     infrastructure::{
         html_sanitizer::DefaultHtmlSanitizer,
         object_storage::InMemoryTestMediaStorage,
         payment_gateway::StripePaymentGateway,
+        redis_cache::RedisJsonCache,
         redis_client::RedisRateLimiter,
         repositories::{
             PostgresAdminRepository, PostgresAmenityRepository, PostgresAuditRepository,
@@ -89,11 +90,14 @@ async fn build_test_router() -> (axum::Router, PgPool) {
     ));
     let html_sanitizer: Arc<dyn HtmlSanitizerPort> = Arc::new(DefaultHtmlSanitizer);
     let media_storage: Arc<dyn MediaStoragePort> = Arc::new(InMemoryTestMediaStorage::default());
+    let cache: Arc<dyn CachePort> = Arc::new(RedisJsonCache::in_memory());
     let admin_service = Arc::new(AdminService::new(
         admin_repo,
         password_hasher,
         html_sanitizer,
         media_storage,
+        cache,
+        300,
     ));
     let rate_limiter = Arc::new(RedisRateLimiter::in_memory());
 
@@ -1287,4 +1291,217 @@ async fn test_w3c_trace_context_propagation_and_cors() {
             .and_then(|v| v.to_str().ok()),
         Some(parent_trace_id)
     );
+}
+
+#[tokio::test]
+async fn test_public_portal_redis_cache_etag_and_invalidation() {
+    let (router, _pool) = build_test_router().await;
+    let prop1_id = "11111111-2222-3333-4444-555555555551";
+
+    // 1. First list request misses cache, returns ETag + Cache-Control + X-Cache: MISS
+    let list_miss = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/public/properties")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list_miss.status(), StatusCode::OK);
+    assert_eq!(
+        list_miss
+            .headers()
+            .get("x-cache")
+            .and_then(|v| v.to_str().ok()),
+        Some("MISS")
+    );
+    let cache_control = list_miss
+        .headers()
+        .get(header::CACHE_CONTROL)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(cache_control.contains("public"));
+    assert!(cache_control.contains("max-age=60"));
+    let list_etag = list_miss
+        .headers()
+        .get(header::ETAG)
+        .and_then(|v| v.to_str().ok())
+        .expect("Missing ETag header on public list")
+        .to_string();
+
+    // 2. Second list request hits cache with matching ETag
+    let list_hit = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/public/properties")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list_hit.status(), StatusCode::OK);
+    assert_eq!(
+        list_hit
+            .headers()
+            .get("x-cache")
+            .and_then(|v| v.to_str().ok()),
+        Some("HIT")
+    );
+    assert_eq!(
+        list_hit
+            .headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok()),
+        Some(list_etag.as_str())
+    );
+
+    // 3. Conditional GET with matching If-None-Match yields 304 Not Modified
+    let list_not_modified = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/public/properties")
+                .header(header::IF_NONE_MATCH, &list_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list_not_modified.status(), StatusCode::NOT_MODIFIED);
+
+    // 4. Detail endpoint caches independently (MISS -> HIT -> 304)
+    let detail_miss = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/public/properties/{}", prop1_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(detail_miss.status(), StatusCode::OK);
+    assert_eq!(
+        detail_miss
+            .headers()
+            .get("x-cache")
+            .and_then(|v| v.to_str().ok()),
+        Some("MISS")
+    );
+    let detail_etag = detail_miss
+        .headers()
+        .get(header::ETAG)
+        .and_then(|v| v.to_str().ok())
+        .expect("Missing ETag header on public detail")
+        .to_string();
+
+    let detail_hit = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/public/properties/{}", prop1_id))
+                .header(header::IF_NONE_MATCH, &detail_etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(detail_hit.status(), StatusCode::NOT_MODIFIED);
+    assert_eq!(
+        detail_hit
+            .headers()
+            .get("x-cache")
+            .and_then(|v| v.to_str().ok()),
+        Some("HIT")
+    );
+
+    // 5. Admin mutation bumps namespace epoch and invalidates public portal cache
+    let (admin_cookie, admin_csrf, _, _) =
+        login_with_cookies(&router, "admin@property.local", "Password123!").await;
+    let marker_label = format!("Temp Cache Feature {}", Uuid::new_v4());
+    let add_feat = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/properties/{}/features", prop1_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "label": marker_label, "category": "community" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(add_feat.status(), StatusCode::CREATED);
+    let feat_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(add_feat.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let feat_id = feat_json["id"].as_str().unwrap().to_string();
+
+    let after_mutation = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/public/properties")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(after_mutation.status(), StatusCode::OK);
+    assert_eq!(
+        after_mutation
+            .headers()
+            .get("x-cache")
+            .and_then(|v| v.to_str().ok()),
+        Some("MISS")
+    );
+    let new_etag = after_mutation
+        .headers()
+        .get(header::ETAG)
+        .and_then(|v| v.to_str().ok())
+        .unwrap()
+        .to_string();
+    assert_ne!(new_etag, list_etag);
+    let body_text = String::from_utf8(
+        axum::body::to_bytes(after_mutation.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body_text.contains(&marker_label));
+
+    // Clean up temporary feature (also invalidates cache cleanly)
+    let del_feat = router
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(format!(
+                    "/api/v1/properties/{}/features/{}",
+                    prop1_id, feat_id
+                ))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(del_feat.status(), StatusCode::NO_CONTENT);
 }

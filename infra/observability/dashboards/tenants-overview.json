@@ -176,8 +176,26 @@
       "type": "timeseries"
     },
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 13 },
+      "id": 8,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (endpoint, outcome) (tenants_public_portal_cache_requests_total)",
+          "legendFormat": "{{endpoint}} ({{outcome}})",
+          "refId": "A"
+        }
+      ],
+      "title": "Public Portal Cache Hits vs Misses (Redis / Fallback)",
+      "type": "timeseries"
+    },
+    {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 13 },
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 20 },
       "id": 7,
       "options": {
         "dedupStrategy": "none",

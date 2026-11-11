@@ -13,6 +13,7 @@ use backend::{
         html_sanitizer::DefaultHtmlSanitizer,
         object_storage::S3ObjectStorage,
         payment_gateway::StripePaymentGateway,
+        redis_cache::RedisJsonCache,
         redis_client::RedisRateLimiter,
         repositories::{
             PostgresAdminRepository, PostgresAmenityRepository, PostgresAuditRepository,
@@ -130,12 +131,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         s3_storage.ensure_bucket_and_seed(seed_dir).await;
     }
     let media_storage: Arc<dyn MediaStoragePort> = s3_storage;
+    let public_cache = Arc::new(RedisJsonCache::new(&config.redis_url).await);
 
     let admin_service = Arc::new(AdminService::new(
         admin_repo.clone(),
         password_hasher,
         html_sanitizer,
         media_storage,
+        public_cache,
+        config.public_portal_cache_ttl_seconds,
     ));
     let rate_limiter = Arc::new(RedisRateLimiter::new(&config.redis_url).await);
 

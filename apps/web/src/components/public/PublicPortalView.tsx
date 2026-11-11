@@ -72,6 +72,8 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({ onOpenLogin 
   } = useQuery({
     queryKey: ['public-properties'],
     queryFn: () => publicGateway.getPublicProperties(),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   // Fetch fresh property showcase when detail view is open (with list cache fallback)
@@ -79,6 +81,9 @@ export const PublicPortalView: React.FC<PublicPortalViewProps> = ({ onOpenLogin 
     queryKey: ['public-property-detail', detailPropertyId],
     queryFn: () => publicGateway.getPublicProperty(detailPropertyId!),
     enabled: Boolean(detailPropertyId),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    placeholderData: () => properties.find((p) => p.id === detailPropertyId),
   });
 
   // Sync URL query params cleanly without full page reloads

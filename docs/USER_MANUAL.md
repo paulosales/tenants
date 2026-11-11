@@ -207,6 +207,10 @@ Set `EXPO_PUBLIC_API_URL` if connecting from a physical device or emulator to a 
   - **React Web SDK**: Initializes `@opentelemetry/sdk-trace-web` + `FetchInstrumentation`, exporting client spans over OTLP HTTP (`:4318`) and propagating **W3C Trace Context** (`traceparent` / `tracestate`) strictly to first-party backend API URLs.
   - **Rust Backend Telemetry**: Uses `tracing` + `tracing-opentelemetry` + `opentelemetry-otlp` + `opentelemetry-appender-tracing` to extract incoming W3C `traceparent` headers, attach `x-trace-id` onto responses, emit low-cardinality HTTP latency/count metrics (`MatchedPath`), and correlate JSON logs with active `trace_id`s.
   - **Collection & Storage Stack**: **OpenTelemetry Collector** (`:4317` gRPC / `:4318` HTTP) routes traces to **Jaeger** (`http://localhost:16686`), metrics to **Prometheus** (`http://localhost:9090`), and OTLP logs to **Loki** (`http://localhost:3100`), pre-wired in **Grafana** (`http://localhost:3001`).
+- **Public Portal Multi-Layer Caching**:
+  - **Redis Cache-Aside & Stampede Protection**: `GET /api/v1/public/properties` and `GET /api/v1/public/properties/:id` serve serialized non-PII `PublicPropertyListing` payloads from Redis (`RedisJsonCache`, default `PUBLIC_PORTAL_CACHE_TTL_SECONDS=300`, automatic bounded in-memory fallback when Redis is unavailable) guarded by per-endpoint `tokio::sync::Mutex` single-flight locks.
+  - **O(1) Epoch Invalidation**: Property, feature, photo, unit, tenant, amenity, staff, or tenancy-application-review mutations atomically increment the Redis namespace counter (`INCR cache:ns:public_portal:ver`) without running blocking `KEYS *` scans.
+  - **HTTP Conditional Caching & Client Query Tuning**: Public endpoints emit strong SHA-256 `ETag`, `Cache-Control: public, max-age=60, stale-while-revalidate=300`, `X-Cache: HIT|MISS`, and return `304 Not Modified` on matching `If-None-Match`. Cache outcomes export to Prometheus as `tenants_public_portal_cache_requests_total`.
 
 ---
 

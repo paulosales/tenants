@@ -32,7 +32,7 @@ pub use user_admin_service::AdminUserService;
 use crate::domain::{
     admin::*,
     errors::DomainResult,
-    ports::{HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
+    ports::{CachePort, HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
     user::{Role, User},
 };
 
@@ -58,6 +58,8 @@ impl AdminService {
         password_hasher: Arc<dyn PasswordHasher>,
         html_sanitizer: Arc<dyn HtmlSanitizerPort>,
         media_storage: Arc<dyn MediaStoragePort>,
+        cache: Arc<dyn CachePort>,
+        public_portal_cache_ttl_seconds: u64,
     ) -> Self {
         let property_repo: Arc<dyn PropertyRepository> = repo.clone();
         let feature_repo: Arc<dyn PropertyFeatureRepository> = repo.clone();
@@ -89,7 +91,11 @@ impl AdminService {
             maintenance: MaintenanceService::new(maintenance_repo, staff_repo.clone()),
             reservations: TenantReservationService::new(reservation_repo),
             staff: PropertyStaffService::new(staff_repo.clone(), property_repo.clone()),
-            public_portal: PublicPortalService::new(portal_repo.clone()),
+            public_portal: PublicPortalService::new(
+                portal_repo.clone(),
+                cache,
+                public_portal_cache_ttl_seconds,
+            ),
             applications: TenancyApplicationService::new(
                 app_repo,
                 property_repo.clone(),
@@ -110,17 +116,23 @@ impl AdminService {
         self.properties.get_property(id).await
     }
     pub async fn create_property(&self, req: CreatePropertyRequest) -> DomainResult<Property> {
-        self.properties.create_property(req).await
+        let res = self.properties.create_property(req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn update_property(
         &self,
         id: Uuid,
         req: UpdatePropertyRequest,
     ) -> DomainResult<Property> {
-        self.properties.update_property(id, req).await
+        let res = self.properties.update_property(id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_property(&self, id: Uuid) -> DomainResult<()> {
-        self.properties.delete_property(id).await
+        self.properties.delete_property(id).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
     pub async fn list_property_features(
         &self,
@@ -133,7 +145,9 @@ impl AdminService {
         property_id: Uuid,
         req: AddPropertyFeatureRequest,
     ) -> DomainResult<PropertyFeature> {
-        self.properties.add_feature(property_id, req).await
+        let res = self.properties.add_feature(property_id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_property_feature(
         &self,
@@ -142,7 +156,9 @@ impl AdminService {
     ) -> DomainResult<()> {
         self.properties
             .delete_feature(property_id, feature_id)
-            .await
+            .await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
     pub async fn list_property_photos(
         &self,
@@ -158,23 +174,33 @@ impl AdminService {
         caption: Option<String>,
         is_cover: bool,
     ) -> DomainResult<PropertyPhoto> {
-        self.properties
+        let res = self
+            .properties
             .upload_photo(property_id, content_type, bytes, caption, is_cover)
-            .await
+            .await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn set_cover_property_photo(
         &self,
         property_id: Uuid,
         photo_id: Uuid,
     ) -> DomainResult<PropertyPhoto> {
-        self.properties.set_cover_photo(property_id, photo_id).await
+        let res = self
+            .properties
+            .set_cover_photo(property_id, photo_id)
+            .await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_property_photo(
         &self,
         property_id: Uuid,
         photo_id: Uuid,
     ) -> DomainResult<()> {
-        self.properties.delete_photo(property_id, photo_id).await
+        self.properties.delete_photo(property_id, photo_id).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
 
     // Units
@@ -192,13 +218,19 @@ impl AdminService {
         property_id: Uuid,
         req: CreateUnitRequest,
     ) -> DomainResult<Unit> {
-        self.units.create_unit(property_id, req).await
+        let res = self.units.create_unit(property_id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn update_unit(&self, id: Uuid, req: UpdateUnitRequest) -> DomainResult<Unit> {
-        self.units.update_unit(id, req).await
+        let res = self.units.update_unit(id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_unit(&self, id: Uuid) -> DomainResult<()> {
-        self.units.delete_unit(id).await
+        self.units.delete_unit(id).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
 
     // Tenants
@@ -214,13 +246,19 @@ impl AdminService {
         self.tenants.get_tenant(id).await
     }
     pub async fn create_tenant(&self, req: CreateTenantRequest) -> DomainResult<Tenant> {
-        self.tenants.create_tenant(req).await
+        let res = self.tenants.create_tenant(req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn update_tenant(&self, id: Uuid, req: UpdateTenantRequest) -> DomainResult<Tenant> {
-        self.tenants.update_tenant(id, req).await
+        let res = self.tenants.update_tenant(id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_tenant(&self, id: Uuid) -> DomainResult<()> {
-        self.tenants.delete_tenant(id).await
+        self.tenants.delete_tenant(id).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
 
     // Amenities
@@ -238,17 +276,23 @@ impl AdminService {
         property_id: Uuid,
         req: CreateAmenityRequest,
     ) -> DomainResult<AdminAmenity> {
-        self.amenities.create_amenity(property_id, req).await
+        let res = self.amenities.create_amenity(property_id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn update_amenity(
         &self,
         id: Uuid,
         req: UpdateAmenityRequest,
     ) -> DomainResult<AdminAmenity> {
-        self.amenities.update_amenity(id, req).await
+        let res = self.amenities.update_amenity(id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_amenity(&self, id: Uuid) -> DomainResult<()> {
-        self.amenities.delete_amenity(id).await
+        self.amenities.delete_amenity(id).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
 
     // Parking Layouts
@@ -345,17 +389,23 @@ impl AdminService {
         &self,
         req: CreatePropertyStaffRequest,
     ) -> DomainResult<PropertyStaff> {
-        self.staff.create_property_staff(req).await
+        let res = self.staff.create_property_staff(req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn update_property_staff(
         &self,
         id: Uuid,
         req: UpdatePropertyStaffRequest,
     ) -> DomainResult<PropertyStaff> {
-        self.staff.update_property_staff(id, req).await
+        let res = self.staff.update_property_staff(id, req).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn delete_property_staff(&self, id: Uuid) -> DomainResult<()> {
-        self.staff.delete_property_staff(id).await
+        self.staff.delete_property_staff(id).await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(())
     }
 
     // Parking Spot Assignment & Public Portal & Applications & Messaging
@@ -387,8 +437,19 @@ impl AdminService {
     pub async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>> {
         self.public_portal.list_public_properties().await
     }
+    pub async fn list_public_properties_cached(
+        &self,
+    ) -> DomainResult<(Vec<PublicPropertyListing>, bool)> {
+        self.public_portal.list_public_properties_cached().await
+    }
     pub async fn get_public_property(&self, id: Uuid) -> DomainResult<PublicPropertyListing> {
         self.public_portal.get_public_property(id).await
+    }
+    pub async fn get_public_property_cached(
+        &self,
+        id: Uuid,
+    ) -> DomainResult<(PublicPropertyListing, bool)> {
+        self.public_portal.get_public_property_cached(id).await
     }
     pub async fn submit_public_application(
         &self,
@@ -414,9 +475,12 @@ impl AdminService {
         reviewer_user_id: Uuid,
         req: ReviewTenancyApplicationRequest,
     ) -> DomainResult<TenancyApplication> {
-        self.applications
+        let res = self
+            .applications
             .review_application(id, reviewer_user_id, req)
-            .await
+            .await?;
+        self.public_portal.invalidate_cache().await;
+        Ok(res)
     }
     pub async fn list_messages(
         &self,

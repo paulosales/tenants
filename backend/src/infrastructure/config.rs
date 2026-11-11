@@ -22,6 +22,7 @@ pub struct AppConfig {
     pub allowed_origins: Vec<String>,
     pub otel_exporter_otlp_endpoint: Option<String>,
     pub otel_service_name: String,
+    pub public_portal_cache_ttl_seconds: u64,
 }
 
 impl AppConfig {
@@ -123,6 +124,12 @@ impl AppConfig {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "tenants-backend".to_string());
 
+        let public_portal_cache_ttl_seconds = std::env::var("PUBLIC_PORTAL_CACHE_TTL_SECONDS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(300)
+            .min(86_400);
+
         Ok(Self {
             port,
             host,
@@ -144,6 +151,7 @@ impl AppConfig {
             allowed_origins,
             otel_exporter_otlp_endpoint,
             otel_service_name,
+            public_portal_cache_ttl_seconds,
         })
     }
 }
