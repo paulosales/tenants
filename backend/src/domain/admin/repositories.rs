@@ -137,8 +137,25 @@ pub trait PropertyStaffRepository: Send + Sync {
 }
 
 #[async_trait]
+pub trait PropertyFeatureRepository: Send + Sync {
+    async fn list_features(&self, property_id: Uuid) -> DomainResult<Vec<PropertyFeature>>;
+    async fn add_feature(&self, feature: PropertyFeature) -> DomainResult<PropertyFeature>;
+    async fn delete_feature(&self, property_id: Uuid, feature_id: Uuid) -> DomainResult<()>;
+}
+
+#[async_trait]
+pub trait PropertyPhotoRepository: Send + Sync {
+    async fn list_photos(&self, property_id: Uuid) -> DomainResult<Vec<PropertyPhoto>>;
+    async fn get_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<Option<PropertyPhoto>>;
+    async fn add_photo(&self, photo: PropertyPhoto) -> DomainResult<PropertyPhoto>;
+    async fn delete_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<()>;
+    async fn set_cover_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<PropertyPhoto>;
+}
+
+#[async_trait]
 pub trait PublicPortalRepository: Send + Sync {
     async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>>;
+    async fn get_public_property(&self, property_id: Uuid) -> DomainResult<Option<PublicPropertyListing>>;
     async fn count_property_managers(&self, property_id: Uuid) -> DomainResult<i64>;
 }
 
@@ -202,6 +219,8 @@ pub trait AdminUserRepository: Send + Sync {
 /// Blanket-implemented for any adapter providing all segregated traits.
 pub trait AdminRepository:
     PropertyRepository
+    + PropertyFeatureRepository
+    + PropertyPhotoRepository
     + UnitRepository
     + TenantRepository
     + AdminAmenityRepository
@@ -220,6 +239,8 @@ pub trait AdminRepository:
 
 impl<T> AdminRepository for T where
     T: PropertyRepository
+        + PropertyFeatureRepository
+        + PropertyPhotoRepository
         + UnitRepository
         + TenantRepository
         + AdminAmenityRepository

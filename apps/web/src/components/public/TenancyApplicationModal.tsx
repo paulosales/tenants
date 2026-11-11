@@ -3,9 +3,11 @@ import { CheckCircle2 } from 'lucide-react';
 import type { CreateTenancyApplicationDto, PublicPropertyListing } from '@tenants/shared-types';
 import { AlertBanner } from '../common/AlertBanner';
 import { ModalDialog } from '../common/ModalDialog';
+import { formatMonthlyRent } from '../../utils/rentalFilters';
 
 interface TenancyApplicationModalProps {
   property: PublicPropertyListing | null;
+  initialPreferredUnitId?: string | null;
   isSubmitting: boolean;
   submitError: string | null;
   onDismissError: () => void;
@@ -15,6 +17,7 @@ interface TenancyApplicationModalProps {
 
 export const TenancyApplicationModal: React.FC<TenancyApplicationModalProps> = ({
   property,
+  initialPreferredUnitId = null,
   isSubmitting,
   submitError,
   onDismissError,
@@ -34,13 +37,18 @@ export const TenancyApplicationModal: React.FC<TenancyApplicationModalProps> = (
 
   useEffect(() => {
     if (!property) return;
-    setPreferredUnitId(property.vacant_units[0]?.id || '');
+    const validPreselected =
+      initialPreferredUnitId &&
+      property.vacant_units.some((u) => u.id === initialPreferredUnitId)
+        ? initialPreferredUnitId
+        : property.vacant_units[0]?.id || '';
+    setPreferredUnitId(validPreselected);
     setFirstName('');
     setLastName('');
     setEmail('');
     setPhone('');
     setNotes('');
-  }, [property]);
+  }, [property, initialPreferredUnitId]);
 
   return (
     <ModalDialog
@@ -92,7 +100,12 @@ export const TenancyApplicationModal: React.FC<TenancyApplicationModalProps> = (
                 <option value="">Any Available Unit</option>
                 {property.vacant_units.map((u) => (
                   <option key={u.id} value={u.id}>
-                    Unit {u.unit_number} ({u.bedrooms}bd / {u.bathrooms}ba, {u.square_feet} sqft)
+                    Unit {u.unit_number} ({u.bedrooms === 0 ? 'Studio' : `${u.bedrooms}bd`} /{' '}
+                    {u.bathrooms}ba, {u.square_feet} sqft
+                    {u.monthly_rent_cents && u.monthly_rent_cents > 0
+                      ? ` — ${formatMonthlyRent(u.monthly_rent_cents)}/mo`
+                      : ''}
+                    )
                   </option>
                 ))}
               </select>

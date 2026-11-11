@@ -32,7 +32,7 @@ pub use user_admin_service::AdminUserService;
 use crate::domain::{
     admin::*,
     errors::DomainResult,
-    ports::PasswordHasher,
+    ports::{HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
     user::{Role, User},
 };
 
@@ -53,8 +53,15 @@ pub struct AdminService {
 }
 
 impl AdminService {
-    pub fn new(repo: Arc<dyn AdminRepository>, password_hasher: Arc<dyn PasswordHasher>) -> Self {
+    pub fn new(
+        repo: Arc<dyn AdminRepository>,
+        password_hasher: Arc<dyn PasswordHasher>,
+        html_sanitizer: Arc<dyn HtmlSanitizerPort>,
+        media_storage: Arc<dyn MediaStoragePort>,
+    ) -> Self {
         let property_repo: Arc<dyn PropertyRepository> = repo.clone();
+        let feature_repo: Arc<dyn PropertyFeatureRepository> = repo.clone();
+        let photo_repo: Arc<dyn PropertyPhotoRepository> = repo.clone();
         let unit_repo: Arc<dyn UnitRepository> = repo.clone();
         let tenant_repo: Arc<dyn TenantRepository> = repo.clone();
         let amenity_repo: Arc<dyn AdminAmenityRepository> = repo.clone();
@@ -68,7 +75,13 @@ impl AdminService {
         let admin_user_repo: Arc<dyn AdminUserRepository> = repo;
 
         Self {
-            properties: PropertyService::new(property_repo.clone()),
+            properties: PropertyService::new(
+                property_repo.clone(),
+                feature_repo,
+                photo_repo,
+                html_sanitizer,
+                media_storage,
+            ),
             units: UnitService::new(unit_repo.clone(), property_repo.clone()),
             tenants: TenantService::new(tenant_repo.clone(), unit_repo.clone()),
             amenities: AdminAmenityService::new(amenity_repo, property_repo.clone()),
@@ -104,6 +117,44 @@ impl AdminService {
     }
     pub async fn delete_property(&self, id: Uuid) -> DomainResult<()> {
         self.properties.delete_property(id).await
+    }
+    pub async fn list_property_features(&self, property_id: Uuid) -> DomainResult<Vec<PropertyFeature>> {
+        self.properties.list_features(property_id).await
+    }
+    pub async fn add_property_feature(
+        &self,
+        property_id: Uuid,
+        req: AddPropertyFeatureRequest,
+    ) -> DomainResult<PropertyFeature> {
+        self.properties.add_feature(property_id, req).await
+    }
+    pub async fn delete_property_feature(&self, property_id: Uuid, feature_id: Uuid) -> DomainResult<()> {
+        self.properties.delete_feature(property_id, feature_id).await
+    }
+    pub async fn list_property_photos(&self, property_id: Uuid) -> DomainResult<Vec<PropertyPhoto>> {
+        self.properties.list_photos(property_id).await
+    }
+    pub async fn upload_property_photo(
+        &self,
+        property_id: Uuid,
+        content_type: &str,
+        bytes: &[u8],
+        caption: Option<String>,
+        is_cover: bool,
+    ) -> DomainResult<PropertyPhoto> {
+        self.properties
+            .upload_photo(property_id, content_type, bytes, caption, is_cover)
+            .await
+    }
+    pub async fn set_cover_property_photo(
+        &self,
+        property_id: Uuid,
+        photo_id: Uuid,
+    ) -> DomainResult<PropertyPhoto> {
+        self.properties.set_cover_photo(property_id, photo_id).await
+    }
+    pub async fn delete_property_photo(&self, property_id: Uuid, photo_id: Uuid) -> DomainResult<()> {
+        self.properties.delete_photo(property_id, photo_id).await
     }
 
     // Units
@@ -274,6 +325,9 @@ impl AdminService {
     }
     pub async fn list_public_properties(&self) -> DomainResult<Vec<PublicPropertyListing>> {
         self.public_portal.list_public_properties().await
+    }
+    pub async fn get_public_property(&self, id: Uuid) -> DomainResult<PublicPropertyListing> {
+        self.public_portal.get_public_property(id).await
     }
     pub async fn submit_public_application(
         &self,

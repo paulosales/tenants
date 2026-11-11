@@ -92,6 +92,28 @@ impl SpotType {
 // ==========================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PropertyFeature {
+    pub id: Uuid,
+    pub property_id: Uuid,
+    pub label: String,
+    pub category: String,
+    pub display_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PropertyPhoto {
+    pub id: Uuid,
+    pub property_id: Uuid,
+    pub storage_key: String,
+    pub cdn_url: String,
+    pub caption: Option<String>,
+    pub is_cover: bool,
+    pub display_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Property {
     pub id: Uuid,
     pub name: String,
@@ -100,6 +122,16 @@ pub struct Property {
     pub city: String,
     pub state_province: String,
     pub postal_code: String,
+    #[serde(default)]
+    pub rich_description: String,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub pet_policy: Option<String>,
+    pub lease_terms: Option<String>,
+    #[serde(default)]
+    pub features: Vec<PropertyFeature>,
+    #[serde(default)]
+    pub photos: Vec<PropertyPhoto>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -113,6 +145,19 @@ pub struct PropertyWithStats {
     pub city: String,
     pub state_province: String,
     pub postal_code: String,
+    #[serde(default)]
+    pub rich_description: String,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub pet_policy: Option<String>,
+    pub lease_terms: Option<String>,
+    pub min_rent_cents: Option<i64>,
+    pub max_rent_cents: Option<i64>,
+    pub cover_photo_url: Option<String>,
+    #[serde(default)]
+    pub feature_count: i64,
+    #[serde(default)]
+    pub photo_count: i64,
     pub unit_count: i64,
     pub occupied_units_count: i64,
     pub tenant_count: i64,
@@ -129,6 +174,7 @@ pub struct Unit {
     pub bedrooms: i32,
     pub bathrooms: f64,
     pub square_feet: i32,
+    pub monthly_rent_cents: i32,
     pub status: UnitStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -151,6 +197,7 @@ pub struct UnitWithTenant {
     pub bedrooms: i32,
     pub bathrooms: f64,
     pub square_feet: i32,
+    pub monthly_rent_cents: i32,
     pub status: UnitStatus,
     pub tenant_id: Option<Uuid>,
     pub tenant_name: Option<String>,
@@ -319,6 +366,7 @@ pub struct PublicUnitSummary {
     pub bedrooms: i32,
     pub bathrooms: f64,
     pub square_feet: i32,
+    pub monthly_rent_cents: i32,
     pub status: UnitStatus,
 }
 
@@ -331,11 +379,23 @@ pub struct PublicPropertyListing {
     pub city: String,
     pub state_province: String,
     pub postal_code: String,
+    #[serde(default)]
+    pub rich_description: String,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub pet_policy: Option<String>,
+    pub lease_terms: Option<String>,
+    pub min_rent_cents: Option<i64>,
+    pub max_rent_cents: Option<i64>,
     pub total_units: i64,
     pub available_units: i64,
     pub manager_count: i64,
     pub vacant_units: Vec<PublicUnitSummary>,
     pub amenities: Vec<String>,
+    #[serde(default)]
+    pub features: Vec<PropertyFeature>,
+    #[serde(default)]
+    pub photos: Vec<PropertyPhoto>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

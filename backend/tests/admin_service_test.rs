@@ -6,8 +6,13 @@ use backend::{
     application::{
         admin_service::*,
     },
-    domain::{admin::*, ports::PasswordHasher},
+    domain::{
+        admin::*,
+        ports::{HtmlSanitizerPort, MediaStoragePort, PasswordHasher},
+    },
     infrastructure::{
+        html_sanitizer::DefaultHtmlSanitizer,
+        object_storage::InMemoryTestMediaStorage,
         repositories::PostgresAdminRepository,
         security::Argon2PasswordHasher,
     },
@@ -23,7 +28,9 @@ async fn setup_admin_service() -> (AdminService, Uuid) {
 
     let repo = Arc::new(PostgresAdminRepository::new(pool));
     let hasher: Arc<dyn PasswordHasher> = Arc::new(Argon2PasswordHasher);
-    let service = AdminService::new(repo, hasher);
+    let html_sanitizer: Arc<dyn HtmlSanitizerPort> = Arc::new(DefaultHtmlSanitizer);
+    let media_storage: Arc<dyn MediaStoragePort> = Arc::new(InMemoryTestMediaStorage::default());
+    let service = AdminService::new(repo, hasher, html_sanitizer, media_storage);
 
     // Create a dedicated test property
     let prop = service
@@ -34,6 +41,11 @@ async fn setup_admin_service() -> (AdminService, Uuid) {
             city: "Seattle".to_string(),
             state_province: "WA".to_string(),
             postal_code: "98101".to_string(),
+            rich_description: None,
+            latitude: None,
+            longitude: None,
+            pet_policy: None,
+            lease_terms: None,
         })
         .await
         .expect("Failed to create test property");
@@ -59,6 +71,7 @@ async fn test_property_crud_and_dependency_guard() {
                 bedrooms: 2,
                 bathrooms: 2.0,
                 square_feet: 850,
+                monthly_rent_cents: Some(215000),
                 status: Some(UnitStatus::Vacant),
                 tenant_ids: None,
             },
@@ -91,6 +104,7 @@ async fn test_tenant_assignment_and_unit_status_transitions() {
                 bedrooms: 1,
                 bathrooms: 1.0,
                 square_feet: 600,
+                monthly_rent_cents: None,
                 status: Some(UnitStatus::Vacant),
                 tenant_ids: None,
             },
@@ -259,6 +273,7 @@ async fn test_assign_single_unit_to_multiple_tenants() {
                 bedrooms: 2,
                 bathrooms: 2.0,
                 square_feet: 900,
+                monthly_rent_cents: None,
                 status: None, // should default to Occupied because tenants are assigned
                 tenant_ids: Some(vec![tenant_a.id, tenant_b.id]),
             },
@@ -294,6 +309,7 @@ async fn test_assign_single_unit_to_multiple_tenants() {
                 bedrooms: created_unit.bedrooms,
                 bathrooms: created_unit.bathrooms,
                 square_feet: created_unit.square_feet,
+                monthly_rent_cents: Some(220000),
                 status: UnitStatus::Occupied,
                 tenant_ids: Some(vec![tenant_b.id, tenant_c.id]),
             },
@@ -319,6 +335,7 @@ async fn test_assign_single_unit_to_multiple_tenants() {
                 bedrooms: created_unit.bedrooms,
                 bathrooms: created_unit.bathrooms,
                 square_feet: created_unit.square_feet,
+                monthly_rent_cents: None,
                 status: UnitStatus::Occupied, // was occupied
                 tenant_ids: Some(vec![]),
             },

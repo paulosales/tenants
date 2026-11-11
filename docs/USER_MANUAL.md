@@ -78,16 +78,20 @@ When running locally with Docker Compose (`docker compose up`), database migrati
 
 ---
 
-## 4. Public Property Portal (Unauthenticated Visitors)
+## 4. Public Property Portal & Interactive Rental Search (Unauthenticated Visitors)
 
-Prospective tenants do **not** need an account to explore communities or apply:
+Prospective tenants do **not** need an account to search communities, inspect floorplans, or apply:
 
-1. On the **Public Leasing Portal**, browse listed properties along with vacant unit counts, available floorplans (`bedrooms`, `bathrooms`, `square_feet`), and community amenities.
-2. Use the **Search** bar to filter by building name, city, or street address.
-3. Click **Apply to Be a Tenant** on any property card.
-4. Optionally select a **Preferred Vacant Unit**, fill in contact details, monthly income, employment status, desired move-in date, occupant count, and notes.
-5. Click **Submit Application**.
-   - Applications enter the queue with status `pending` and are routed directly to that property's **Property Manager(s)**.
+1. **Multi-Criteria Search & URL Deep Links**: Filter communities by keyword, city, bedrooms (`Any`, `Studio`, `1+`, `2+`, `3+` — synced via URL query parameters such as `?beds=2`), minimum bathrooms, monthly rent range (`Min $` / `Max $`), expandable **Features** tags, **Available Now Only**, and sort order (`Recommended`, `Rent: Low to High`, `Rent: High to Low`, `Most Available Units`).
+2. **Interactive Google Maps Widget with Rent Price Pins**: Switch between **Split List & Map**, **Grid View**, or **Map Only**. Each map pin displays the community's live monthly rent price range (e.g., `$1,650 – $2,350/mo`). Hovering or clicking a pin highlights the card, previews photos and availability, and links straight to the showcase or application.
+3. **Dedicated Property Showcase Page**: Click **Explore Community** (or a community banner) to view the full **Community Showcase**:
+   - **CDN Photo Gallery & Lightbox** with multi-photo thumbnails.
+   - **About This Community** rich-text overview, **Pet Policy**, and **Lease Terms**.
+   - **Categorized Features & Resident Perks** (`Community`, `In-Suite`, `Utilities`, `Policies`, `Transit`).
+   - **Available Suites & Floorplans** filterable by bedroom count with exact monthly rent and direct **Apply for Suite X** buttons.
+   - **Embedded Neighborhood Map** centered on the property coordinates.
+4. **Submitting an Application**: Click **Apply for Suite X** or **Apply to Be a Tenant**, review the pre-selected preferred unit, complete contact/income/employment details, and click **Submit Application**.
+   - Applications enter the queue with status `pending` and route directly to that property's **Property Manager(s)**.
 
 ---
 
@@ -95,8 +99,11 @@ Prospective tenants do **not** need an account to explore communities or apply:
 
 Administrators have complete visibility across every building and module:
 
-- **Properties**: Create, edit, or remove buildings (protected by a dependency guard preventing accidental deletion while units exist).
-- **Units**: Manage apartment floorplans, multi-tenant unit assignments, and occupancy states (`vacant`, `occupied`, `maintenance`).
+- **Properties & Showcase Media**: Create, edit, or remove buildings (protected by a dependency guard preventing accidental deletion while units exist), and click **Showcase & Media** on any property row to:
+  - Edit the **Rich-Text Community Description**, **Pet Policy**, **Lease Terms**, and **Google Maps Geo-Coordinates** (`Latitude`, `Longitude`).
+  - **Add or Remove Property Features** categorized across Community, In-Suite, Utilities, Policies, and Transit.
+  - **Upload, Set Cover, or Remove CDN Photos** stored in S3-compatible object storage (**MinIO** in local dev; AWS S3 in production). Supported formats: JPEG, PNG, WebP up to 5 MB.
+- **Units & Monthly Rent Pricing**: Manage apartment floorplans, **Monthly Rent (`$/mo`)**, multi-tenant unit assignments, and occupancy states (`vacant`, `occupied`, `maintenance`). Updating a unit's rent immediately recalculates the community price range on public cards and map pins.
 - **Tenants**: Full tenant directory, lease dates, emergency contacts, and search.
 - **Users & Roles**: Provision user accounts across all RBAC roles, reassign roles cleanly, link accounts to properties/staff/tenants, toggle active/suspended access, and inspect the live permissions & user-count matrix.
 - **Applications / Staff / Messages / Amenity Approvals / Parking / Maintenance**: Full supervisory control.
@@ -193,7 +200,9 @@ Set `EXPO_PUBLIC_API_URL` if connecting from a physical device or emulator to a 
   - **Passwords**: Hashed with Argon2id (minimum 8 characters enforced on registration).
   - **Tokens**: Short-lived JWTs explicitly locked to `Algorithm::HS256` (`exp` validated) with CSPRNG refresh-token rotation and compromise revocation.
   - **Web Storage**: Zero tokens in `localStorage` or `sessionStorage`; Web relies exclusively on `HttpOnly`, `SameSite=Strict` cookies and a constant-time verified `X-CSRF-Token` double-submit header on cookie mutations.
-  - **Database Queries**: 100% parameterized SQLx queries; strict ownership and role validation on every endpoint.
+  - **Rich-Text XSS Defense-in-Depth**: Community descriptions are sanitized server-side via an allow-list HTML sanitizer (max 32 KB, stripping `<script>`, event attributes, and `javascript:`/`data:` URLs, enforcing `rel="noopener noreferrer"`) and client-side via **DOMPurify**.
+  - **Object Storage & Upload Hardening**: Photos are validated by HTTP `DefaultBodyLimit` (`6 MB`, enforcing `<= 5 MB` image payload), MIME verification, and raw **magic-byte signatures** (JPEG, PNG, WebP) before streaming via AWS SigV4 into UUID object keys in MinIO/S3.
+  - **Database Queries**: 100% parameterized SQLx queries; strict ownership and `has_property_access()` validation on every endpoint.
 
 ---
 
@@ -203,11 +212,14 @@ Base URL: `/api/v1`
 
 | Area | Method & Path | Access | Description |
 | :--- | :--- | :--- | :--- |
-| **Public** | `GET /public/properties` | Public | List active properties, vacant floorplans, amenity names (non-PII) |
+| **Public** | `GET /public/properties` | Public | List active properties, rent ranges, CDN cover/gallery photos, features, and vacant floorplans (non-PII) |
+| **Public** | `GET /public/properties/:id` | Public | Fetch full single-property showcase payload for deep links and detail view |
 | **Public** | `POST /public/applications` | Public | Submit tenancy application routed to property manager(s) |
 | **Auth** | `POST /auth/login` | Public | Authenticate user, issue cookies + CSRF token + mobile JWT |
 | **Auth** | `POST /auth/register` | Public | Self-register a new `tenant` account |
 | **Auth** | `POST /auth/logout`, `GET /auth/me` | Authenticated | Revoke session / fetch current user profile |
+| **Showcase** | `GET/POST /properties/:id/features`, `DELETE .../features/:feature_id` | Read: Auth, Write: Admin/Manager | Manage categorized community & suite features (property-scoped) |
+| **CDN Media** | `GET/POST /properties/:id/photos`, `PATCH .../cover`, `DELETE .../photos/:photo_id` | Read: Auth, Write: Admin/Manager | Upload/manage property photos in MinIO / AWS S3 CDN (`<= 5 MB`, magic-byte verified) |
 | **Applications** | `GET /tenancy-applications` | Admin, Manager | List applications (`?property_id=&status=`) |
 | **Applications** | `PATCH /tenancy-applications/:id/review` | Admin, Manager | Review (`under_review` / `approved` / `rejected`) + auto-onboard |
 | **Staff** | `GET /staff`, `POST /staff`, `PUT/DELETE /staff/:id` | Read: All Staff+, Write: Admin/Manager | Manage cleaners, maintainers, security, managers |

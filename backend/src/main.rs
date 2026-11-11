@@ -4,10 +4,15 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 use backend::{
     application::{AdminService, AuthService, ParkingService, PaymentService, ReservationService},
-    domain::ports::{PasswordHasher, PaymentGateway, SvgSanitizerPort, TokenProvider},
+    domain::ports::{
+        HtmlSanitizerPort, MediaStoragePort, PasswordHasher, PaymentGateway, SvgSanitizerPort,
+        TokenProvider,
+    },
     infrastructure::{
         config::AppConfig,
         db::create_postgres_pool,
+        html_sanitizer::DefaultHtmlSanitizer,
+        object_storage::S3ObjectStorage,
         payment_gateway::StripePaymentGateway,
         redis_client::RedisRateLimiter,
         repositories::{
@@ -103,7 +108,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         payment_gateway,
     ));
 
-    let admin_service = Arc::new(AdminService::new(admin_repo.clone(), password_hasher));
+    let html_sanitizer: Arc<dyn HtmlSanitizerPort> = Arc::new(DefaultHtmlSanitizer);
+    let s3_storage = Arc::new(S3ObjectStorage::new(
+        config.media_s3_endpoint.clone(),
+        config.media_s3_bucket.clone(),
+        config.media_s3_region.clone(),
+        config.media_s3_access_key.clone(),
+        config.media_s3_secret_key.clone(),
+        config.media_cdn_base_url.clone(),
+    ));
+    if !config.is_production {
+        let seed_dir = [
+            std::path::Path::new("/app/minio-seed"),
+            std::path::Path::new("./infra/minio-seed"),
+            std::path::Path::new("../infra/minio-seed"),
+        ]
+        .into_iter()
+        .find(|p| p.exists());
+        s3_storage.ensure_bucket_and_seed(seed_dir).await;
+    }
+    let media_storage: Arc<dyn MediaStoragePort> = s3_storage;
+
+    let admin_service = Arc::new(AdminService::new(
+        admin_repo.clone(),
+        password_hasher,
+        html_sanitizer,
+        media_storage,
+    ));
     let rate_limiter = Arc::new(RedisRateLimiter::new(&config.redis_url).await);
 
     // 7. Assemble Router with AppState

@@ -18,6 +18,7 @@ fn map_unit_row(r: &PgRow) -> Unit {
         bedrooms: r.get("bedrooms"),
         bathrooms: r.get("bathrooms"),
         square_feet: r.get("square_feet"),
+        monthly_rent_cents: r.get("monthly_rent_cents"),
         status: UnitStatus::from_str(&status_str),
         created_at: r.get("created_at"),
         updated_at: r.get("updated_at"),
@@ -30,7 +31,8 @@ impl UnitRepository for PostgresAdminRepository {
         let rows = sqlx::query(
             r#"
             SELECT 
-                u.id, u.property_id, u.unit_number, u.floor, u.bedrooms, u.bathrooms::float8 as bathrooms, u.square_feet, u.status,
+                u.id, u.property_id, u.unit_number, u.floor, u.bedrooms, u.bathrooms::float8 as bathrooms,
+                u.square_feet, u.monthly_rent_cents, u.status,
                 COALESCE(
                     json_agg(
                         json_build_object(
@@ -78,6 +80,7 @@ impl UnitRepository for PostgresAdminRepository {
                     bedrooms: r.get("bedrooms"),
                     bathrooms: r.get("bathrooms"),
                     square_feet: r.get("square_feet"),
+                    monthly_rent_cents: r.get("monthly_rent_cents"),
                     status: UnitStatus::from_str(&status_str),
                     tenant_id,
                     tenant_name,
@@ -93,7 +96,8 @@ impl UnitRepository for PostgresAdminRepository {
     async fn get_unit(&self, id: Uuid) -> DomainResult<Option<Unit>> {
         let row = sqlx::query(
             r#"
-            SELECT id, property_id, unit_number, floor, bedrooms, bathrooms::float8 as bathrooms, square_feet, status, created_at, updated_at
+            SELECT id, property_id, unit_number, floor, bedrooms, bathrooms::float8 as bathrooms,
+                   square_feet, monthly_rent_cents, status, created_at, updated_at
             FROM units
             WHERE id = $1 AND deleted_at IS NULL
             "#
@@ -109,9 +113,9 @@ impl UnitRepository for PostgresAdminRepository {
     async fn create_unit(&self, unit: Unit) -> DomainResult<Unit> {
         let row = sqlx::query(
             r#"
-            INSERT INTO units (id, property_id, unit_number, floor, bedrooms, bathrooms, square_feet, status, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING id, property_id, unit_number, floor, bedrooms, bathrooms::float8 as bathrooms, square_feet, status, created_at, updated_at
+            INSERT INTO units (id, property_id, unit_number, floor, bedrooms, bathrooms, square_feet, monthly_rent_cents, status, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING id, property_id, unit_number, floor, bedrooms, bathrooms::float8 as bathrooms, square_feet, monthly_rent_cents, status, created_at, updated_at
             "#
         )
         .bind(unit.id)
@@ -121,6 +125,7 @@ impl UnitRepository for PostgresAdminRepository {
         .bind(unit.bedrooms)
         .bind(unit.bathrooms)
         .bind(unit.square_feet)
+        .bind(unit.monthly_rent_cents)
         .bind(unit.status.as_str())
         .bind(unit.created_at)
         .bind(unit.updated_at)
@@ -145,9 +150,9 @@ impl UnitRepository for PostgresAdminRepository {
         let row = sqlx::query(
             r#"
             UPDATE units
-            SET unit_number = $2, floor = $3, bedrooms = $4, bathrooms = $5, square_feet = $6, status = $7, updated_at = $8
+            SET unit_number = $2, floor = $3, bedrooms = $4, bathrooms = $5, square_feet = $6, monthly_rent_cents = $7, status = $8, updated_at = $9
             WHERE id = $1 AND deleted_at IS NULL
-            RETURNING id, property_id, unit_number, floor, bedrooms, bathrooms::float8 as bathrooms, square_feet, status, created_at, updated_at
+            RETURNING id, property_id, unit_number, floor, bedrooms, bathrooms::float8 as bathrooms, square_feet, monthly_rent_cents, status, created_at, updated_at
             "#
         )
         .bind(unit.id)
@@ -156,6 +161,7 @@ impl UnitRepository for PostgresAdminRepository {
         .bind(unit.bedrooms)
         .bind(unit.bathrooms)
         .bind(unit.square_feet)
+        .bind(unit.monthly_rent_cents)
         .bind(unit.status.as_str())
         .bind(unit.updated_at)
         .fetch_one(&self.pool)

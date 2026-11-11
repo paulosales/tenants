@@ -13,6 +13,12 @@ pub struct AppConfig {
     pub jwt_refresh_expiration_seconds: i64,
     pub stripe_secret_key: String,
     pub stripe_webhook_secret: String,
+    pub media_s3_endpoint: String,
+    pub media_s3_bucket: String,
+    pub media_s3_region: String,
+    pub media_s3_access_key: String,
+    pub media_s3_secret_key: String,
+    pub media_cdn_base_url: String,
     pub allowed_origins: Vec<String>,
 }
 
@@ -70,6 +76,29 @@ impl AppConfig {
         let stripe_webhook_secret = std::env::var("STRIPE_WEBHOOK_SECRET")
             .unwrap_or_else(|_| "whsec_placeholder".to_string());
 
+        let media_s3_endpoint = std::env::var("MEDIA_S3_ENDPOINT")
+            .unwrap_or_else(|_| "http://localhost:9000".to_string());
+        let media_s3_bucket = std::env::var("MEDIA_S3_BUCKET")
+            .unwrap_or_else(|_| "property-media".to_string());
+        let media_s3_region = std::env::var("MEDIA_S3_REGION")
+            .unwrap_or_else(|_| "us-east-1".to_string());
+        let media_s3_access_key = std::env::var("MEDIA_S3_ACCESS_KEY")
+            .unwrap_or_else(|_| "minioadmin_dev".to_string());
+        let media_s3_secret_key = std::env::var("MEDIA_S3_SECRET_KEY")
+            .unwrap_or_else(|_| "minioadmin_dev_secret".to_string());
+        let media_cdn_base_url = std::env::var("MEDIA_CDN_BASE_URL")
+            .unwrap_or_else(|_| format!("http://localhost:9000/{}", media_s3_bucket));
+
+        if is_production
+            && (media_s3_access_key.contains("minioadmin_dev")
+                || media_s3_secret_key.contains("minioadmin_dev"))
+        {
+            return Err(DomainError::Internal(
+                "Refusing to start production environment with development object-storage credentials"
+                    .into(),
+            ));
+        }
+
         let allowed_origins_raw = std::env::var("ALLOWED_ORIGINS")
             .unwrap_or_else(|_| "http://localhost:5173,http://127.0.0.1:5173".to_string());
         let allowed_origins = allowed_origins_raw
@@ -90,6 +119,12 @@ impl AppConfig {
             jwt_refresh_expiration_seconds,
             stripe_secret_key,
             stripe_webhook_secret,
+            media_s3_endpoint,
+            media_s3_bucket,
+            media_s3_region,
+            media_s3_access_key,
+            media_s3_secret_key,
+            media_cdn_base_url,
             allowed_origins,
         })
     }

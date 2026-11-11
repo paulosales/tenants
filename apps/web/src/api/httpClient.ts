@@ -47,7 +47,9 @@ export class FetchHttpClient implements IHttpClient {
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
+    if (!(options.body instanceof Blob) && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
     headers.set('x-request-id', `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
     const method = (options.method || 'GET').toUpperCase();

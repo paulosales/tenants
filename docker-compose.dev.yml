@@ -37,6 +37,23 @@ services:
     networks:
       - internal_network
 
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: tenants_minio
+    restart: unless-stopped
+    user: "0:0" # Dev local volume permissions for MinIO data dir
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin_dev}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_dev_secret}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - internal_network
+
   migration:
     build:
       context: ./backend
@@ -70,11 +87,18 @@ services:
       JWT_REFRESH_EXPIRATION_SECONDS: 604800
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder_key_for_dev}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder_secret_for_dev}
+      MEDIA_S3_ENDPOINT: ${MEDIA_S3_ENDPOINT:-http://minio:9000}
+      MEDIA_S3_BUCKET: ${MEDIA_S3_BUCKET:-property-media}
+      MEDIA_S3_REGION: ${MEDIA_S3_REGION:-us-east-1}
+      MEDIA_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin_dev}
+      MEDIA_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev_secret}
+      MEDIA_CDN_BASE_URL: ${MEDIA_CDN_BASE_URL:-http://localhost:9000/property-media}
       ALLOWED_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
       RUST_LOG: "info,backend=debug,tower_http=debug"
     volumes:
       # Bind mount code for live editing
       - ./backend:/app
+      - ./infra/minio-seed:/app/minio-seed:ro
       # Named volumes to isolate target and Cargo cache from host OS
       - cargo_target:/app/target
       - cargo_cache:/usr/local/cargo/registry
@@ -88,6 +112,8 @@ services:
         condition: service_healthy
       migration:
         condition: service_completed_successfully
+      minio:
+        condition: service_started
     networks:
       - internal_network
 
@@ -99,6 +125,8 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost:8080/api/v1
+      VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY:-}
+      VITE_MEDIA_CDN_URL: ${MEDIA_CDN_BASE_URL:-http://localhost:9000/property-media}
     volumes:
       - ./apps/web:/app/apps/web
       - ./packages:/app/packages
@@ -118,6 +146,7 @@ networks:
 volumes:
   pg_data:
   redis_data:
+  minio_data:
   cargo_target:
   cargo_cache:
   cargo_git:

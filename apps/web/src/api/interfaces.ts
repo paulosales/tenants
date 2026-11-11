@@ -1,4 +1,5 @@
 import type {
+  AddPropertyFeatureDto,
   AdminAmenity,
   Amenity,
   AmenitySessionBooking,
@@ -24,6 +25,8 @@ import type {
   ParkingSpot,
   ParkingZone,
   Property,
+  PropertyFeature,
+  PropertyPhoto,
   PropertyStaff,
   PropertyWithStats,
   PublicPropertyListing,
@@ -63,6 +66,17 @@ export interface IPropertyGateway {
   createProperty(data: CreatePropertyDto): Promise<Property>;
   updateProperty(id: string, data: UpdatePropertyDto): Promise<Property>;
   deleteProperty(id: string): Promise<void>;
+  getPropertyFeatures(propertyId: string): Promise<PropertyFeature[]>;
+  addPropertyFeature(propertyId: string, data: AddPropertyFeatureDto): Promise<PropertyFeature>;
+  deletePropertyFeature(propertyId: string, featureId: string): Promise<void>;
+  getPropertyPhotos(propertyId: string): Promise<PropertyPhoto[]>;
+  uploadPropertyPhoto(
+    propertyId: string,
+    file: File,
+    options?: { caption?: string; isCover?: boolean }
+  ): Promise<PropertyPhoto>;
+  setCoverPropertyPhoto(propertyId: string, photoId: string): Promise<PropertyPhoto>;
+  deletePropertyPhoto(propertyId: string, photoId: string): Promise<void>;
 }
 
 export interface IUnitGateway {
@@ -141,6 +155,7 @@ export interface ITenantSessionGateway {
 
 export interface IPublicPortalGateway {
   getPublicProperties(): Promise<PublicPropertyListing[]>;
+  getPublicProperty(id: string): Promise<PublicPropertyListing>;
   submitPublicApplication(dto: CreateTenancyApplicationDto): Promise<{
     application: TenancyApplication;
     managers_notified: number;

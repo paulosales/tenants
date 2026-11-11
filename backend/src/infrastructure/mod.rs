@@ -1,5 +1,7 @@
 pub mod config;
 pub mod db;
+pub mod html_sanitizer;
+pub mod object_storage;
 pub mod payment_gateway;
 pub mod redis_client;
 pub mod repositories;
@@ -8,6 +10,8 @@ pub mod svg_sanitizer;
 
 pub use config::*;
 pub use db::*;
+pub use html_sanitizer::*;
+pub use object_storage::*;
 pub use payment_gateway::*;
 pub use redis_client::*;
 pub use repositories::*;

@@ -16,9 +16,11 @@ import {
   X,
   Loader2,
   Filter,
+  Sparkles,
 } from 'lucide-react';
 import { usePropertiesGateway } from '../context/ApiContext';
 import { ConfirmModal } from './common/ConfirmModal';
+import { PropertyShowcaseModal } from './admin/PropertyShowcaseModal';
 import type { PropertyWithStats, CreatePropertyDto } from '@tenants/shared-types';
 import { TablePagination } from './TablePagination';
 import { SortableColumnHeader, TableColumnFilterInput } from './DataTableHeader';
@@ -48,6 +50,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
   const propertiesGateway = usePropertiesGateway();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<PropertyWithStats | null>(null);
+  const [showcaseProperty, setShowcaseProperty] = useState<PropertyWithStats | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmDeleteProperty, setConfirmDeleteProperty] = useState<PropertyWithStats | null>(null);
 
@@ -505,6 +508,14 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
                               <span>Parking</span>
                             </button>
                             <button
+                              onClick={() => setShowcaseProperty(prop)}
+                              className="px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer inline-flex items-center space-x-1"
+                              title="Edit Rich Description, Features & CDN Photos"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>Showcase &amp; Media</span>
+                            </button>
+                            <button
                               onClick={() => openEditModal(prop)}
                               className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                               title="Edit"
@@ -666,6 +677,11 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
             setConfirmDeleteProperty(null);
           }
         }}
+      />
+
+      <PropertyShowcaseModal
+        property={showcaseProperty}
+        onClose={() => setShowcaseProperty(null)}
       />
     </div>
   );

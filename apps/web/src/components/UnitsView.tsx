@@ -38,6 +38,7 @@ const unitSchema = z.object({
   bedrooms: z.coerce.number().int().min(0, 'Bedrooms must be 0 or more'),
   bathrooms: z.coerce.number().min(0.5, 'Bathrooms must be at least 0.5'),
   square_feet: z.coerce.number().int().min(50, 'Square feet must be at least 50'),
+  monthly_rent_dollars: z.coerce.number().min(0, 'Monthly rent must be 0 or more'),
   status: z.enum(['vacant', 'occupied', 'maintenance']),
 });
 
@@ -173,6 +174,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
         bedrooms: data.bedrooms,
         bathrooms: data.bathrooms,
         square_feet: data.square_feet,
+        monthly_rent_cents: Math.round(data.monthly_rent_dollars * 100),
         status: data.status,
         tenant_ids: selectedTenantIds,
       };
@@ -190,6 +192,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
       queryClient.invalidateQueries({ queryKey: ['units'] });
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['public-properties'] });
       closeModal();
     },
     onError: (err: any) => {
@@ -218,6 +221,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
       bedrooms: 1,
       bathrooms: 1.0,
       square_feet: 650,
+      monthly_rent_dollars: 1850,
       status: 'vacant',
     });
     setActionError(null);
@@ -239,6 +243,9 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
       bedrooms: unit.bedrooms,
       bathrooms: unit.bathrooms,
       square_feet: unit.square_feet,
+      monthly_rent_dollars: unit.monthly_rent_cents
+        ? Math.round(unit.monthly_rent_cents / 100)
+        : 0,
       status: unit.status,
     });
     setActionError(null);
@@ -552,7 +559,14 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
                           </td>
                           <td className="py-4 px-4 text-slate-600">Floor {u.floor}</td>
                           <td className="py-4 px-4 text-slate-600">
-                            {u.bedrooms} Bed, {u.bathrooms} Bath • {u.square_feet} sq ft
+                            <div>
+                              {u.bedrooms} Bed, {u.bathrooms} Bath • {u.square_feet} sq ft
+                            </div>
+                            {u.monthly_rent_cents && u.monthly_rent_cents > 0 ? (
+                              <div className="text-xs font-bold text-emerald-700 mt-0.5">
+                                ${Math.round(u.monthly_rent_cents / 100).toLocaleString()}/mo
+                              </div>
+                            ) : null}
                           </td>
                           <td className="py-4 px-4">
                             <span
@@ -673,7 +687,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Bedrooms</label>
                   <input
@@ -696,6 +710,18 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
                   <input
                     type="number"
                     {...register('square_feet')}
+                    className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Rent ($/mo)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={25}
+                    {...register('monthly_rent_dollars')}
                     className="w-full px-3 py-2 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>

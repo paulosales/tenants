@@ -34,13 +34,13 @@ Property operators juggle disconnected tools every day:
 
 ---
 
-## Slide 3: Frictionless Leasing Funnel (Public Portal → Lease Onboarding)
+## Slide 3: Frictionless Leasing Marketplace (Interactive Map & Showcase → Lease Onboarding)
 
-### Convert Website Visitors into Onboarded Residents in Two Clicks
+### Turn Renters Browsing Map Pins into Onboarded Residents in Minutes
 
-1. **Always-On Public Showcase**: Visitors explore your buildings, available unit specs (`bedrooms`, `bathrooms`, `sq ft`), and community amenities with **no sign-up barrier** and **zero leakage of existing resident PII**.
-2. **Smart Manager Routing**: Every submitted application goes straight into the **Tenancy Applications** review queue for that property's managers.
-3. **1-Click Approval & Onboarding**: Approving an application automatically creates the resident profile and transitions the chosen unit from `Vacant` to `Occupied` — eliminating duplicate data entry.
+1. **Interactive Rent-Pin Map & Deep Filters**: Prospective renters filter by **bedrooms (`Studio`–`3+`), bathrooms, monthly rent ceiling, city, and features** while comparing live **monthly rent range pills** across neighborhoods on the integrated **Google Maps** widget.
+2. **Aurora-Grade Property Showcase Pages**: Every building gets a rich landing page featuring **CDN-delivered photo lightboxes**, formatted community storytelling (**rich-text HTML**), categorized amenities/features, and live **per-suite rent pricing**.
+3. **Direct Suite Pre-Selection & 1-Click Onboarding**: Renters click **Apply for Suite X**, routing directly to that property's manager queue—and 1 click converts approved applicants into active tenants and occupies the unit.
 
 ---
 
@@ -87,7 +87,7 @@ Property operators juggle disconnected tools every day:
   - **Argon2id** password hashing & algorithm-locked **HS256** JWT verification.
   - Browser authentication strictly via hardened **`HttpOnly`, `SameSite=Strict` cookies** + constant-time **`X-CSRF-Token`** validation (zero tokens exposed to `localStorage`).
   - **Backend-Enforced RBAC & Ownership Scoping**: Tenants never touch management APIs; cleaners never see resident PII; maintainers only act on work orders and team chat.
-- **100% Parameterized SQL**: Immune to SQL injection and sanitized against SVG/XSS payloads.
+- **100% Parameterized SQL, XSS & CDN Media Hardening**: Immune to SQL injection; rich-text descriptions undergo server allow-list sanitization + client **DOMPurify**; uploaded property images pass magic-byte verification into **AWS S3 / MinIO CDN** object keys.
 
 ---
 
@@ -106,7 +106,7 @@ Property operators juggle disconnected tools every day:
 
 ### Run Anywhere You Operate
 
-- **Turnkey Docker Compose Stack**: PostgreSQL 16 + Redis 7 + Rust Backend + React Web App ready in minutes.
+- **Turnkey Docker Compose Stack**: PostgreSQL 16 + Redis 7 + **MinIO S3 CDN** + Rust Backend + React Web App ready in minutes, with instant production switch-over to **AWS S3** / CloudFront and live **Google Maps** API keys.
 - **Monorepo Shared Contracts**: `@tenants/shared-types` & `@tenants/shared-ui` ensure web, mobile, and backend speak the exact same language.
 - **Ready for Cloud or On-Prem**: Stateless API containers scale horizontally behind your TLS load balancer.
 

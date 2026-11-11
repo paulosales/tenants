@@ -22,6 +22,32 @@ export interface AuthResponse {
 // Admin Property Management Types
 // ==========================================
 
+export interface PropertyFeature {
+  id: string;
+  property_id: string;
+  label: string;
+  category: string;
+  display_order: number;
+  created_at: string;
+}
+
+export interface PropertyPhoto {
+  id: string;
+  property_id: string;
+  storage_key: string;
+  cdn_url: string;
+  caption?: string | null;
+  is_cover: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+export interface AddPropertyFeatureDto {
+  label: string;
+  category?: 'community' | 'suite' | 'utilities' | 'policies' | 'transit' | string;
+  display_order?: number;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -30,11 +56,23 @@ export interface Property {
   city: string;
   state_province: string;
   postal_code: string;
+  rich_description?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  pet_policy?: string | null;
+  lease_terms?: string | null;
+  features?: PropertyFeature[];
+  photos?: PropertyPhoto[];
   created_at: string;
   updated_at: string;
 }
 
 export interface PropertyWithStats extends Property {
+  min_rent_cents?: number | null;
+  max_rent_cents?: number | null;
+  cover_photo_url?: string | null;
+  feature_count?: number;
+  photo_count?: number;
   unit_count: number;
   occupied_units_count: number;
   tenant_count: number;
@@ -47,6 +85,11 @@ export interface CreatePropertyDto {
   city: string;
   state_province: string;
   postal_code: string;
+  rich_description?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  pet_policy?: string;
+  lease_terms?: string;
 }
 
 export type UpdatePropertyDto = CreatePropertyDto;
@@ -61,6 +104,7 @@ export interface Unit {
   bedrooms: number;
   bathrooms: number;
   square_feet: number;
+  monthly_rent_cents?: number;
   status: UnitStatus;
   created_at: string;
   updated_at: string;
@@ -86,6 +130,7 @@ export interface CreateUnitDto {
   bedrooms: number;
   bathrooms: number;
   square_feet: number;
+  monthly_rent_cents?: number;
   status?: UnitStatus;
   tenant_ids?: string[];
 }
@@ -96,6 +141,7 @@ export interface UpdateUnitDto {
   bedrooms: number;
   bathrooms: number;
   square_feet: number;
+  monthly_rent_cents?: number;
   status: UnitStatus;
   tenant_ids?: string[];
 }
@@ -501,6 +547,7 @@ export interface PublicUnitSummary {
   bedrooms: number;
   bathrooms: number;
   square_feet: number;
+  monthly_rent_cents?: number;
   status: UnitStatus;
 }
 
@@ -512,11 +559,20 @@ export interface PublicPropertyListing {
   city: string;
   state_province: string;
   postal_code: string;
+  rich_description?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  pet_policy?: string | null;
+  lease_terms?: string | null;
+  min_rent_cents?: number | null;
+  max_rent_cents?: number | null;
   total_units: number;
   available_units: number;
   manager_count: number;
   vacant_units: PublicUnitSummary[];
   amenities: string[];
+  features?: PropertyFeature[];
+  photos?: PropertyPhoto[];
 }
 
 export type TenancyApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected';

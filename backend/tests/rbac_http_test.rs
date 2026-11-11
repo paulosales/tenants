@@ -11,8 +11,13 @@ use uuid::Uuid;
 
 use backend::{
     application::{AdminService, AuthService, ParkingService, PaymentService, ReservationService},
-    domain::ports::{PasswordHasher, PaymentGateway, SvgSanitizerPort, TokenProvider},
+    domain::ports::{
+        HtmlSanitizerPort, MediaStoragePort, PasswordHasher, PaymentGateway, SvgSanitizerPort,
+        TokenProvider,
+    },
     infrastructure::{
+        html_sanitizer::DefaultHtmlSanitizer,
+        object_storage::InMemoryTestMediaStorage,
         payment_gateway::StripePaymentGateway,
         redis_client::RedisRateLimiter,
         repositories::{
@@ -75,7 +80,14 @@ async fn build_test_router() -> (axum::Router, PgPool) {
         audit_repo.clone(),
         payment_gateway,
     ));
-    let admin_service = Arc::new(AdminService::new(admin_repo, password_hasher));
+    let html_sanitizer: Arc<dyn HtmlSanitizerPort> = Arc::new(DefaultHtmlSanitizer);
+    let media_storage: Arc<dyn MediaStoragePort> = Arc::new(InMemoryTestMediaStorage::default());
+    let admin_service = Arc::new(AdminService::new(
+        admin_repo,
+        password_hasher,
+        html_sanitizer,
+        media_storage,
+    ));
     let rate_limiter = Arc::new(RedisRateLimiter::in_memory());
 
     let app_state = AppState {
@@ -943,6 +955,211 @@ async fn test_owasp_security_controls_and_idor_blocking() {
         }
     }
     assert!(hit_429, "Expected rate limiter to trigger 429 Too Many Requests");
+
+    // 9. Public Property Showcase + Admin Features + Magic-Byte Photo CDN Upload & Rich Text XSS Check
+    let pub_detail = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/public/properties/{}", prop1_id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(pub_detail.status(), StatusCode::OK);
+
+    // Scoped manager cannot add features to Property 2
+    let cross_feat = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/properties/{}/features", prop2_id))
+                .header(header::COOKIE, &mgr_cookie)
+                .header("x-csrf-token", &mgr_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "label": "Sauna", "category": "community" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(cross_feat.status(), StatusCode::FORBIDDEN);
+
+    // Admin adds & removes a feature on Property 1
+    let add_feat = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/properties/{}/features", prop1_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "label": "Rooftop Dog Run", "category": "community" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(add_feat.status(), StatusCode::CREATED);
+    let feat_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(add_feat.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let feat_id = feat_json["id"].as_str().unwrap().to_string();
+
+    let del_feat = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(format!("/api/v1/properties/{}/features/{}", prop1_id, feat_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(del_feat.status(), StatusCode::NO_CONTENT);
+
+    // Spoofed SVG disguised as image/png must be rejected by magic-byte verification (422)
+    let spoofed_photo = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/properties/{}/photos", prop1_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(Body::from("<svg onload=alert(1)></svg>"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(spoofed_photo.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    // Genuine PNG magic bytes succeed (201) and can be removed (204)
+    let valid_png: Vec<u8> = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01];
+    let ok_photo = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/properties/{}/photos?caption=Skyline", prop1_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "image/png")
+                .body(Body::from(valid_png))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ok_photo.status(), StatusCode::CREATED);
+    let photo_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(ok_photo.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let photo_id = photo_json["id"].as_str().unwrap().to_string();
+    assert!(photo_json["cdn_url"].as_str().unwrap().contains("property-media"));
+
+    let del_photo = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(format!("/api/v1/properties/{}/photos/{}", prop1_id, photo_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(del_photo.status(), StatusCode::NO_CONTENT);
+
+    // Rich-text description update on a temporary property sanitizes <script> tags cleanly
+    let temp_prop_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/properties")
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "XSS Sanitization Check Property",
+                        "address_line1": "500 Oak St",
+                        "city": "Seattle",
+                        "state_province": "WA",
+                        "postal_code": "98101"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(temp_prop_res.status(), StatusCode::CREATED);
+    let temp_prop: Value = serde_json::from_slice(
+        &axum::body::to_bytes(temp_prop_res.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let temp_prop_id = temp_prop["id"].as_str().unwrap().to_string();
+
+    let update_rich = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri(format!("/api/v1/properties/{}", temp_prop_id))
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "XSS Sanitization Check Property",
+                        "address_line1": "500 Oak St",
+                        "city": "Seattle",
+                        "state_province": "WA",
+                        "postal_code": "98101",
+                        "rich_description": "<p><strong>Grandview</strong> residences.</p><script>alert(1)</script>"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(update_rich.status(), StatusCode::OK);
+    let updated_prop: Value = serde_json::from_slice(
+        &axum::body::to_bytes(update_rich.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let cleaned_desc = updated_prop["rich_description"].as_str().unwrap();
+    assert!(cleaned_desc.contains("<strong>Grandview</strong>"));
+    assert!(!cleaned_desc.contains("<script>"));
+
+    let _ = sqlx::query("DELETE FROM properties WHERE id = $1::uuid")
+        .bind(&temp_prop_id)
+        .execute(&pool)
+        .await;
 
     // Clean up test rows
     let _ = sqlx::query("DELETE FROM staff_messages WHERE id = $1::uuid")

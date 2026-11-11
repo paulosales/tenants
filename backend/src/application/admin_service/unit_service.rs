@@ -49,6 +49,12 @@ impl UnitService {
         if req.unit_number.trim().is_empty() {
             return Err(DomainError::ValidationError("Unit number cannot be empty".to_string()));
         }
+        let monthly_rent_cents = req.monthly_rent_cents.unwrap_or(185_000);
+        if monthly_rent_cents < 0 {
+            return Err(DomainError::ValidationError(
+                "Monthly rent cannot be negative".to_string(),
+            ));
+        }
         let now = Utc::now();
         let has_tenants = req.tenant_ids.as_ref().map(|ids| !ids.is_empty()).unwrap_or(false);
         let initial_status = req.status.unwrap_or(if has_tenants {
@@ -65,6 +71,7 @@ impl UnitService {
             bedrooms: req.bedrooms,
             bathrooms: req.bathrooms,
             square_feet: req.square_feet,
+            monthly_rent_cents,
             status: initial_status,
             created_at: now,
             updated_at: now,
@@ -85,6 +92,14 @@ impl UnitService {
         let mut unit = self.get_unit(id).await?;
         if req.unit_number.trim().is_empty() {
             return Err(DomainError::ValidationError("Unit number cannot be empty".to_string()));
+        }
+        if let Some(rent) = req.monthly_rent_cents {
+            if rent < 0 {
+                return Err(DomainError::ValidationError(
+                    "Monthly rent cannot be negative".to_string(),
+                ));
+            }
+            unit.monthly_rent_cents = rent;
         }
         unit.unit_number = req.unit_number.trim().to_string();
         unit.floor = req.floor;

@@ -43,6 +43,24 @@ pub trait SvgSanitizerPort: Send + Sync {
     fn sanitize(&self, raw_svg: &str) -> DomainResult<String>;
 }
 
+/// Port for sanitizing untrusted HTML rich-text property descriptions (DIP + OWASP XSS).
+pub trait HtmlSanitizerPort: Send + Sync {
+    fn sanitize(&self, raw_html: &str) -> DomainResult<String>;
+}
+
+/// Port for CDN / S3-compatible object storage backends (MinIO in dev, AWS S3 in prod) (DIP).
+#[async_trait]
+pub trait MediaStoragePort: Send + Sync {
+    async fn upload_object(
+        &self,
+        key: &str,
+        content_type: &str,
+        bytes: &[u8],
+    ) -> DomainResult<String>;
+
+    async fn delete_object(&self, key: &str) -> DomainResult<()>;
+}
+
 /// Output returned by a PaymentGateway when creating an intent.
 #[derive(Debug, Clone)]
 pub struct GatewayPaymentIntent {

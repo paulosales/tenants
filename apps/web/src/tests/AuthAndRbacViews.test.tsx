@@ -125,6 +125,7 @@ function makeFakeGateways(overrides: Partial<IApiGateways> = {}): IApiGateways {
     },
     publicPortal: {
       getPublicProperties: vi.fn().mockResolvedValue([mockPublicListing]),
+      getPublicProperty: vi.fn().mockResolvedValue(mockPublicListing),
       submitPublicApplication: vi.fn().mockResolvedValue({
         application: {
           id: 'app-new-1',
@@ -179,7 +180,7 @@ describe('Authentication, Public Portal & RBAC Workspace Views', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Grandview Heights Luxury Residences')).toBeInTheDocument();
-      expect(screen.getByText(/1 Vacant Units Available/i)).toBeInTheDocument();
+      expect(screen.getByText(/1 Matching Suite/i)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByText('Apply to Be a Tenant'));

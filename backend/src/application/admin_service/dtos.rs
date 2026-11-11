@@ -14,6 +14,11 @@ pub struct CreatePropertyRequest {
     pub city: String,
     pub state_province: String,
     pub postal_code: String,
+    pub rich_description: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub pet_policy: Option<String>,
+    pub lease_terms: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,6 +29,18 @@ pub struct UpdatePropertyRequest {
     pub city: String,
     pub state_province: String,
     pub postal_code: String,
+    pub rich_description: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub pet_policy: Option<String>,
+    pub lease_terms: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddPropertyFeatureRequest {
+    pub label: String,
+    pub category: Option<String>,
+    pub display_order: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +50,7 @@ pub struct CreateUnitRequest {
     pub bedrooms: i32,
     pub bathrooms: f64,
     pub square_feet: i32,
+    pub monthly_rent_cents: Option<i32>,
     pub status: Option<UnitStatus>,
     #[serde(default)]
     pub tenant_ids: Option<Vec<Uuid>>,
@@ -45,6 +63,7 @@ pub struct UpdateUnitRequest {
     pub bedrooms: i32,
     pub bathrooms: f64,
     pub square_feet: i32,
+    pub monthly_rent_cents: Option<i32>,
     pub status: UnitStatus,
     #[serde(default)]
     pub tenant_ids: Option<Vec<Uuid>>,

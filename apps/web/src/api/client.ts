@@ -1,4 +1,5 @@
 import type {
+  AddPropertyFeatureDto,
   AdminAmenity,
   Amenity,
   AmenitySessionBooking,
@@ -24,6 +25,8 @@ import type {
   ParkingSpot,
   ParkingZone,
   Property,
+  PropertyFeature,
+  PropertyPhoto,
   PropertyStaff,
   PropertyWithStats,
   PublicPropertyListing,
@@ -147,6 +150,60 @@ export class ApiClient
 
   async deleteProperty(id: string): Promise<void> {
     return this.request<void>(`/properties/${id}`, { method: 'DELETE' });
+  }
+
+  async getPropertyFeatures(propertyId: string): Promise<PropertyFeature[]> {
+    return this.request<PropertyFeature[]>(`/properties/${propertyId}/features`);
+  }
+
+  async addPropertyFeature(
+    propertyId: string,
+    data: AddPropertyFeatureDto
+  ): Promise<PropertyFeature> {
+    return this.request<PropertyFeature>(`/properties/${propertyId}/features`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePropertyFeature(propertyId: string, featureId: string): Promise<void> {
+    return this.request<void>(`/properties/${propertyId}/features/${featureId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getPropertyPhotos(propertyId: string): Promise<PropertyPhoto[]> {
+    return this.request<PropertyPhoto[]>(`/properties/${propertyId}/photos`);
+  }
+
+  async uploadPropertyPhoto(
+    propertyId: string,
+    file: File,
+    options?: { caption?: string; isCover?: boolean }
+  ): Promise<PropertyPhoto> {
+    const params = new URLSearchParams();
+    if (options?.caption?.trim()) params.set('caption', options.caption.trim());
+    if (options?.isCover) params.set('is_cover', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<PropertyPhoto>(`/properties/${propertyId}/photos${query}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': file.type || 'image/png',
+      },
+      body: file,
+    });
+  }
+
+  async setCoverPropertyPhoto(propertyId: string, photoId: string): Promise<PropertyPhoto> {
+    return this.request<PropertyPhoto>(`/properties/${propertyId}/photos/${photoId}/cover`, {
+      method: 'PATCH',
+    });
+  }
+
+  async deletePropertyPhoto(propertyId: string, photoId: string): Promise<void> {
+    return this.request<void>(`/properties/${propertyId}/photos/${photoId}`, {
+      method: 'DELETE',
+    });
   }
 
   // ==========================================
@@ -442,6 +499,10 @@ export class ApiClient
     return this.request<PublicPropertyListing[]>('/public/properties');
   }
 
+  async getPublicProperty(id: string): Promise<PublicPropertyListing> {
+    return this.request<PublicPropertyListing>(`/public/properties/${id}`);
+  }
+
   async submitPublicApplication(dto: CreateTenancyApplicationDto): Promise<{
     application: TenancyApplication;
     managers_notified: number;
@@ -552,6 +613,17 @@ export function createSegregatedGateways(client: ApiClient = api): IApiGateways 
       createProperty: (data) => client.createProperty(data),
       updateProperty: (id, data) => client.updateProperty(id, data),
       deleteProperty: (id) => client.deleteProperty(id),
+      getPropertyFeatures: (propertyId) => client.getPropertyFeatures(propertyId),
+      addPropertyFeature: (propertyId, data) => client.addPropertyFeature(propertyId, data),
+      deletePropertyFeature: (propertyId, featureId) =>
+        client.deletePropertyFeature(propertyId, featureId),
+      getPropertyPhotos: (propertyId) => client.getPropertyPhotos(propertyId),
+      uploadPropertyPhoto: (propertyId, file, opts) =>
+        client.uploadPropertyPhoto(propertyId, file, opts),
+      setCoverPropertyPhoto: (propertyId, photoId) =>
+        client.setCoverPropertyPhoto(propertyId, photoId),
+      deletePropertyPhoto: (propertyId, photoId) =>
+        client.deletePropertyPhoto(propertyId, photoId),
     },
     units: {
       getUnits: (propertyId) => client.getUnits(propertyId),
@@ -612,6 +684,7 @@ export function createSegregatedGateways(client: ApiClient = api): IApiGateways 
     },
     publicPortal: {
       getPublicProperties: () => client.getPublicProperties(),
+      getPublicProperty: (id) => client.getPublicProperty(id),
       submitPublicApplication: (dto) => client.submitPublicApplication(dto),
     },
     applications: {
