@@ -92,6 +92,17 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> DomainResult<Vec<u8>> {
     Ok(mac.finalize().into_bytes().to_vec())
 }
 
+/// Request metadata needed to construct an AWS Signature V4 Authorization header.
+struct SigV4Request<'a> {
+    method: &'a str,
+    canonical_uri: &'a str,
+    canonical_query: &'a str,
+    content_type: Option<&'a str>,
+    payload_hash: &'a str,
+    amz_date: &'a str,
+    date_stamp: &'a str,
+}
+
 /// S3-compatible CDN adapter implementing `MediaStoragePort` using AWS Signature V4.
 /// Works seamlessly with MinIO in local development and AWS S3 / CloudFront in production.
 #[derive(Clone)]
@@ -143,23 +154,14 @@ impl S3ObjectStorage {
         )
     }
 
-    fn sign_request(
-        &self,
-        method: &str,
-        canonical_uri: &str,
-        canonical_query: &str,
-        content_type: Option<&str>,
-        payload_hash: &str,
-        amz_date: &str,
-        date_stamp: &str,
-    ) -> DomainResult<String> {
+    fn sign_request(&self, req: SigV4Request<'_>) -> DomainResult<String> {
         let host = self.extract_host();
 
-        let (canonical_headers, signed_headers) = if let Some(ct) = content_type {
+        let (canonical_headers, signed_headers) = if let Some(ct) = req.content_type {
             (
                 format!(
                     "content-type:{}\nhost:{}\nx-amz-content-sha256:{}\nx-amz-date:{}\n",
-                    ct, host, payload_hash, amz_date
+                    ct, host, req.payload_hash, req.amz_date
                 ),
                 "content-type;host;x-amz-content-sha256;x-amz-date",
             )
@@ -167,7 +169,7 @@ impl S3ObjectStorage {
             (
                 format!(
                     "host:{}\nx-amz-content-sha256:{}\nx-amz-date:{}\n",
-                    host, payload_hash, amz_date
+                    host, req.payload_hash, req.amz_date
                 ),
                 "host;x-amz-content-sha256;x-amz-date",
             )
@@ -175,19 +177,24 @@ impl S3ObjectStorage {
 
         let canonical_request = format!(
             "{}\n{}\n{}\n{}\n{}\n{}",
-            method, canonical_uri, canonical_query, canonical_headers, signed_headers, payload_hash
+            req.method,
+            req.canonical_uri,
+            req.canonical_query,
+            canonical_headers,
+            signed_headers,
+            req.payload_hash
         );
 
-        let scope = format!("{}/{}/s3/aws4_request", date_stamp, self.region);
+        let scope = format!("{}/{}/s3/aws4_request", req.date_stamp, self.region);
         let string_to_sign = format!(
             "AWS4-HMAC-SHA256\n{}\n{}\n{}",
-            amz_date,
+            req.amz_date,
             scope,
             sha256_hex(canonical_request.as_bytes())
         );
 
         let k_secret = format!("AWS4{}", self.secret_key);
-        let k_date = hmac_sha256(k_secret.as_bytes(), date_stamp.as_bytes())?;
+        let k_date = hmac_sha256(k_secret.as_bytes(), req.date_stamp.as_bytes())?;
         let k_region = hmac_sha256(&k_date, self.region.as_bytes())?;
         let k_service = hmac_sha256(&k_region, b"s3")?;
         let k_signing = hmac_sha256(&k_service, b"aws4_request")?;
@@ -210,15 +217,15 @@ impl S3ObjectStorage {
         let date_stamp = now.format("%Y%m%d").to_string();
         let empty_hash = sha256_hex(b"");
 
-        if let Ok(auth) = self.sign_request(
-            "HEAD",
-            &canonical_uri,
-            "",
-            None,
-            &empty_hash,
-            &amz_date,
-            &date_stamp,
-        ) {
+        if let Ok(auth) = self.sign_request(SigV4Request {
+            method: "HEAD",
+            canonical_uri: &canonical_uri,
+            canonical_query: "",
+            content_type: None,
+            payload_hash: &empty_hash,
+            amz_date: &amz_date,
+            date_stamp: &date_stamp,
+        }) {
             let exists = self
                 .client
                 .head(&bucket_url)
@@ -231,15 +238,15 @@ impl S3ObjectStorage {
                 .unwrap_or(false);
 
             if !exists {
-                if let Ok(create_auth) = self.sign_request(
-                    "PUT",
-                    &canonical_uri,
-                    "",
-                    None,
-                    &empty_hash,
-                    &amz_date,
-                    &date_stamp,
-                ) {
+                if let Ok(create_auth) = self.sign_request(SigV4Request {
+                    method: "PUT",
+                    canonical_uri: &canonical_uri,
+                    canonical_query: "",
+                    content_type: None,
+                    payload_hash: &empty_hash,
+                    amz_date: &amz_date,
+                    date_stamp: &date_stamp,
+                }) {
                     let _ = self
                         .client
                         .put(&bucket_url)
@@ -259,15 +266,15 @@ impl S3ObjectStorage {
         );
         let policy_hash = sha256_hex(policy_json.as_bytes());
         let policy_url = format!("{}/{}?policy", self.endpoint, self.bucket);
-        if let Ok(policy_auth) = self.sign_request(
-            "PUT",
-            &canonical_uri,
-            "policy=",
-            Some("application/json"),
-            &policy_hash,
-            &amz_date,
-            &date_stamp,
-        ) {
+        if let Ok(policy_auth) = self.sign_request(SigV4Request {
+            method: "PUT",
+            canonical_uri: &canonical_uri,
+            canonical_query: "policy=",
+            content_type: Some("application/json"),
+            payload_hash: &policy_hash,
+            amz_date: &amz_date,
+            date_stamp: &date_stamp,
+        }) {
             let _ = self
                 .client
                 .put(&policy_url)
@@ -316,15 +323,15 @@ impl MediaStoragePort for S3ObjectStorage {
         let date_stamp = now.format("%Y%m%d").to_string();
         let payload_hash = sha256_hex(bytes);
 
-        let auth_header = self.sign_request(
-            "PUT",
-            &canonical_uri,
-            "",
-            Some(content_type),
-            &payload_hash,
-            &amz_date,
-            &date_stamp,
-        )?;
+        let auth_header = self.sign_request(SigV4Request {
+            method: "PUT",
+            canonical_uri: &canonical_uri,
+            canonical_query: "",
+            content_type: Some(content_type),
+            payload_hash: &payload_hash,
+            amz_date: &amz_date,
+            date_stamp: &date_stamp,
+        })?;
 
         let resp = self
             .client
@@ -362,15 +369,15 @@ impl MediaStoragePort for S3ObjectStorage {
         let date_stamp = now.format("%Y%m%d").to_string();
         let payload_hash = sha256_hex(b"");
 
-        let auth_header = self.sign_request(
-            "DELETE",
-            &canonical_uri,
-            "",
-            None,
-            &payload_hash,
-            &amz_date,
-            &date_stamp,
-        )?;
+        let auth_header = self.sign_request(SigV4Request {
+            method: "DELETE",
+            canonical_uri: &canonical_uri,
+            canonical_query: "",
+            content_type: None,
+            payload_hash: &payload_hash,
+            amz_date: &amz_date,
+            date_stamp: &date_stamp,
+        })?;
 
         let resp = self
             .client
@@ -445,15 +452,15 @@ mod tests {
             "http://localhost:9000/property-media".into(),
         );
         let auth = storage
-            .sign_request(
-                "PUT",
-                "/property-media/properties/abc/123.png",
-                "",
-                Some("image/png"),
-                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                "20261111T000000Z",
-                "20261111",
-            )
+            .sign_request(SigV4Request {
+                method: "PUT",
+                canonical_uri: "/property-media/properties/abc/123.png",
+                canonical_query: "",
+                content_type: Some("image/png"),
+                payload_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                amz_date: "20261111T000000Z",
+                date_stamp: "20261111",
+            })
             .unwrap();
         assert!(auth.starts_with("AWS4-HMAC-SHA256 Credential=minioadmin_dev/20261111/us-east-1/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature="));
         assert_eq!(

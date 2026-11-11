@@ -19,7 +19,7 @@ fn map_unit_row(r: &PgRow) -> Unit {
         bathrooms: r.get("bathrooms"),
         square_feet: r.get("square_feet"),
         monthly_rent_cents: r.get("monthly_rent_cents"),
-        status: UnitStatus::from_str(&status_str),
+        status: UnitStatus::from_db_str(&status_str),
         created_at: r.get("created_at"),
         updated_at: r.get("updated_at"),
     }
@@ -88,7 +88,7 @@ impl UnitRepository for PostgresAdminRepository {
                     bathrooms: r.get("bathrooms"),
                     square_feet: r.get("square_feet"),
                     monthly_rent_cents: r.get("monthly_rent_cents"),
-                    status: UnitStatus::from_str(&status_str),
+                    status: UnitStatus::from_db_str(&status_str),
                     tenant_id,
                     tenant_name,
                     tenant_email,

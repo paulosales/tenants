@@ -11,14 +11,15 @@ pub enum SpotStatus {
     Maintenance,
 }
 
-impl ToString for SpotStatus {
-    fn to_string(&self) -> String {
-        match self {
-            SpotStatus::Vacant => "vacant".to_string(),
-            SpotStatus::Reserved => "reserved".to_string(),
-            SpotStatus::Occupied => "occupied".to_string(),
-            SpotStatus::Maintenance => "maintenance".to_string(),
-        }
+impl std::fmt::Display for SpotStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SpotStatus::Vacant => "vacant",
+            SpotStatus::Reserved => "reserved",
+            SpotStatus::Occupied => "occupied",
+            SpotStatus::Maintenance => "maintenance",
+        };
+        f.write_str(s)
     }
 }
 
@@ -43,14 +44,15 @@ pub enum SpotType {
     Accessible,
 }
 
-impl ToString for SpotType {
-    fn to_string(&self) -> String {
-        match self {
-            SpotType::Standard => "standard".to_string(),
-            SpotType::Compact => "compact".to_string(),
-            SpotType::EvCharging => "ev_charging".to_string(),
-            SpotType::Accessible => "accessible".to_string(),
-        }
+impl std::fmt::Display for SpotType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SpotType::Standard => "standard",
+            SpotType::Compact => "compact",
+            SpotType::EvCharging => "ev_charging",
+            SpotType::Accessible => "accessible",
+        };
+        f.write_str(s)
     }
 }
 
@@ -73,12 +75,13 @@ pub enum ShapeType {
     Polygon,
 }
 
-impl ToString for ShapeType {
-    fn to_string(&self) -> String {
-        match self {
-            ShapeType::Rect => "rect".to_string(),
-            ShapeType::Polygon => "polygon".to_string(),
-        }
+impl std::fmt::Display for ShapeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ShapeType::Rect => "rect",
+            ShapeType::Polygon => "polygon",
+        };
+        f.write_str(s)
     }
 }
 

@@ -77,7 +77,7 @@ impl SvgSanitizer {
         }
 
         // Disallow script/data/external URIs in linking & resource attributes
-        if matches!(
+        if (matches!(
             name_lower.as_str(),
             "href"
                 | "xlink:href"
@@ -87,15 +87,13 @@ impl SvgSanitizer {
                 | "formaction"
                 | "background"
                 | "poster"
-        ) || name_lower.ends_with("href")
-        {
-            if val_compact.contains("javascript:")
+        ) || name_lower.ends_with("href"))
+            && (val_compact.contains("javascript:")
                 || val_compact.contains("data:")
                 || val_compact.contains("vbscript:")
-                || !val_trimmed.starts_with('#')
-            {
-                return true;
-            }
+                || !val_trimmed.starts_with('#'))
+        {
+            return true;
         }
 
         // Disallow CSS expressions, external url(), and @import in style attributes

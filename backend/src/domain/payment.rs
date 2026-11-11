@@ -11,14 +11,15 @@ pub enum PaymentStatus {
     Refunded,
 }
 
-impl ToString for PaymentStatus {
-    fn to_string(&self) -> String {
-        match self {
-            PaymentStatus::Pending => "pending".to_string(),
-            PaymentStatus::Succeeded => "succeeded".to_string(),
-            PaymentStatus::Failed => "failed".to_string(),
-            PaymentStatus::Refunded => "refunded".to_string(),
-        }
+impl std::fmt::Display for PaymentStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            PaymentStatus::Pending => "pending",
+            PaymentStatus::Succeeded => "succeeded",
+            PaymentStatus::Failed => "failed",
+            PaymentStatus::Refunded => "refunded",
+        };
+        f.write_str(s)
     }
 }
 

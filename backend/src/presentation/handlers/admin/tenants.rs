@@ -33,7 +33,7 @@ pub async fn list_tenants(
         return Err(DomainError::Forbidden);
     }
     let scoped_property_id = user.enforce_property_scope(query.property_id)?;
-    let status_enum = query.status.as_deref().map(TenantStatus::from_str);
+    let status_enum = query.status.as_deref().map(TenantStatus::from_db_str);
     let search_query = query.q.or(query.search);
     let tenants = state
         .admin_service

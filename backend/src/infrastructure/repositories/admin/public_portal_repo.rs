@@ -154,7 +154,7 @@ fn map_public_listing_row(r: &PgRow) -> PublicPropertyListing {
             bathrooms: u.bathrooms,
             square_feet: u.square_feet,
             monthly_rent_cents: u.monthly_rent_cents,
-            status: UnitStatus::from_str(&u.status),
+            status: UnitStatus::from_db_str(&u.status),
         })
         .collect();
 

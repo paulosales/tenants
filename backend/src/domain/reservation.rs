@@ -11,14 +11,15 @@ pub enum ReservationStatus {
     Completed,
 }
 
-impl ToString for ReservationStatus {
-    fn to_string(&self) -> String {
-        match self {
-            ReservationStatus::PendingPayment => "pending_payment".to_string(),
-            ReservationStatus::Confirmed => "confirmed".to_string(),
-            ReservationStatus::Cancelled => "cancelled".to_string(),
-            ReservationStatus::Completed => "completed".to_string(),
-        }
+impl std::fmt::Display for ReservationStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ReservationStatus::PendingPayment => "pending_payment",
+            ReservationStatus::Confirmed => "confirmed",
+            ReservationStatus::Cancelled => "cancelled",
+            ReservationStatus::Completed => "completed",
+        };
+        f.write_str(s)
     }
 }
 

@@ -23,12 +23,20 @@ impl UnitStatus {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db_str(s: &str) -> Self {
         match s {
             "occupied" => Self::Occupied,
             "maintenance" => Self::Maintenance,
             _ => Self::Vacant,
         }
+    }
+}
+
+impl std::str::FromStr for UnitStatus {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from_db_str(s))
     }
 }
 
@@ -49,12 +57,20 @@ impl TenantStatus {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db_str(s: &str) -> Self {
         match s {
             "past" => Self::Past,
             "applicant" => Self::Applicant,
             _ => Self::Active,
         }
+    }
+}
+
+impl std::str::FromStr for TenantStatus {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from_db_str(s))
     }
 }
 
@@ -77,13 +93,21 @@ impl SpotType {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db_str(s: &str) -> Self {
         match s {
             "compact" => Self::Compact,
             "ev_charging" => Self::EvCharging,
             "handicap" | "accessible" => Self::Handicap,
             _ => Self::Standard,
         }
+    }
+}
+
+impl std::str::FromStr for SpotType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::from_db_str(s))
     }
 }
 

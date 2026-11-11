@@ -24,7 +24,7 @@ fn map_tenant_with_unit_row(r: &PgRow) -> TenantWithUnit {
         property_name: r.get("property_name"),
         lease_start_date: r.get("lease_start_date"),
         lease_end_date: r.get("lease_end_date"),
-        status: TenantStatus::from_str(&status_val),
+        status: TenantStatus::from_db_str(&status_val),
         created_at: r.get("created_at"),
         updated_at: r.get("updated_at"),
     }
@@ -43,7 +43,7 @@ fn map_tenant_row(r: &PgRow) -> Tenant {
         assigned_unit_id: r.get("assigned_unit_id"),
         lease_start_date: r.get("lease_start_date"),
         lease_end_date: r.get("lease_end_date"),
-        status: TenantStatus::from_str(&status_val),
+        status: TenantStatus::from_db_str(&status_val),
         created_at: r.get("created_at"),
         updated_at: r.get("updated_at"),
     }
