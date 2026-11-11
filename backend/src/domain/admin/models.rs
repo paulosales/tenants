@@ -24,9 +24,10 @@ impl UnitStatus {
     }
 
     pub fn from_db_str(s: &str) -> Self {
-        match s {
+        match s.trim().to_ascii_lowercase().as_str() {
             "occupied" => Self::Occupied,
             "maintenance" => Self::Maintenance,
+            "vacant" | "available" => Self::Vacant,
             _ => Self::Vacant,
         }
     }

@@ -65,9 +65,9 @@ impl PropertyRepository for PostgresAdminRepository {
             SELECT
                 p.id, p.name, p.address_line1, p.address_line2, p.city, p.state_province, p.postal_code,
                 p.rich_description, p.latitude, p.longitude, p.pet_policy, p.lease_terms,
-                COALESCE(MIN(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND u.status = 'vacant'),
+                COALESCE(MIN(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND LOWER(u.status) IN ('vacant', 'available')),
                          MIN(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL))::int8 AS min_rent_cents,
-                COALESCE(MAX(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND u.status = 'vacant'),
+                COALESCE(MAX(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND LOWER(u.status) IN ('vacant', 'available')),
                          MAX(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL))::int8 AS max_rent_cents,
                 (
                     SELECT pp.cdn_url

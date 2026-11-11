@@ -61,12 +61,12 @@ SELECT
     p.longitude,
     p.pet_policy,
     p.lease_terms,
-    COALESCE(MIN(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND u.status = 'vacant'),
+    COALESCE(MIN(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND LOWER(u.status) IN ('vacant', 'available')),
              MIN(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL))::int8 AS min_rent_cents,
-    COALESCE(MAX(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND u.status = 'vacant'),
+    COALESCE(MAX(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL AND LOWER(u.status) IN ('vacant', 'available')),
              MAX(u.monthly_rent_cents) FILTER (WHERE u.deleted_at IS NULL))::int8 AS max_rent_cents,
     COUNT(DISTINCT u.id) FILTER (WHERE u.deleted_at IS NULL) AS total_units,
-    COUNT(DISTINCT u.id) FILTER (WHERE u.deleted_at IS NULL AND u.status = 'vacant') AS available_units,
+    COUNT(DISTINCT u.id) FILTER (WHERE u.deleted_at IS NULL AND LOWER(u.status) IN ('vacant', 'available')) AS available_units,
     COUNT(DISTINCT ps.id) FILTER (WHERE ps.deleted_at IS NULL AND ps.role = 'manager' AND ps.status = 'active') AS manager_count,
     COALESCE(
         (
@@ -79,12 +79,12 @@ SELECT
                     'bathrooms', vu.bathrooms::float8,
                     'square_feet', vu.square_feet,
                     'monthly_rent_cents', vu.monthly_rent_cents,
-                    'status', vu.status
+                    'status', CASE WHEN LOWER(vu.status) IN ('vacant', 'available') THEN 'vacant' ELSE LOWER(vu.status) END
                 )
                 ORDER BY vu.monthly_rent_cents ASC, vu.unit_number ASC
             )
             FROM units vu
-            WHERE vu.property_id = p.id AND vu.deleted_at IS NULL AND vu.status = 'vacant'
+            WHERE vu.property_id = p.id AND vu.deleted_at IS NULL AND LOWER(vu.status) IN ('vacant', 'available')
         ),
         '[]'::json
     ) AS vacant_units_json,

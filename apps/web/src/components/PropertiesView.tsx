@@ -148,6 +148,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['public-properties'] });
       closeModal();
     },
     onError: (err: any) => {
@@ -159,6 +160,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
     mutationFn: (id: string) => propertiesGateway.deleteProperty(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['public-properties'] });
       setActionError(null);
     },
     onError: (err: any) => {
