@@ -12,15 +12,14 @@ use crate::domain::errors::{DomainError, DomainResult};
 use crate::domain::user::UserSummary;
 use crate::presentation::middleware::auth::{AppState, AuthenticatedUser};
 
-pub async fn register(
-    State(state): State<AppState>,
-    Json(req): Json<RegisterRequest>,
-) -> DomainResult<Response> {
-    let (auth_res, refresh_token) = state.auth_service.register(req).await?;
-
+fn build_auth_cookie_headers(
+    access_token: &str,
+    access_ttl_seconds: i64,
+    refresh_token: &str,
+) -> DomainResult<HeaderMap> {
     let cookie_access = format!(
         "access_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age={}",
-        auth_res.access_token, auth_res.expires_in
+        access_token, access_ttl_seconds
     );
     let cookie_refresh = format!(
         "refresh_token={}; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=604800",
@@ -36,6 +35,19 @@ pub async fn register(
         header::SET_COOKIE,
         cookie_refresh.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
+    Ok(headers)
+}
+
+pub async fn register(
+    State(state): State<AppState>,
+    Json(req): Json<RegisterRequest>,
+) -> DomainResult<Response> {
+    let (auth_res, refresh_token) = state.auth_service.register(req).await?;
+    let headers = build_auth_cookie_headers(
+        &auth_res.access_token,
+        auth_res.expires_in,
+        &refresh_token,
+    )?;
 
     Ok((StatusCode::CREATED, headers, Json(auth_res)).into_response())
 }
@@ -45,25 +57,11 @@ pub async fn login(
     Json(req): Json<LoginRequest>,
 ) -> DomainResult<Response> {
     let (auth_res, refresh_token) = state.auth_service.login(req).await?;
-
-    let cookie_access = format!(
-        "access_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age={}",
-        auth_res.access_token, auth_res.expires_in
-    );
-    let cookie_refresh = format!(
-        "refresh_token={}; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=604800",
-        refresh_token
-    );
-
-    let mut headers = HeaderMap::new();
-    headers.append(
-        header::SET_COOKIE,
-        cookie_access.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
-    );
-    headers.append(
-        header::SET_COOKIE,
-        cookie_refresh.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
-    );
+    let headers = build_auth_cookie_headers(
+        &auth_res.access_token,
+        auth_res.expires_in,
+        &refresh_token,
+    )?;
 
     Ok((StatusCode::OK, headers, Json(auth_res)).into_response())
 }
@@ -73,7 +71,6 @@ pub async fn refresh(
     headers: HeaderMap,
     body: Option<Json<RefreshTokenRequest>>,
 ) -> DomainResult<Response> {
-    // Extract refresh token from body or cookie
     let token = if let Some(Json(b)) = body {
         b.refresh_token
     } else if let Some(cookie_hdr) = headers.get(header::COOKIE) {
@@ -93,8 +90,6 @@ pub async fn refresh(
         return Err(DomainError::Unauthorized("Refresh token missing".into()));
     };
 
-    // For refresh, look up active token by extracting user from Authorization or session context
-    // Here we support passing user_id or finding by token
     let user_id = headers
         .get("x-user-id")
         .and_then(|v| v.to_str().ok())
@@ -102,32 +97,15 @@ pub async fn refresh(
         .ok_or_else(|| DomainError::Unauthorized("User session identifier required for refresh".into()))?;
 
     let (new_access, new_refresh) = state.auth_service.refresh(user_id, &token).await?;
-
-    let cookie_access = format!(
-        "access_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=900",
-        new_access
-    );
-    let cookie_refresh = format!(
-        "refresh_token={}; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=604800",
-        new_refresh
-    );
-
-    let mut res_headers = HeaderMap::new();
-    res_headers.append(
-        header::SET_COOKIE,
-        cookie_access.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
-    );
-    res_headers.append(
-        header::SET_COOKIE,
-        cookie_refresh.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
-    );
+    let ttl = state.token_provider.access_token_ttl_seconds();
+    let res_headers = build_auth_cookie_headers(&new_access, ttl, &new_refresh)?;
 
     Ok((
         StatusCode::OK,
         res_headers,
         Json(json!({
             "access_token": new_access,
-            "expires_in": 900
+            "expires_in": ttl
         })),
     )
         .into_response())
@@ -139,18 +117,18 @@ pub async fn logout(
 ) -> DomainResult<Response> {
     state.auth_service.logout(user.id).await?;
 
-    // Clear authentication cookies
-    let clear_access = "access_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0";
-    let clear_refresh = "refresh_token=; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=0";
-
     let mut headers = HeaderMap::new();
     headers.append(
         header::SET_COOKIE,
-        clear_access.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        "access_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"
+            .parse()
+            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
     headers.append(
         header::SET_COOKIE,
-        clear_refresh.parse().map_err(|e| DomainError::Internal(format!("{}", e)))?,
+        "refresh_token=; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Max-Age=0"
+            .parse()
+            .map_err(|e| DomainError::Internal(format!("{}", e)))?,
     );
 
     Ok((StatusCode::OK, headers, Json(json!({ "message": "Successfully logged out" }))).into_response())

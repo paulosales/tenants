@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { Building2, DoorClosed, Users, Sparkles, Car, ShieldCheck } from 'lucide-react';
+import { Building2, DoorClosed, Users, Sparkles, Car, ShieldCheck, Home } from 'lucide-react';
 import type { PropertyWithStats } from '@tenants/shared-types';
 import { SearchableSelect, type SearchableOption } from './SearchableSelect';
 
-export type AdminTab = 'properties' | 'units' | 'tenants' | 'amenities' | 'parking';
+export type AdminTab = 'properties' | 'units' | 'tenants' | 'staff' | 'amenities' | 'parking' | 'tenant-view';
 
 interface SidebarProps {
   currentTab: AdminTab;
@@ -35,8 +35,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'properties' as AdminTab, label: 'Properties', icon: Building2 },
     { id: 'units' as AdminTab, label: 'Units', icon: DoorClosed },
     { id: 'tenants' as AdminTab, label: 'Tenants', icon: Users },
+    { id: 'staff' as AdminTab, label: 'Staff & Team', icon: ShieldCheck },
     { id: 'amenities' as AdminTab, label: 'Amenities', icon: Sparkles },
     { id: 'parking' as AdminTab, label: 'Parking Map', icon: Car },
+    { id: 'tenant-view' as AdminTab, label: 'Tenant View', icon: Home },
   ];
 
   return (

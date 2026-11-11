@@ -17,7 +17,7 @@ import {
   Loader2,
   Filter,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { usePropertiesGateway } from '../context/ApiContext';
 import type { PropertyWithStats, CreatePropertyDto } from '@tenants/shared-types';
 import { TablePagination } from './TablePagination';
 import { SortableColumnHeader, TableColumnFilterInput } from './DataTableHeader';
@@ -44,13 +44,14 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
   onSelectPropertyForParking,
 }) => {
   const queryClient = useQueryClient();
+  const propertiesGateway = usePropertiesGateway();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<PropertyWithStats | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: properties = [], isLoading, error } = useQuery({
     queryKey: ['properties'],
-    queryFn: () => api.getProperties(),
+    queryFn: () => propertiesGateway.getProperties(),
   });
 
   const {
@@ -135,9 +136,9 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
       };
 
       if (editingProperty) {
-        return api.updateProperty(editingProperty.id, payload);
+        return propertiesGateway.updateProperty(editingProperty.id, payload);
       } else {
-        return api.createProperty(payload);
+        return propertiesGateway.createProperty(payload);
       }
     },
     onSuccess: () => {
@@ -150,7 +151,7 @@ export const PropertiesView: React.FC<PropertiesViewProps> = ({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteProperty(id),
+    mutationFn: (id: string) => propertiesGateway.deleteProperty(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       setActionError(null);

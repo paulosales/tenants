@@ -1,20 +1,29 @@
 import type {
   AdminAmenity,
   Amenity,
+  AmenitySessionBooking,
+  AssignMaintenanceCallStaffDto,
   AuthResponse,
   CreateAmenityDto,
+  CreateAmenitySessionDto,
+  CreateMaintenanceCallDto,
   CreatePropertyDto,
   CreateReservationRequest,
+  CreateStaffDto,
   CreateTenantDto,
   CreateUnitDto,
+  MaintenanceCall,
+  MaintenanceStatus,
   ParkingLayoutResponse,
   ParkingLayoutWithSpots,
   ParkingZone,
   Property,
+  PropertyStaff,
   PropertyWithStats,
   Reservation,
   ReservationWithDetails,
   SaveParkingLayoutRequest,
+  StaffRole,
   Tenant,
   TenantStatus,
   TenantWithUnit,
@@ -22,54 +31,51 @@ import type {
   UnitWithTenant,
   UpdateAmenityDto,
   UpdatePropertyDto,
+  UpdateStaffDto,
   UpdateTenantDto,
   UpdateUnitDto,
   UserSummary,
 } from '@tenants/shared-types';
+import { FetchHttpClient, type IHttpClient } from './httpClient';
+import type {
+  IAmenityGateway,
+  IApiGateways,
+  IAuthGateway,
+  IMaintenanceGateway,
+  IParkingGateway,
+  IPropertyGateway,
+  IReservationGateway,
+  IStaffGateway,
+  ITenantGateway,
+  ITenantSessionGateway,
+  IUnitGateway,
+} from './interfaces';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
-
-class ApiClient {
-  private token: string | null = null;
+export class ApiClient
+  implements
+    IAuthGateway,
+    IPropertyGateway,
+    IUnitGateway,
+    ITenantGateway,
+    IAmenityGateway,
+    IParkingGateway,
+    IReservationGateway,
+    IMaintenanceGateway,
+    IStaffGateway,
+    ITenantSessionGateway
+{
+  constructor(private readonly http: IHttpClient = new FetchHttpClient()) {}
 
   setToken(token: string | null) {
-    this.token = token;
+    this.http.setToken(token);
   }
 
   getToken(): string | null {
-    return this.token;
+    return this.http.getToken();
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
-    headers.set('x-request-id', `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
-
-    if (this.token) {
-      headers.set('Authorization', `Bearer ${this.token}`);
-    }
-
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = { title: 'Network or server error', status: response.status };
-      }
-      throw new Error(errorData.detail || errorData.title || `HTTP error ${response.status}`);
-    }
-
-    if (response.status === 204) {
-      return {} as T;
-    }
-
-    return response.json();
+  private request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    return this.http.request<T>(endpoint, options);
   }
 
   // --- Auth Endpoints ---
@@ -273,12 +279,189 @@ class ApiClient {
     });
   }
 
-  async upsertSpot(data: any): Promise<any> {
+  async upsertSpot(data: unknown): Promise<unknown> {
     return this.request('/parking/spots', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
+
+  // ==========================================
+  // Tenant Portal: Maintenance Calls Endpoints
+  // ==========================================
+  async getMaintenanceCalls(filters?: {
+    tenant_id?: string;
+    property_id?: string;
+    status?: string;
+  }): Promise<MaintenanceCall[]> {
+    const params = new URLSearchParams();
+    if (filters?.tenant_id) params.set('tenant_id', filters.tenant_id);
+    if (filters?.property_id) params.set('property_id', filters.property_id);
+    if (filters?.status && filters.status !== 'all') params.set('status', filters.status);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<MaintenanceCall[]>(`/maintenance-calls${query}`);
+  }
+
+  async getMaintenanceCall(id: string): Promise<MaintenanceCall> {
+    return this.request<MaintenanceCall>(`/maintenance-calls/${id}`);
+  }
+
+  async createMaintenanceCall(dto: CreateMaintenanceCallDto): Promise<MaintenanceCall> {
+    return this.request<MaintenanceCall>('/maintenance-calls', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async updateMaintenanceCallStatus(id: string, status: MaintenanceStatus): Promise<MaintenanceCall> {
+    return this.request<MaintenanceCall>(`/maintenance-calls/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async cancelMaintenanceCall(id: string): Promise<void> {
+    return this.request<void>(`/maintenance-calls/${id}/cancel`, { method: 'POST' });
+  }
+
+  async assignMaintenanceCallStaff(
+    id: string,
+    dto: AssignMaintenanceCallStaffDto
+  ): Promise<MaintenanceCall> {
+    return this.request<MaintenanceCall>(`/maintenance-calls/${id}/assign-staff`, {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  // ==========================================
+  // Property Staff Endpoints
+  // ==========================================
+  async getStaff(propertyId?: string, role?: StaffRole | string): Promise<PropertyStaff[]> {
+    const params = new URLSearchParams();
+    if (propertyId) params.set('property_id', propertyId);
+    if (role && role !== 'all') params.set('role', role);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<PropertyStaff[]>(`/staff${query}`);
+  }
+
+  async getStaffById(id: string): Promise<PropertyStaff> {
+    return this.request<PropertyStaff>(`/staff/${id}`);
+  }
+
+  async createStaff(dto: CreateStaffDto): Promise<PropertyStaff> {
+    return this.request<PropertyStaff>('/staff', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async updateStaff(id: string, dto: UpdateStaffDto): Promise<PropertyStaff> {
+    return this.request<PropertyStaff>(`/staff/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async deleteStaff(id: string): Promise<void> {
+    return this.request<void>(`/staff/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================
+  // Tenant Portal: Amenity Sessions Endpoints
+  // ==========================================
+  async getTenantAmenitySessions(tenantId?: string): Promise<AmenitySessionBooking[]> {
+    const params = new URLSearchParams();
+    if (tenantId) params.set('tenant_id', tenantId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request<AmenitySessionBooking[]>(`/amenity-sessions${query}`);
+  }
+
+  async bookAmenitySession(dto: CreateAmenitySessionDto): Promise<AmenitySessionBooking> {
+    return this.request<AmenitySessionBooking>('/amenity-sessions', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async cancelAmenitySession(id: string): Promise<void> {
+    return this.request<void>(`/amenity-sessions/${id}/cancel`, { method: 'POST' });
+  }
 }
 
 export const api = new ApiClient();
+
+/**
+ * Builds segregated gateway facades delegating to the supplied ApiClient instance,
+ * preserving Vitest `vi.spyOn(api, ...)` call interception while enforcing ISP + DIP.
+ */
+export function createSegregatedGateways(client: ApiClient = api): IApiGateways {
+  return {
+    auth: {
+      login: (email, password) => client.login(email, password),
+      logout: () => client.logout(),
+      getCurrentUser: () => client.getCurrentUser(),
+    },
+    properties: {
+      getProperties: () => client.getProperties(),
+      getProperty: (id) => client.getProperty(id),
+      createProperty: (data) => client.createProperty(data),
+      updateProperty: (id, data) => client.updateProperty(id, data),
+      deleteProperty: (id) => client.deleteProperty(id),
+    },
+    units: {
+      getUnits: (propertyId) => client.getUnits(propertyId),
+      createUnit: (propertyId, data) => client.createUnit(propertyId, data),
+      updateUnit: (id, data) => client.updateUnit(id, data),
+      deleteUnit: (id) => client.deleteUnit(id),
+    },
+    tenants: {
+      getTenants: (filters) => client.getTenants(filters),
+      getTenant: (id) => client.getTenant(id),
+      createTenant: (data) => client.createTenant(data),
+      updateTenant: (id, data) => client.updateTenant(id, data),
+      deleteTenant: (id) => client.deleteTenant(id),
+    },
+    amenities: {
+      getAmenities: () => client.getAmenities(),
+      getPropertyAmenities: (propertyId) => client.getPropertyAmenities(propertyId),
+      createPropertyAmenity: (propertyId, data) => client.createPropertyAmenity(propertyId, data),
+      updatePropertyAmenity: (id, data) => client.updatePropertyAmenity(id, data),
+      deletePropertyAmenity: (id) => client.deletePropertyAmenity(id),
+    },
+    parking: {
+      getParkingZones: () => client.getParkingZones(),
+      getParkingLayout: (zoneId) => client.getParkingLayout(zoneId),
+      reserveSpot: (spotId) => client.reserveSpot(spotId),
+      getAdminParkingLayout: (propertyId) => client.getAdminParkingLayout(propertyId),
+      saveAdminParkingLayout: (propertyId, data) => client.saveAdminParkingLayout(propertyId, data),
+    },
+    reservations: {
+      getAmenityReservations: (amenityId, startDate, endDate) =>
+        client.getAmenityReservations(amenityId, startDate, endDate),
+      createReservation: (data) => client.createReservation(data),
+      getMyReservations: () => client.getMyReservations(),
+      cancelReservation: (id) => client.cancelReservation(id),
+    },
+    maintenance: {
+      getMaintenanceCalls: (filters) => client.getMaintenanceCalls(filters),
+      getMaintenanceCall: (id) => client.getMaintenanceCall(id),
+      createMaintenanceCall: (dto) => client.createMaintenanceCall(dto),
+      updateMaintenanceCallStatus: (id, status) => client.updateMaintenanceCallStatus(id, status),
+      cancelMaintenanceCall: (id) => client.cancelMaintenanceCall(id),
+      assignMaintenanceCallStaff: (id, dto) => client.assignMaintenanceCallStaff(id, dto),
+    },
+    staff: {
+      getStaff: (propertyId, role) => client.getStaff(propertyId, role),
+      getStaffById: (id) => client.getStaffById(id),
+      createStaff: (dto) => client.createStaff(dto),
+      updateStaff: (id, dto) => client.updateStaff(id, dto),
+      deleteStaff: (id) => client.deleteStaff(id),
+    },
+    tenantSessions: {
+      getTenantAmenitySessions: (tenantId) => client.getTenantAmenitySessions(tenantId),
+      bookAmenitySession: (dto) => client.bookAmenitySession(dto),
+      cancelAmenitySession: (id) => client.cancelAmenitySession(id),
+    },
+  };
+}

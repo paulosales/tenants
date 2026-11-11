@@ -15,7 +15,7 @@ import {
   Loader2,
   X,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { useParkingGateway, useTenantsGateway } from '../context/ApiContext';
 import type {
   PropertyWithStats,
   ParkingSpot,
@@ -43,20 +43,23 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
   onSelectProperty,
 }) => {
   const queryClient = useQueryClient();
+  const parkingGateway = useParkingGateway();
+  const tenantsGateway = useTenantsGateway();
 
   const activePropertyId = selectedPropertyId || (properties.length > 0 ? properties[0].id : '');
 
   // 1. Fetch layout and spots
   const { data: layoutData, isLoading } = useQuery({
     queryKey: ['parking-layout', activePropertyId],
-    queryFn: () => (activePropertyId ? api.getAdminParkingLayout(activePropertyId) : Promise.reject('No property')),
+    queryFn: () =>
+      activePropertyId ? parkingGateway.getAdminParkingLayout(activePropertyId) : Promise.reject('No property'),
     enabled: Boolean(activePropertyId),
   });
 
   // 2. Fetch tenants for spot assignment dropdown
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants', activePropertyId],
-    queryFn: () => api.getTenants({ property_id: activePropertyId || undefined }),
+    queryFn: () => tenantsGateway.getTenants({ property_id: activePropertyId || undefined }),
     enabled: Boolean(activePropertyId),
   });
 
@@ -98,7 +101,7 @@ export const ParkingLayoutEditor: React.FC<ParkingLayoutEditorProps> = ({
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: (payload: SaveParkingLayoutRequest) =>
-      api.saveAdminParkingLayout(activePropertyId, payload),
+      parkingGateway.saveAdminParkingLayout(activePropertyId, payload),
     onSuccess: (data) => {
       queryClient.setQueryData(['parking-layout', activePropertyId], data.data);
       setIsDirty(false);

@@ -7,24 +7,27 @@ use crate::domain::{
     audit::AuditLog,
     errors::{DomainError, DomainResult},
     parking::{ParkingLayoutResponse, ParkingSpot, ParkingZone, SpotStatus},
+    ports::SvgSanitizerPort,
     repository::{AuditRepository, ParkingRepository},
     user::User,
 };
-use crate::infrastructure::svg_sanitizer::SvgSanitizer;
 
 pub struct ParkingService {
     parking_repo: Arc<dyn ParkingRepository>,
     audit_repo: Arc<dyn AuditRepository>,
+    svg_sanitizer: Arc<dyn SvgSanitizerPort>,
 }
 
 impl ParkingService {
     pub fn new(
         parking_repo: Arc<dyn ParkingRepository>,
         audit_repo: Arc<dyn AuditRepository>,
+        svg_sanitizer: Arc<dyn SvgSanitizerPort>,
     ) -> Self {
         Self {
             parking_repo,
             audit_repo,
+            svg_sanitizer,
         }
     }
 
@@ -62,19 +65,22 @@ impl ParkingService {
             .await?;
 
         // Audit log
-        let _ = self.audit_repo.record(&AuditLog {
-            id: Uuid::new_v4(),
-            actor_id: Some(actor.id),
-            actor_email: Some(actor.email.clone()),
-            action: "RESERVE_PARKING_SPOT".to_string(),
-            entity_type: "parking_spot".to_string(),
-            entity_id: Some(spot_id),
-            old_values: Some(serde_json::json!({ "status": "vacant" })),
-            new_values: Some(serde_json::json!({ "status": "reserved", "tenant_id": actor.id })),
-            ip_address: client_ip,
-            user_agent,
-            created_at: Utc::now(),
-        }).await;
+        let _ = self
+            .audit_repo
+            .record(&AuditLog {
+                id: Uuid::new_v4(),
+                actor_id: Some(actor.id),
+                actor_email: Some(actor.email.clone()),
+                action: "RESERVE_PARKING_SPOT".to_string(),
+                entity_type: "parking_spot".to_string(),
+                entity_id: Some(spot_id),
+                old_values: Some(serde_json::json!({ "status": "vacant" })),
+                new_values: Some(serde_json::json!({ "status": "reserved", "tenant_id": actor.id })),
+                ip_address: client_ip,
+                user_agent,
+                created_at: Utc::now(),
+            })
+            .await;
 
         Ok(())
     }
@@ -117,7 +123,7 @@ impl ParkingService {
             return Err(DomainError::Forbidden);
         }
 
-        let sanitized_svg = SvgSanitizer::sanitize(raw_svg)?;
+        let sanitized_svg = self.svg_sanitizer.sanitize(raw_svg)?;
         self.parking_repo.save_svg_layout(zone_id, &sanitized_svg).await?;
 
         Ok(sanitized_svg)

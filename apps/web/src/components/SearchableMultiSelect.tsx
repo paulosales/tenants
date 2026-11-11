@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, Check, X, Users } from 'lucide-react';
 import { type SearchableOption } from './SearchableSelect';
+import { getBadgeColorClass } from '../utils/badgeStyles';
 
 export interface SearchableMultiSelectProps {
   id?: string;
@@ -128,22 +129,6 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
         e.preventDefault();
         setIsOpen(false);
         break;
-    }
-  };
-
-  // Badge color lookup
-  const getBadgeClass = (color?: string) => {
-    switch (color) {
-      case 'emerald':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'amber':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'rose':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 'indigo':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -307,7 +292,7 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 
                     {opt.badge && (
                       <span
-                        className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${getBadgeClass(
+                        className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wider ${getBadgeColorClass(
                           opt.badgeColor
                         )}`}
                       >

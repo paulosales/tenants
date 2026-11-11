@@ -4,11 +4,43 @@ use quick_xml::writer::Writer;
 use std::collections::HashSet;
 use std::io::Cursor;
 
-use crate::domain::errors::{DomainError, DomainResult};
+use crate::domain::{
+    errors::{DomainError, DomainResult},
+    ports::SvgSanitizerPort,
+};
 
 pub struct SvgSanitizer;
 
+/// Infrastructure adapter implementing the domain `SvgSanitizerPort`.
+#[derive(Debug, Default, Clone)]
+pub struct DefaultSvgSanitizer;
+
+impl SvgSanitizerPort for DefaultSvgSanitizer {
+    fn sanitize(&self, raw_svg: &str) -> DomainResult<String> {
+        SvgSanitizer::sanitize(raw_svg)
+    }
+}
+
 impl SvgSanitizer {
+    /// Copies safe attributes from an XML element while stripping XSS vectors.
+    fn build_safe_element<'a>(
+        e: &BytesStart<'_>,
+        tag_name: &'a str,
+    ) -> DomainResult<BytesStart<'a>> {
+        let mut safe_elem = BytesStart::new(tag_name);
+        for attr in e.attributes() {
+            let attr = attr.map_err(|err| {
+                DomainError::InvalidSvgMarkup(format!("Malformed attribute: {}", err))
+            })?;
+            let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
+            let attr_val = String::from_utf8_lossy(&attr.value).to_string();
+
+            if !Self::is_dangerous_attr(&attr_name, &attr_val) {
+                safe_elem.push_attribute((attr_name.as_str(), attr_val.as_str()));
+            }
+        }
+        Ok(safe_elem)
+    }
     /// Strict Allow-list of safe SVG element tags
     fn allowed_tags() -> HashSet<&'static str> {
         [
@@ -71,16 +103,7 @@ impl SvgSanitizer {
                         )));
                     }
 
-                    let mut safe_elem = BytesStart::new(tag_name.as_str());
-                    for attr in e.attributes() {
-                        let attr = attr.map_err(|e| DomainError::InvalidSvgMarkup(format!("Malformed attribute: {}", e)))?;
-                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                        let attr_val = String::from_utf8_lossy(&attr.value).to_string();
-
-                        if !Self::is_dangerous_attr(&attr_name, &attr_val) {
-                            safe_elem.push_attribute((attr_name.as_str(), attr_val.as_str()));
-                        }
-                    }
+                    let safe_elem = Self::build_safe_element(e, &tag_name)?;
                     writer.write_event(Event::Start(safe_elem)).map_err(|e| DomainError::Internal(e.to_string()))?;
                 }
                 Ok(Event::Empty(ref e)) => {
@@ -92,16 +115,7 @@ impl SvgSanitizer {
                         )));
                     }
 
-                    let mut safe_elem = BytesStart::new(tag_name.as_str());
-                    for attr in e.attributes() {
-                        let attr = attr.map_err(|e| DomainError::InvalidSvgMarkup(format!("Malformed attribute: {}", e)))?;
-                        let attr_name = String::from_utf8_lossy(attr.key.as_ref()).to_string();
-                        let attr_val = String::from_utf8_lossy(&attr.value).to_string();
-
-                        if !Self::is_dangerous_attr(&attr_name, &attr_val) {
-                            safe_elem.push_attribute((attr_name.as_str(), attr_val.as_str()));
-                        }
-                    }
+                    let safe_elem = Self::build_safe_element(e, &tag_name)?;
                     writer.write_event(Event::Empty(safe_elem)).map_err(|e| DomainError::Internal(e.to_string()))?;
                 }
                 Ok(Event::End(ref e)) => {

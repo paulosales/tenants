@@ -30,9 +30,9 @@ export const AmenityReservationCalendar: React.FC<AmenityCalendarProps> = ({
 
   const activeAmenity = amenities.find((a) => a.id === selectedAmenityId) || amenities[0];
 
-  // Query ground-truth reservations for the selected date
-  const startOfDay = `${bookingDate}T00:00:00Z`;
-  const endOfDay = `${bookingDate}T23:59:59Z`;
+  // Query ground-truth reservations for the selected local date (converted to UTC bounds)
+  const startOfDay = new Date(`${bookingDate}T00:00:00`).toISOString();
+  const endOfDay = new Date(`${bookingDate}T23:59:59`).toISOString();
 
   const { data: reservations = [], isLoading: isLoadingReservations } = useQuery({
     queryKey: ['reservations', selectedAmenityId, bookingDate],
@@ -65,8 +65,8 @@ export const AmenityReservationCalendar: React.FC<AmenityCalendarProps> = ({
     setBookingSuccess(null);
 
     const [hours, minutes] = startTimeStr.split(':').map(Number);
-    const startDate = new Date(`${bookingDate}T00:00:00Z`);
-    startDate.setUTCHours(hours, minutes, 0, 0);
+    const startDate = new Date(`${bookingDate}T00:00:00`);
+    startDate.setHours(hours, minutes, 0, 0);
 
     const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
 

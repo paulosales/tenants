@@ -14,7 +14,7 @@ import {
   Loader2,
   Filter,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { useTenantsGateway, useUnitsGateway } from '../context/ApiContext';
 import type {
   PropertyWithStats,
   UnitWithTenant,
@@ -54,6 +54,8 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
   onSelectProperty,
 }) => {
   const queryClient = useQueryClient();
+  const unitsGateway = useUnitsGateway();
+  const tenantsGateway = useTenantsGateway();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitWithTenant | null>(null);
   const [selectedTenantIds, setSelectedTenantIds] = useState<string[]>([]);
@@ -65,14 +67,14 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
 
   const { data: units = [], isLoading } = useQuery({
     queryKey: ['units', activePropertyId],
-    queryFn: () => (activePropertyId ? api.getUnits(activePropertyId) : Promise.resolve([])),
+    queryFn: () => (activePropertyId ? unitsGateway.getUnits(activePropertyId) : Promise.resolve([])),
     enabled: Boolean(activePropertyId),
   });
 
   // Query tenants for assignment to units
   const { data: allTenants = [] } = useQuery({
     queryKey: ['tenants', 'for-units-view'],
-    queryFn: () => api.getTenants({}),
+    queryFn: () => tenantsGateway.getTenants({}),
   });
 
   const {
@@ -174,12 +176,12 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
       };
 
       if (editingUnit) {
-        return api.updateUnit(editingUnit.id, {
+        return unitsGateway.updateUnit(editingUnit.id, {
           ...payload,
           status: data.status as UnitStatus,
         });
       } else {
-        return api.createUnit(activePropertyId, payload);
+        return unitsGateway.createUnit(activePropertyId, payload);
       }
     },
     onSuccess: () => {
@@ -194,7 +196,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteUnit(id),
+    mutationFn: (id: string) => unitsGateway.deleteUnit(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['units', activePropertyId] });
       queryClient.invalidateQueries({ queryKey: ['properties'] });

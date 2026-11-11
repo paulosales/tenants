@@ -93,8 +93,8 @@ impl ReservationRepository for PostgresReservationRepository {
         let row = sqlx::query_as::<_, ReservationRow>(
             r#"
             SELECT id, amenity_id, user_id,
-                   lower(reservation_period) as start_time,
-                   upper(reservation_period) as end_time,
+                   lower(reservation_period) AT TIME ZONE 'UTC' as start_time,
+                   upper(reservation_period) AT TIME ZONE 'UTC' as end_time,
                    total_price_cents, status, notes,
                    created_at, updated_at, deleted_at
             FROM reservations
@@ -114,8 +114,8 @@ impl ReservationRepository for PostgresReservationRepository {
             r#"
             SELECT r.id, r.amenity_id, a.name as amenity_name,
                    r.user_id, u.full_name as user_name, u.email as user_email,
-                   lower(r.reservation_period) as start_time,
-                   upper(r.reservation_period) as end_time,
+                   lower(r.reservation_period) AT TIME ZONE 'UTC' as start_time,
+                   upper(r.reservation_period) AT TIME ZONE 'UTC' as end_time,
                    r.total_price_cents, r.status, r.notes, r.created_at
             FROM reservations r
             JOIN amenities a ON a.id = r.amenity_id
@@ -140,13 +140,13 @@ impl ReservationRepository for PostgresReservationRepository {
         let rows = sqlx::query_as::<_, ReservationRow>(
             r#"
             SELECT id, amenity_id, user_id,
-                   lower(reservation_period) as start_time,
-                   upper(reservation_period) as end_time,
+                   lower(reservation_period) AT TIME ZONE 'UTC' as start_time,
+                   upper(reservation_period) AT TIME ZONE 'UTC' as end_time,
                    total_price_cents, status, notes,
                    created_at, updated_at, deleted_at
             FROM reservations
             WHERE amenity_id = $1
-              AND reservation_period && tsrange($2, $3, '[)')
+              AND reservation_period && tsrange($2::timestamp, $3::timestamp, '[)')
               AND deleted_at IS NULL
               AND status != 'cancelled'
             ORDER BY reservation_period ASC
@@ -167,8 +167,8 @@ impl ReservationRepository for PostgresReservationRepository {
             r#"
             SELECT r.id, r.amenity_id, a.name as amenity_name,
                    r.user_id, u.full_name as user_name, u.email as user_email,
-                   lower(r.reservation_period) as start_time,
-                   upper(r.reservation_period) as end_time,
+                   lower(r.reservation_period) AT TIME ZONE 'UTC' as start_time,
+                   upper(r.reservation_period) AT TIME ZONE 'UTC' as end_time,
                    r.total_price_cents, r.status, r.notes, r.created_at
             FROM reservations r
             JOIN amenities a ON a.id = r.amenity_id
@@ -208,10 +208,10 @@ impl ReservationRepository for PostgresReservationRepository {
                 id, amenity_id, user_id, reservation_period,
                 total_price_cents, status, notes, created_at, updated_at
             )
-            VALUES ($1, $2, $3, tsrange($4, $5, '[)'), $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, tsrange($4::timestamp, $5::timestamp, '[)'), $6, $7, $8, $9, $10)
             RETURNING id, amenity_id, user_id,
-                      lower(reservation_period) as start_time,
-                      upper(reservation_period) as end_time,
+                      lower(reservation_period) AT TIME ZONE 'UTC' as start_time,
+                      upper(reservation_period) AT TIME ZONE 'UTC' as end_time,
                       total_price_cents, status, notes,
                       created_at, updated_at, deleted_at
             "#,

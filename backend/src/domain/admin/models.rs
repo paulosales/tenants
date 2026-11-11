@@ -1,9 +1,6 @@
-use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-use super::errors::DomainResult;
 
 // ==========================================
 // 1. Enums
@@ -250,57 +247,67 @@ pub struct ParkingLayoutWithSpots {
     pub spots: Vec<ParkingSpot>,
 }
 
-// ==========================================
-// 3. Admin Repository Trait
-// ==========================================
-
-#[async_trait]
-pub trait AdminRepository: Send + Sync {
-    // Properties
-    async fn list_properties(&self) -> DomainResult<Vec<PropertyWithStats>>;
-    async fn get_property(&self, id: Uuid) -> DomainResult<Option<Property>>;
-    async fn create_property(&self, property: Property) -> DomainResult<Property>;
-    async fn update_property(&self, property: Property) -> DomainResult<Property>;
-    async fn delete_property(&self, id: Uuid) -> DomainResult<()>;
-    async fn count_property_units(&self, property_id: Uuid) -> DomainResult<i64>;
-
-    // Units
-    async fn list_units_by_property(&self, property_id: Uuid) -> DomainResult<Vec<UnitWithTenant>>;
-    async fn get_unit(&self, id: Uuid) -> DomainResult<Option<Unit>>;
-    async fn create_unit(&self, unit: Unit) -> DomainResult<Unit>;
-    async fn update_unit(&self, unit: Unit) -> DomainResult<Unit>;
-    async fn delete_unit(&self, id: Uuid) -> DomainResult<()>;
-    async fn set_unit_status(&self, unit_id: Uuid, status: UnitStatus) -> DomainResult<()>;
-    async fn sync_unit_tenants(&self, unit_id: Uuid, tenant_ids: &[Uuid]) -> DomainResult<()>;
-    async fn count_active_tenants_for_unit(&self, unit_id: Uuid, exclude_tenant_id: Option<Uuid>) -> DomainResult<i64>;
-
-    // Tenants
-    async fn list_tenants(
-        &self,
-        property_id: Option<Uuid>,
-        status: Option<TenantStatus>,
-        query: Option<String>,
-    ) -> DomainResult<Vec<TenantWithUnit>>;
-    async fn get_tenant(&self, id: Uuid) -> DomainResult<Option<TenantWithUnit>>;
-    async fn create_tenant(&self, tenant: Tenant) -> DomainResult<Tenant>;
-    async fn update_tenant(&self, tenant: Tenant) -> DomainResult<Tenant>;
-    async fn delete_tenant(&self, id: Uuid) -> DomainResult<()>;
-
-    // Amenities
-    async fn list_amenities_by_property(&self, property_id: Uuid) -> DomainResult<Vec<AdminAmenity>>;
-    async fn get_amenity(&self, id: Uuid) -> DomainResult<Option<AdminAmenity>>;
-    async fn create_amenity(&self, amenity: AdminAmenity) -> DomainResult<AdminAmenity>;
-    async fn update_amenity(&self, amenity: AdminAmenity) -> DomainResult<AdminAmenity>;
-    async fn delete_amenity(&self, id: Uuid) -> DomainResult<()>;
-
-    // Parking Layout & Spots
-    async fn get_parking_layout(&self, property_id: Uuid) -> DomainResult<Option<ParkingLayoutWithSpots>>;
-    async fn save_parking_layout(
-        &self,
-        property_id: Uuid,
-        canvas_width: i32,
-        canvas_height: i32,
-        grid_size: i32,
-        spots: Vec<ParkingSpot>,
-    ) -> DomainResult<ParkingLayoutWithSpots>;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaintenanceCall {
+    pub id: Uuid,
+    pub ticket_number: String,
+    pub tenant_id: Uuid,
+    pub tenant_name: Option<String>,
+    pub property_id: Uuid,
+    pub property_name: Option<String>,
+    pub unit_number: String,
+    pub category: String,
+    pub priority: String,
+    pub title: String,
+    pub description: String,
+    pub permission_to_enter: bool,
+    pub preferred_time_window: String,
+    pub contact_phone: String,
+    pub status: String,
+    pub assigned_staff_id: Option<Uuid>,
+    pub assigned_technician: Option<String>,
+    pub technician_phone: Option<String>,
+    pub scheduled_date: Option<DateTime<Utc>>,
+    pub resolution_notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PropertyStaff {
+    pub id: Uuid,
+    pub property_id: Uuid,
+    pub property_name: Option<String>,
+    pub first_name: String,
+    pub last_name: String,
+    pub role: String,
+    pub title: String,
+    pub email: String,
+    pub phone: String,
+    pub specialization: Option<String>,
+    pub shift: String,
+    pub status: String,
+    pub assigned_calls_count: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TenantReservation {
+    pub id: Uuid,
+    pub amenity_id: Uuid,
+    pub amenity_name: String,
+    pub tenant_id: Uuid,
+    pub tenant_name: Option<String>,
+    pub property_id: Option<Uuid>,
+    pub unit_number: Option<String>,
+    pub booking_date: Option<String>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+    pub attendees_count: i32,
+    pub total_price_cents: i32,
+    pub status: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+

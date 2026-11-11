@@ -7,6 +7,7 @@ pub mod payment;
 pub mod audit;
 pub mod errors;
 pub mod repository;
+pub mod ports;
 
 pub use admin::*;
 pub use user::*;
@@ -17,3 +18,4 @@ pub use payment::*;
 pub use audit::*;
 pub use errors::*;
 pub use repository::*;
+pub use ports::*;

@@ -333,3 +333,133 @@ async fn test_assign_single_unit_to_multiple_tenants() {
     let _ = service.delete_property(property_id).await;
 }
 
+#[tokio::test]
+async fn test_property_staff_and_maintenance_call_assignment() {
+    let (service, property_id) = setup_admin_service().await;
+
+    // 1. Create a technical maintainer
+    let staff = service
+        .create_property_staff(CreatePropertyStaffRequest {
+            property_id,
+            first_name: "Carlos".to_string(),
+            last_name: "Mendez".to_string(),
+            role: "maintainer".to_string(),
+            title: "Lead Plumber".to_string(),
+            email: "carlos.m@test.local".to_string(),
+            phone: "+1 (555) 019-3321".to_string(),
+            specialization: Some("Plumbing & Hydraulics".to_string()),
+            shift: Some("Day (08:00 - 16:30)".to_string()),
+            status: Some("active".to_string()),
+        })
+        .await
+        .expect("Failed to create staff member");
+
+    assert_eq!(staff.role, "maintainer");
+    assert_eq!(staff.title, "Lead Plumber");
+
+    // 2. Create a maintenance call
+    let call = service
+        .create_maintenance_call(CreateMaintenanceCallRequest {
+            tenant_id: None,
+            property_id: Some(property_id),
+            unit_number: "101".to_string(),
+            category: "plumbing".to_string(),
+            priority: Some("routine".to_string()),
+            title: "Leaky kitchen pipe".to_string(),
+            description: "Pipe under sink is dripping steadily".to_string(),
+            permission_to_enter: Some(true),
+            preferred_time_window: Some("Morning (08:00 - 12:00)".to_string()),
+            contact_phone: "+1 (555) 019-2233".to_string(),
+        })
+        .await
+        .expect("Failed to create maintenance call");
+
+    assert_eq!(call.status, "reported");
+    assert_eq!(call.assigned_staff_id, None);
+
+    // 3. Assign maintainer to the maintenance call
+    let assigned_call = service
+        .assign_maintenance_call_staff(
+            call.id,
+            AssignMaintenanceCallStaffRequest {
+                staff_id: staff.id,
+                scheduled_date: None,
+                resolution_notes: Some("Check pipe gasket and replace O-ring".to_string()),
+            },
+        )
+        .await
+        .expect("Failed to assign staff to maintenance call");
+
+    assert_eq!(assigned_call.assigned_staff_id, Some(staff.id));
+    assert!(assigned_call.assigned_technician.unwrap().contains("Carlos Mendez"));
+    assert_eq!(assigned_call.technician_phone, Some("+1 (555) 019-3321".to_string()));
+    assert_eq!(assigned_call.status, "dispatched");
+
+    // Clean up
+    let _ = service.delete_property_staff(staff.id).await;
+    let _ = service.delete_property(property_id).await;
+}
+
+#[tokio::test]
+async fn test_create_tenant_reservation_stores_utc() {
+    let (service, property_id) = setup_admin_service().await;
+
+    // 1. Create an amenity for this test property
+    let amenity = service
+        .create_amenity(
+            property_id,
+            CreateAmenityRequest {
+                name: format!("Test Lounge {}", Uuid::new_v4()),
+                description: Some("Rooftop terrace".to_string()),
+                capacity: 20,
+                fee_cents: 5000,
+                deposit_cents: 0,
+                rules: None,
+                is_active: Some(true),
+            },
+        )
+        .await
+        .expect("Failed to create amenity");
+
+    // 2. Submit reservation using a full UTC ISO string converted from local time
+    let res = service
+        .create_tenant_reservation(CreateTenantReservationRequest {
+            amenity_id: amenity.id,
+            tenant_id: None,
+            booking_date: Some("2026-12-10".to_string()),
+            start_time: "2026-12-10T19:00:00.000Z".to_string(),
+            end_time: "2026-12-10T21:00:00.000Z".to_string(),
+            attendees_count: Some(4),
+            notes: Some("Evening gathering".to_string()),
+        })
+        .await
+        .expect("Failed to create tenant reservation with UTC ISO timestamp");
+
+    assert_eq!(res.start_time.to_rfc3339(), "2026-12-10T19:00:00+00:00");
+    assert_eq!(res.end_time.to_rfc3339(), "2026-12-10T21:00:00+00:00");
+
+    // 3. Submit reservation with timezone offset (e.g. -05:00) and verify backend normalizes to UTC
+    let res_offset = service
+        .create_tenant_reservation(CreateTenantReservationRequest {
+            amenity_id: amenity.id,
+            tenant_id: None,
+            booking_date: None,
+            start_time: "2026-12-11T14:00:00-05:00".to_string(),
+            end_time: "2026-12-11T16:00:00-05:00".to_string(),
+            attendees_count: Some(2),
+            notes: Some("Offset converted to UTC".to_string()),
+        })
+        .await
+        .expect("Failed to create tenant reservation with timezone offset");
+
+    assert_eq!(res_offset.start_time.to_rfc3339(), "2026-12-11T19:00:00+00:00");
+    assert_eq!(res_offset.end_time.to_rfc3339(), "2026-12-11T21:00:00+00:00");
+
+    // Clean up
+    let _ = service.cancel_tenant_reservation(res.id).await;
+    let _ = service.cancel_tenant_reservation(res_offset.id).await;
+    let _ = service.delete_amenity(amenity.id).await;
+    let _ = service.delete_property(property_id).await;
+}
+
+

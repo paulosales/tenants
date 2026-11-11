@@ -17,8 +17,9 @@ import {
   X,
   Loader2,
   Filter,
+  ExternalLink,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { useTenantsGateway, useUnitsGateway } from '../context/ApiContext';
 import type {
   PropertyWithStats,
   TenantWithUnit,
@@ -52,13 +53,17 @@ type TenantFormData = z.infer<typeof tenantSchema>;
 interface TenantsViewProps {
   properties: PropertyWithStats[];
   selectedPropertyId: string | null;
+  onSelectTenantForPortal?: (tenantId: string) => void;
 }
 
 export const TenantsView: React.FC<TenantsViewProps> = ({
   properties,
   selectedPropertyId,
+  onSelectTenantForPortal,
 }) => {
   const queryClient = useQueryClient();
+  const tenantsGateway = useTenantsGateway();
+  const unitsGateway = useUnitsGateway();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<TenantWithUnit | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,7 +74,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
   const { data: tenants = [], isLoading } = useQuery({
     queryKey: ['tenants', selectedPropertyId, statusFilter, searchQuery],
     queryFn: () =>
-      api.getTenants({
+      tenantsGateway.getTenants({
         property_id: selectedPropertyId || undefined,
         status: statusFilter !== 'all' ? (statusFilter as TenantStatus) : undefined,
         q: searchQuery || undefined,
@@ -150,7 +155,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
   const activePropertyIdForModal = editingTenant?.property_id || selectedPropertyId || (properties[0]?.id || '');
   const { data: availableUnits = [] } = useQuery({
     queryKey: ['units', activePropertyIdForModal],
-    queryFn: () => (activePropertyIdForModal ? api.getUnits(activePropertyIdForModal) : Promise.resolve([])),
+    queryFn: () => (activePropertyIdForModal ? unitsGateway.getUnits(activePropertyIdForModal) : Promise.resolve([])),
     enabled: Boolean(activePropertyIdForModal),
   });
 
@@ -181,12 +186,12 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
       };
 
       if (editingTenant) {
-        return api.updateTenant(editingTenant.id, {
+        return tenantsGateway.updateTenant(editingTenant.id, {
           ...payload,
           status: data.status as TenantStatus,
         });
       } else {
-        return api.createTenant(payload);
+        return tenantsGateway.createTenant(payload);
       }
     },
     onSuccess: () => {
@@ -201,7 +206,7 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteTenant(id),
+    mutationFn: (id: string) => tenantsGateway.deleteTenant(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
       queryClient.invalidateQueries({ queryKey: ['units'] });
@@ -558,6 +563,15 @@ export const TenantsView: React.FC<TenantsViewProps> = ({
                             </span>
                           </td>
                           <td className="py-4 px-4 sm:px-6 text-right space-x-1 whitespace-nowrap">
+                            {onSelectTenantForPortal && (
+                              <button
+                                onClick={() => onSelectTenantForPortal(t.id)}
+                                className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                title="Open Tenant Portal View"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => openEditModal(t)}
                               className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"

@@ -20,7 +20,7 @@ import {
   LayoutGrid,
   Table as TableIcon,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { useAmenitiesGateway } from '../context/ApiContext';
 import type {
   PropertyWithStats,
   AdminAmenity,
@@ -59,6 +59,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
   onSelectProperty,
 }) => {
   const queryClient = useQueryClient();
+  const amenitiesGateway = useAmenitiesGateway();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAmenity, setEditingAmenity] = useState<AdminAmenity | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
 
   const { data: amenities = [], isLoading } = useQuery({
     queryKey: ['amenities', activePropertyId],
-    queryFn: () => (activePropertyId ? api.getPropertyAmenities(activePropertyId) : Promise.resolve([])),
+    queryFn: () => (activePropertyId ? amenitiesGateway.getPropertyAmenities(activePropertyId) : Promise.resolve([])),
     enabled: Boolean(activePropertyId),
   });
 
@@ -176,12 +177,12 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
       };
 
       if (editingAmenity) {
-        return api.updatePropertyAmenity(editingAmenity.id, {
+        return amenitiesGateway.updatePropertyAmenity(editingAmenity.id, {
           ...payload,
           is_active: data.is_active,
         });
       } else {
-        return api.createPropertyAmenity(activePropertyId, payload);
+        return amenitiesGateway.createPropertyAmenity(activePropertyId, payload);
       }
     },
     onSuccess: () => {
@@ -194,7 +195,7 @@ export const AmenitiesView: React.FC<AmenitiesViewProps> = ({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deletePropertyAmenity(id),
+    mutationFn: (id: string) => amenitiesGateway.deletePropertyAmenity(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['amenities', activePropertyId] });
       setActionError(null);

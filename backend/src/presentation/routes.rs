@@ -13,11 +13,15 @@ use tower_http::{
 use crate::presentation::{
     handlers::{
         admin::{
-            create_property, create_property_amenity, create_tenant, create_unit,
-            delete_amenity, delete_property, delete_tenant, delete_unit, get_parking_layout,
-            get_property, get_tenant, list_properties, list_property_amenities,
-            list_tenants, list_units, save_parking_layout, update_amenity, update_property,
-            update_tenant, update_unit,
+            assign_maintenance_call_staff, cancel_maintenance_call, cancel_tenant_reservation,
+            create_maintenance_call, create_property, create_property_amenity,
+            create_property_staff, create_tenant, create_tenant_reservation, create_unit,
+            delete_amenity, delete_property, delete_property_staff, delete_tenant, delete_unit,
+            get_maintenance_call, get_parking_layout, get_property, get_property_staff, get_tenant,
+            list_maintenance_calls, list_properties, list_property_amenities,
+            list_property_staff, list_tenant_reservations, list_tenants, list_units,
+            save_parking_layout, update_amenity, update_maintenance_call_status,
+            update_property, update_property_staff, update_tenant, update_unit,
         },
         amenities::{check_availability, get_amenity, list_amenities},
         audit::list_audit_logs,
@@ -92,7 +96,20 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
         .route("/properties/:property_id/amenities", get(list_property_amenities).post(create_property_amenity))
         .route("/amenities/:id", put(update_amenity).delete(delete_amenity))
         // Admin: Parking Layout API
-        .route("/properties/:property_id/parking-layout", get(get_parking_layout).put(save_parking_layout));
+        .route("/properties/:property_id/parking-layout", get(get_parking_layout).put(save_parking_layout))
+        // Tenant Portal & Admin: Maintenance Calls API
+        .route("/maintenance-calls", get(list_maintenance_calls).post(create_maintenance_call))
+        .route("/maintenance-calls/:id", get(get_maintenance_call))
+        .route("/maintenance-calls/:id/status", put(update_maintenance_call_status))
+        .route("/maintenance-calls/:id/cancel", post(cancel_maintenance_call))
+        .route("/maintenance-calls/:id/assign-staff", post(assign_maintenance_call_staff))
+        // Tenant Portal: Amenity Sessions & Reservations API
+        .route("/amenity-sessions", get(list_tenant_reservations).post(create_tenant_reservation))
+        .route("/amenity-sessions/my", get(list_tenant_reservations))
+        .route("/amenity-sessions/:id/cancel", post(cancel_tenant_reservation))
+        // Admin & Management: Property Staff API
+        .route("/staff", get(list_property_staff).post(create_property_staff))
+        .route("/staff/:id", get(get_property_staff).put(update_property_staff).delete(delete_property_staff));
 
     // 3. Assemble root router with layered middleware
     Router::new()

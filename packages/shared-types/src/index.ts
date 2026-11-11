@@ -336,3 +336,154 @@ export interface PaymentIntentResponse {
   payment_intent_id: string;
   amount_cents: number;
 }
+
+// ==========================================
+// Maintenance Call & Service Request Types
+// ==========================================
+
+export type MaintenancePriority = 'routine' | 'urgent' | 'emergency';
+
+export type MaintenanceStatus = 'reported' | 'dispatched' | 'in_progress' | 'resolved' | 'cancelled';
+
+export type MaintenanceCategory =
+  | 'plumbing'
+  | 'electrical'
+  | 'hvac'
+  | 'appliances'
+  | 'locks_keys'
+  | 'pest_control'
+  | 'structural'
+  | 'general';
+
+export interface MaintenanceCall {
+  id: string;
+  ticket_number: string;
+  tenant_id: string;
+  tenant_name?: string;
+  property_id: string;
+  property_name?: string;
+  unit_number: string;
+  category: MaintenanceCategory;
+  priority: MaintenancePriority;
+  title: string;
+  description: string;
+  permission_to_enter: boolean;
+  preferred_time_window: string;
+  contact_phone: string;
+  status: MaintenanceStatus;
+  assigned_staff_id?: string | null;
+  assigned_technician?: string | null;
+  technician_phone?: string | null;
+  scheduled_date?: string | null;
+  resolution_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateMaintenanceCallDto {
+  tenant_id?: string;
+  property_id?: string;
+  unit_number: string;
+  category: MaintenanceCategory;
+  priority: MaintenancePriority;
+  title: string;
+  description: string;
+  permission_to_enter: boolean;
+  preferred_time_window: string;
+  contact_phone: string;
+}
+
+// ==========================================
+// Amenity Session Scheduling Types
+// ==========================================
+
+export type AmenityBookingStatus = 'confirmed' | 'pending' | 'cancelled' | 'completed';
+
+export interface AmenitySessionBooking {
+  id: string;
+  amenity_id: string;
+  amenity_name: string;
+  tenant_id: string;
+  tenant_name?: string;
+  property_id: string;
+  unit_number?: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  attendees_count: number;
+  total_fee_cents: number;
+  status: AmenityBookingStatus;
+  notes?: string;
+  created_at: string;
+}
+
+export interface CreateAmenitySessionDto {
+  amenity_id: string;
+  tenant_id?: string;
+  property_id?: string;
+  unit_number?: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  attendees_count: number;
+  notes?: string;
+}
+
+// ==========================================
+// Property Staff & Workload Management Types
+// ==========================================
+
+export type StaffRole = 'manager' | 'maintainer' | 'security' | 'cleaner' | 'other';
+export type StaffStatus = 'active' | 'on_leave' | 'inactive';
+
+export interface PropertyStaff {
+  id: string;
+  property_id: string;
+  property_name?: string;
+  first_name: string;
+  last_name: string;
+  role: StaffRole;
+  title: string;
+  email: string;
+  phone: string;
+  specialization?: string | null;
+  shift: string;
+  status: StaffStatus;
+  assigned_calls_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateStaffDto {
+  property_id: string;
+  first_name: string;
+  last_name: string;
+  role: StaffRole;
+  title: string;
+  email: string;
+  phone: string;
+  specialization?: string;
+  shift?: string;
+  status?: StaffStatus;
+}
+
+export interface UpdateStaffDto {
+  property_id?: string;
+  first_name?: string;
+  last_name?: string;
+  role?: StaffRole;
+  title?: string;
+  email?: string;
+  phone?: string;
+  specialization?: string;
+  shift?: string;
+  status?: StaffStatus;
+}
+
+export interface AssignMaintenanceCallStaffDto {
+  staff_id: string;
+  scheduled_date?: string;
+  resolution_notes?: string;
+}
+
+

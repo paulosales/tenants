@@ -3,13 +3,12 @@ use axum::{
     extract::{FromRef, FromRequestParts},
     http::{header, request::Parts},
 };
-use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::application::auth_service::JwtClaims;
 use crate::domain::{
     errors::DomainError,
+    ports::TokenProvider,
     repository::UserRepository,
     user::User,
 };
@@ -17,7 +16,7 @@ use crate::domain::{
 #[derive(Clone)]
 pub struct AppState {
     pub user_repo: Arc<dyn UserRepository>,
-    pub jwt_secret: String,
+    pub token_provider: Arc<dyn TokenProvider>,
     pub auth_service: Arc<crate::application::AuthService>,
     pub reservation_service: Arc<crate::application::ReservationService>,
     pub parking_service: Arc<crate::application::ParkingService>,
@@ -73,18 +72,10 @@ where
             return Err(DomainError::Unauthorized("Missing authentication token".into()));
         };
 
-        // 3. Decode & Validate JWT
-        let mut validation = Validation::default();
-        validation.validate_exp = true;
+        // 3. Validate token via domain TokenProvider port (DIP)
+        let claims = app_state.token_provider.verify_access_token(&token)?;
 
-        let token_data = decode::<JwtClaims>(
-            &token,
-            &DecodingKey::from_secret(app_state.jwt_secret.as_bytes()),
-            &validation,
-        )
-        .map_err(|e| DomainError::Unauthorized(format!("Invalid or expired token: {}", e)))?;
-
-        let user_id = Uuid::parse_str(&token_data.claims.sub)
+        let user_id = Uuid::parse_str(&claims.sub)
             .map_err(|_| DomainError::Unauthorized("Malformed token subject".into()))?;
 
         // 4. Load fresh user entity to verify account is still active and not deleted

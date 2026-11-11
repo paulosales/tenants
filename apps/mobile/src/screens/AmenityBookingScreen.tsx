@@ -1,34 +1,33 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { StatusBanner } from '../components/StatusBanner';
+import { useMobileAmenityBooking } from '../hooks/useMobileAmenityBooking';
+import { mobileTheme } from '../theme/mobileTheme';
 
 export const AmenityBookingScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [selectedAmenity, setSelectedAmenity] = useState('Skyline Rooftop Lounge');
-  const [selectedTime, setSelectedTime] = useState('16:00 - 18:00');
-  const [isBooked, setIsBooked] = useState(false);
-
-  const amenities = [
-    { id: '1', name: 'Skyline Rooftop Lounge', rate: '$50/hr', cap: 40 },
-    { id: '2', name: 'Championship Tennis Court', rate: '$25/hr', cap: 4 },
-    { id: '3', name: 'Poolside BBQ Pavilion', rate: '$35/hr', cap: 25 },
-  ];
-
-  const timeSlots = ['10:00 - 12:00', '14:00 - 16:00', '16:00 - 18:00', '18:00 - 20:00'];
+  const {
+    amenities,
+    timeSlots,
+    selectedAmenity,
+    selectedTime,
+    isBooked,
+    isBooking,
+    selectAmenity,
+    selectTimeSlot,
+    confirmBooking,
+  } = useMobileAmenityBooking();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Book Property Amenity</Text>
-      </View>
+      <ScreenHeader title="Book Property Amenity" onBack={onBack} />
 
       <Text style={styles.sectionHeader}>Select Amenity</Text>
       {amenities.map((item) => (
         <TouchableOpacity
           key={item.id}
           style={[styles.amenityCard, selectedAmenity === item.name && styles.selectedCard]}
-          onPress={() => { setSelectedAmenity(item.name); setIsBooked(false); }}
+          onPress={() => selectAmenity(item.name)}
         >
           <View>
             <Text style={styles.amenityTitle}>{item.name}</Text>
@@ -38,13 +37,15 @@ export const AmenityBookingScreen: React.FC<{ onBack: () => void }> = ({ onBack 
         </TouchableOpacity>
       ))}
 
-      <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Available Time Slots (Tomorrow)</Text>
+      <Text style={[styles.sectionHeader, styles.slotsSectionHeader]}>
+        Available Time Slots (Tomorrow • Local Time)
+      </Text>
       <View style={styles.slotsGrid}>
         {timeSlots.map((slot) => (
           <TouchableOpacity
             key={slot}
             style={[styles.slotChip, selectedTime === slot && styles.selectedChip]}
-            onPress={() => { setSelectedTime(slot); setIsBooked(false); }}
+            onPress={() => selectTimeSlot(slot)}
           >
             <Text style={[styles.slotText, selectedTime === slot && styles.selectedSlotText]}>
               {slot}
@@ -54,13 +55,19 @@ export const AmenityBookingScreen: React.FC<{ onBack: () => void }> = ({ onBack 
       </View>
 
       {isBooked ? (
-        <View style={styles.successBanner}>
-          <Text style={styles.successTitle}>Reservation Confirmed!</Text>
-          <Text style={styles.successSubtitle}>{selectedAmenity} • {selectedTime}</Text>
-        </View>
+        <StatusBanner
+          title="Reservation Confirmed!"
+          subtitle={`${selectedAmenity} • ${selectedTime}`}
+        />
       ) : (
-        <TouchableOpacity style={styles.confirmBtn} onPress={() => setIsBooked(true)}>
-          <Text style={styles.confirmBtnText}>Schedule Slot</Text>
+        <TouchableOpacity
+          style={styles.confirmBtn}
+          disabled={isBooking}
+          onPress={confirmBooking}
+        >
+          <Text style={styles.confirmBtnText}>
+            {isBooking ? 'Scheduling...' : 'Schedule Slot'}
+          </Text>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -70,43 +77,28 @@ export const AmenityBookingScreen: React.FC<{ onBack: () => void }> = ({ onBack 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090d16',
+    backgroundColor: mobileTheme.background,
   },
   content: {
     padding: 20,
     paddingTop: 50,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  backText: {
-    color: '#818cf8',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   sectionHeader: {
-    color: '#94a3b8',
+    color: mobileTheme.textMuted,
     fontSize: 12,
     fontWeight: 'bold',
     textTransform: 'uppercase',
     marginBottom: 12,
   },
+  slotsSectionHeader: {
+    marginTop: 20,
+  },
   amenityCard: {
-    backgroundColor: '#111827',
+    backgroundColor: mobileTheme.surface,
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: mobileTheme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -117,17 +109,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99, 102, 241, 0.1)',
   },
   amenityTitle: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 15,
     fontWeight: 'bold',
   },
   amenityCap: {
-    color: '#64748b',
+    color: mobileTheme.textSubtle,
     fontSize: 12,
     marginTop: 2,
   },
   amenityRate: {
-    color: '#818cf8',
+    color: mobileTheme.primaryLight,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -138,52 +130,34 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   slotChip: {
-    backgroundColor: '#111827',
+    backgroundColor: mobileTheme.surface,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: mobileTheme.border,
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
   },
   selectedChip: {
-    borderColor: '#10b981',
+    borderColor: mobileTheme.success,
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
   },
   slotText: {
-    color: '#94a3b8',
+    color: mobileTheme.textMuted,
     fontSize: 12,
   },
   selectedSlotText: {
-    color: '#34d399',
+    color: mobileTheme.successLight,
     fontWeight: 'bold',
   },
   confirmBtn: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: mobileTheme.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
   confirmBtnText: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 14,
     fontWeight: 'bold',
-  },
-  successBanner: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderColor: '#10b981',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  successTitle: {
-    color: '#34d399',
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  successSubtitle: {
-    color: '#cbd5e1',
-    fontSize: 12,
-    marginTop: 4,
   },
 });

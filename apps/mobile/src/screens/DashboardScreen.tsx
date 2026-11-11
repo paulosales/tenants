@@ -1,58 +1,83 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { InfoCard } from '../components/InfoCard';
+import { useResidentDashboard } from '../hooks/useResidentDashboard';
+import { mobileTheme } from '../theme/mobileTheme';
+
+export type MobileDestinationScreen = 'parking' | 'amenities';
 
 interface DashboardProps {
-  onNavigate: (screen: 'parking' | 'amenities') => void;
+  onNavigate: (screen: MobileDestinationScreen) => void;
 }
 
+const QUICK_ACTION_TILES: Array<{
+  screen: MobileDestinationScreen;
+  icon: string;
+  title: string;
+  subtitle: string;
+}> = [
+  {
+    screen: 'parking',
+    icon: '🚗',
+    title: 'Reserve Parking',
+    subtitle: 'Level P1 Interactive Map',
+  },
+  {
+    screen: 'amenities',
+    icon: '🎾',
+    title: 'Book Amenity',
+    subtitle: 'Tennis, Lounge & BBQ',
+  },
+];
+
 export const DashboardScreen: React.FC<DashboardProps> = ({ onNavigate }) => {
+  const { data: summary } = useResidentDashboard();
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>Welcome back,</Text>
-        <Text style={styles.tenantName}>Alex Resident</Text>
-        <Text style={styles.unitBadge}>Unit PH-402 • Verified Resident</Text>
+        <Text style={styles.tenantName}>{summary?.residentName ?? 'Resident'}</Text>
+        <Text style={styles.unitBadge}>{summary?.unitLabel ?? 'Loading resident profile...'}</Text>
       </View>
 
-      {/* Quick Action Tiles */}
       <View style={styles.tilesGrid}>
-        <TouchableOpacity style={styles.tile} onPress={() => onNavigate('parking')}>
-          <Text style={styles.tileIcon}>🚗</Text>
-          <Text style={styles.tileTitle}>Reserve Parking</Text>
-          <Text style={styles.tileSubtitle}>Level P1 Interactive Map</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tile} onPress={() => onNavigate('amenities')}>
-          <Text style={styles.tileIcon}>🎾</Text>
-          <Text style={styles.tileTitle}>Book Amenity</Text>
-          <Text style={styles.tileSubtitle}>Tennis, Lounge & BBQ</Text>
-        </TouchableOpacity>
+        {QUICK_ACTION_TILES.map((tile) => (
+          <TouchableOpacity
+            key={tile.screen}
+            style={styles.tile}
+            onPress={() => onNavigate(tile.screen)}
+          >
+            <Text style={styles.tileIcon}>{tile.icon}</Text>
+            <Text style={styles.tileTitle}>{tile.title}</Text>
+            <Text style={styles.tileSubtitle}>{tile.subtitle}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Active Pass Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Current Reserved Spot</Text>
-        <View style={styles.spotRow}>
-          <View style={styles.spotBadge}>
-            <Text style={styles.spotNumber}>P1-01</Text>
-          </View>
-          <View>
-            <Text style={styles.spotDetails}>Subterranean Level P1</Text>
-            <Text style={styles.spotType}>EV Fast Charging Bay</Text>
-          </View>
-        </View>
-      </View>
+      {summary && (
+        <>
+          <InfoCard title="Current Reserved Spot">
+            <View style={styles.spotRow}>
+              <View style={styles.spotBadge}>
+                <Text style={styles.spotNumber}>{summary.currentSpot.spotNumber}</Text>
+              </View>
+              <View>
+                <Text style={styles.spotDetails}>{summary.currentSpot.level}</Text>
+                <Text style={styles.spotType}>{summary.currentSpot.bayType}</Text>
+              </View>
+            </View>
+          </InfoCard>
 
-      {/* Upcoming Amenity Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Upcoming Reservation</Text>
-        <View style={styles.bookingRow}>
-          <Text style={styles.amenityName}>Skyline Rooftop Lounge</Text>
-          <Text style={styles.bookingTime}>Tomorrow • 18:00 - 20:00</Text>
-          <Text style={styles.bookingStatus}>Confirmed & Paid</Text>
-        </View>
-      </View>
+          <InfoCard title="Upcoming Reservation">
+            <View style={styles.bookingRow}>
+              <Text style={styles.amenityName}>{summary.upcomingReservation.amenityName}</Text>
+              <Text style={styles.bookingTime}>{summary.upcomingReservation.timeLabel}</Text>
+              <Text style={styles.bookingStatus}>{summary.upcomingReservation.statusLabel}</Text>
+            </View>
+          </InfoCard>
+        </>
+      )}
     </ScrollView>
   );
 };
@@ -60,7 +85,7 @@ export const DashboardScreen: React.FC<DashboardProps> = ({ onNavigate }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090d16',
+    backgroundColor: mobileTheme.background,
   },
   content: {
     padding: 20,
@@ -70,16 +95,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   greeting: {
-    color: '#94a3b8',
+    color: mobileTheme.textMuted,
     fontSize: 14,
   },
   tenantName: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 24,
     fontWeight: 'bold',
   },
   unitBadge: {
-    color: '#818cf8',
+    color: mobileTheme.primaryLight,
     fontSize: 12,
     marginTop: 4,
   },
@@ -90,41 +115,25 @@ const styles = StyleSheet.create({
   },
   tile: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: mobileTheme.surface,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: mobileTheme.border,
   },
   tileIcon: {
     fontSize: 24,
     marginBottom: 8,
   },
   tileTitle: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 14,
     fontWeight: 'bold',
   },
   tileSubtitle: {
-    color: '#64748b',
+    color: mobileTheme.textSubtle,
     fontSize: 11,
     marginTop: 2,
-  },
-  card: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    color: '#94a3b8',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-    fontWeight: '600',
   },
   spotRow: {
     flexDirection: 'row',
@@ -140,17 +149,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   spotNumber: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 18,
     fontWeight: 'bold',
   },
   spotDetails: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   spotType: {
-    color: '#10b981',
+    color: mobileTheme.success,
     fontSize: 12,
     marginTop: 2,
   },
@@ -158,16 +167,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   amenityName: {
-    color: '#ffffff',
+    color: mobileTheme.textPrimary,
     fontSize: 15,
     fontWeight: 'bold',
   },
   bookingTime: {
-    color: '#cbd5e1',
+    color: mobileTheme.textSecondary,
     fontSize: 13,
   },
   bookingStatus: {
-    color: '#10b981',
+    color: mobileTheme.success,
     fontSize: 11,
     fontWeight: '600',
     marginTop: 4,

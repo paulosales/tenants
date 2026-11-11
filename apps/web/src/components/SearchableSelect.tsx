@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, Check, X } from 'lucide-react';
+import { getBadgeColorClass } from '../utils/badgeStyles';
 
 export interface SearchableOption {
   value: string;
@@ -147,22 +148,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     setIsOpen(false);
   };
 
-  // Badge color mappings
-  const getBadgeClass = (color?: string) => {
-    switch (color) {
-      case 'emerald':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'amber':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'rose':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 'indigo':
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-      default:
-        return 'bg-slate-100 text-slate-600 border-slate-200';
-    }
-  };
-
   const isDark = variant === 'dark';
   const isSm = size === 'sm';
 
@@ -196,7 +181,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
               <span className="font-medium truncate">{selectedOption.label}</span>
               {selectedOption.badge && (
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border shrink-0 ${getBadgeClass(
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border shrink-0 ${getBadgeColorClass(
                     selectedOption.badgeColor
                   )}`}
                 >
@@ -373,7 +358,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         <span className="truncate">{option.label}</span>
                         {option.badge && (
                           <span
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border shrink-0 ${getBadgeClass(
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border shrink-0 ${getBadgeColorClass(
                               option.badgeColor
                             )}`}
                           >

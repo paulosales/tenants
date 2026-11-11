@@ -4,14 +4,18 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 use backend::{
     application::{AdminService, AuthService, ParkingService, PaymentService, ReservationService},
+    domain::ports::{PasswordHasher, PaymentGateway, SvgSanitizerPort, TokenProvider},
     infrastructure::{
         config::AppConfig,
         db::create_postgres_pool,
+        payment_gateway::StripePaymentGateway,
         repositories::{
             PostgresAdminRepository, PostgresAmenityRepository, PostgresAuditRepository,
             PostgresParkingRepository, PostgresPaymentRepository, PostgresReservationRepository,
             PostgresUserRepository,
         },
+        security::{Argon2PasswordHasher, JwtTokenProvider},
+        svg_sanitizer::DefaultSvgSanitizer,
     },
     presentation::{middleware::auth::AppState, routes::build_router},
 };
@@ -43,6 +47,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("PostgreSQL connection pool established successfully.");
 
+    // Automatically apply and verify database migrations on startup
+    if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+        tracing::error!("Database schema migration failed: {}", e);
+        return Err(e.into());
+    }
+    tracing::info!("Database schema migrations applied successfully.");
+
     // 4. Initialize Concrete Repositories (Hexagonal Infrastructure)
     let user_repo = Arc::new(PostgresUserRepository::new(pool.clone()));
     let amenity_repo = Arc::new(PostgresAmenityRepository::new(pool.clone()));
@@ -52,11 +63,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audit_repo = Arc::new(PostgresAuditRepository::new(pool.clone()));
     let admin_repo = Arc::new(PostgresAdminRepository::new(pool.clone()));
 
-    // 5. Initialize Application Use Case Services
-    let auth_service = Arc::new(AuthService::new(
-        user_repo.clone(),
+    // 5. Initialize Infrastructure Adapters (Ports)
+    let password_hasher: Arc<dyn PasswordHasher> = Arc::new(Argon2PasswordHasher);
+    let token_provider: Arc<dyn TokenProvider> = Arc::new(JwtTokenProvider::new(
         config.jwt_secret.clone(),
         config.jwt_access_expiration_seconds,
+    ));
+    let svg_sanitizer: Arc<dyn SvgSanitizerPort> = Arc::new(DefaultSvgSanitizer);
+    let payment_gateway: Arc<dyn PaymentGateway> = Arc::new(StripePaymentGateway::new(
+        config.stripe_secret_key.clone(),
+        config.stripe_webhook_secret.clone(),
+    ));
+
+    // 6. Initialize Application Use Case Services
+    let auth_service = Arc::new(AuthService::new(
+        user_repo.clone(),
+        password_hasher,
+        token_provider.clone(),
         config.jwt_refresh_expiration_seconds,
     ));
 
@@ -69,22 +92,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let parking_service = Arc::new(ParkingService::new(
         parking_repo.clone(),
         audit_repo.clone(),
+        svg_sanitizer,
     ));
 
     let payment_service = Arc::new(PaymentService::new(
         payment_repo.clone(),
         reservation_repo.clone(),
         audit_repo.clone(),
-        config.stripe_secret_key.clone(),
-        config.stripe_webhook_secret.clone(),
+        payment_gateway,
     ));
 
     let admin_service = Arc::new(AdminService::new(admin_repo.clone()));
 
-    // 6. Assemble Router with AppState
+    // 7. Assemble Router with AppState
     let app_state = AppState {
         user_repo,
-        jwt_secret: config.jwt_secret.clone(),
+        token_provider,
         auth_service,
         reservation_service,
         parking_service,
