@@ -92,3 +92,4 @@ export const AmenitySelectorStrip: React.FC<AmenitySelectorStripProps> = ({
     </div>
   );
 };
+

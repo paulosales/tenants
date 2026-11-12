@@ -191,3 +191,4 @@ export function formatCalendarHeaderRange(days: Date[], viewMode: 'week' | 'day'
 export function formatTimeRange12h(startMinutes: number, endMinutes: number): string {
   return `${formatMinutes12h(startMinutes)} – ${formatMinutes12h(endMinutes)}`;
 }
+

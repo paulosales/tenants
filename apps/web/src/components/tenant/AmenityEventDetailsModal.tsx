@@ -129,3 +129,4 @@ export const AmenityEventDetailsModal: React.FC<AmenityEventDetailsModalProps> =
     </ModalDialog>
   );
 };
+

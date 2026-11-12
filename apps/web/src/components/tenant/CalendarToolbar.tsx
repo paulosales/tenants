@@ -173,3 +173,4 @@ export const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
     </>
   );
 };
+

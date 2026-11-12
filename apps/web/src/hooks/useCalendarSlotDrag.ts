@@ -100,3 +100,4 @@ export function useCalendarSlotDrag({
     clearDrag: () => setDragSelection(null),
   };
 }
+

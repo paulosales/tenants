@@ -268,3 +268,4 @@ export const AmenitySessionFormModal: React.FC<AmenitySessionFormModalProps> = (
     </ModalDialog>
   );
 };
+
