@@ -7,6 +7,7 @@ use crate::domain::errors::{DomainError, DomainResult};
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Amenity {
     pub id: Uuid,
+    pub property_id: Option<Uuid>,
     pub name: String,
     pub description: Option<String>,
     pub capacity: i32,
@@ -84,6 +85,7 @@ mod tests {
     fn test_amenity() -> Amenity {
         Amenity {
             id: Uuid::new_v4(),
+            property_id: None,
             name: "Rooftop Tennis Court".into(),
             description: None,
             capacity: 4,

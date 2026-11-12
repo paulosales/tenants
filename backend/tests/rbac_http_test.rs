@@ -1505,3 +1505,287 @@ async fn test_public_portal_redis_cache_etag_and_invalidation() {
         .unwrap();
     assert_eq!(del_feat.status(), StatusCode::NO_CONTENT);
 }
+
+#[tokio::test]
+async fn test_amenity_calendar_availability_and_privacy_redaction() {
+    let (router, pool) = build_test_router().await;
+    let amenity_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    let elena_tenant_id = "33333333-1111-1111-1111-111111111002";
+
+    // Ensure idempotency across test retries
+    sqlx::query(
+        "DELETE FROM reservations WHERE amenity_id = $1 AND reservation_period && tsrange('2026-12-20T00:00:00'::timestamp, '2026-12-21T00:00:00'::timestamp, '[)')",
+    )
+    .bind(Uuid::parse_str(amenity_id).unwrap())
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let calendar_uri = format!(
+        "/api/v1/amenity-sessions/calendar?amenity_id={}&start_date=2026-12-20T00:00:00Z&end_date=2026-12-21T00:00:00Z",
+        amenity_id
+    );
+
+    // 1. Unauthenticated calendar request returns 401
+    let unauth_cal = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&calendar_uri)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unauth_cal.status(), StatusCode::UNAUTHORIZED);
+
+    let (admin_cookie, admin_csrf, _, _) =
+        login_with_cookies(&router, "admin@property.local", "Password123!").await;
+    let (mgr_cookie, _, _, _) =
+        login_with_cookies(&router, "manager@property.local", "Password123!").await;
+    let (tenant_cookie, tenant_csrf, _, _) =
+        login_with_cookies(&router, "tenant@property.local", "Password123!").await;
+    let (staff_cookie, _, _, _) =
+        login_with_cookies(&router, "staff@property.local", "Password123!").await;
+
+    // 2. Non-resident building staff cannot query amenity calendar (403)
+    let staff_cal = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&calendar_uri)
+                .header(header::COOKIE, &staff_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(staff_cal.status(), StatusCode::FORBIDDEN);
+
+    // 3. Create one session for Elena Rostova (Unit 102) and one for Marcus Vance (tenant@property.local)
+    let elena_create = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/amenity-sessions")
+                .header(header::COOKIE, &admin_cookie)
+                .header("x-csrf-token", &admin_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "amenity_id": amenity_id,
+                        "tenant_id": elena_tenant_id,
+                        "booking_date": "2026-12-20",
+                        "start_time": "2026-12-20T18:00:00Z",
+                        "end_time": "2026-12-20T20:00:00Z",
+                        "attendees_count": 5,
+                        "notes": "Secret birthday surprise"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(elena_create.status(), StatusCode::CREATED);
+    let elena_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(elena_create.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let elena_session_id = elena_json["id"].as_str().unwrap().to_string();
+
+    let marcus_create = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/amenity-sessions")
+                .header(header::COOKIE, &tenant_cookie)
+                .header("x-csrf-token", &tenant_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "amenity_id": amenity_id,
+                        "booking_date": "2026-12-20",
+                        "start_time": "2026-12-20T14:00:00Z",
+                        "end_time": "2026-12-20T16:00:00Z",
+                        "attendees_count": 2,
+                        "notes": "My own afternoon slot"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(marcus_create.status(), StatusCode::CREATED);
+    let marcus_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(marcus_create.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let marcus_session_id = marcus_json["id"].as_str().unwrap().to_string();
+
+    // 4. Tenant overlaps Elena's scheduled slot -> 409 Conflict
+    let overlap_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/amenity-sessions")
+                .header(header::COOKIE, &tenant_cookie)
+                .header("x-csrf-token", &tenant_csrf)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "amenity_id": amenity_id,
+                        "booking_date": "2026-12-20",
+                        "start_time": "2026-12-20T19:00:00Z",
+                        "end_time": "2026-12-20T21:00:00Z",
+                        "attendees_count": 2
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(overlap_res.status(), StatusCode::CONFLICT);
+
+    // 5. Tenant queries calendar: sees occupancy slots, but Elena's PII is strictly NULL
+    let tenant_cal = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&calendar_uri)
+                .header(header::COOKIE, &tenant_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(tenant_cal.status(), StatusCode::OK);
+    let tenant_events: Vec<Value> = serde_json::from_slice(
+        &axum::body::to_bytes(tenant_cal.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let elena_for_tenant = tenant_events
+        .iter()
+        .find(|e| e["id"].as_str() == Some(elena_session_id.as_str()))
+        .expect("Expected Elena's busy slot on tenant calendar");
+    assert_eq!(elena_for_tenant["is_own"], false);
+    assert!(elena_for_tenant["scheduled_by_name"].is_null());
+    assert!(elena_for_tenant["unit_number"].is_null());
+    assert!(elena_for_tenant["attendees_count"].is_null());
+    assert!(elena_for_tenant["notes"].is_null());
+
+    let marcus_for_tenant = tenant_events
+        .iter()
+        .find(|e| e["id"].as_str() == Some(marcus_session_id.as_str()))
+        .expect("Expected Marcus's own slot on tenant calendar");
+    assert_eq!(marcus_for_tenant["is_own"], true);
+
+    // 6. Property Manager queries calendar: still sees occupancy without non-own PII (only SuperAdmin sees who scheduled)
+    let mgr_cal = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&calendar_uri)
+                .header(header::COOKIE, &mgr_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(mgr_cal.status(), StatusCode::OK);
+    let mgr_events: Vec<Value> = serde_json::from_slice(
+        &axum::body::to_bytes(mgr_cal.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let elena_for_mgr = mgr_events
+        .iter()
+        .find(|e| e["id"].as_str() == Some(elena_session_id.as_str()))
+        .unwrap();
+    assert!(elena_for_mgr["scheduled_by_name"].is_null());
+    assert!(elena_for_mgr["unit_number"].is_null());
+
+    // 7. Super Admin queries calendar: sees who scheduled both sessions cleanly
+    let admin_cal = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&calendar_uri)
+                .header(header::COOKIE, &admin_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(admin_cal.status(), StatusCode::OK);
+    let admin_events: Vec<Value> = serde_json::from_slice(
+        &axum::body::to_bytes(admin_cal.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let elena_tenant_res = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/tenants/{}", elena_tenant_id))
+                .header(header::COOKIE, &admin_cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(elena_tenant_res.status(), StatusCode::OK);
+    let elena_tenant_json: Value = serde_json::from_slice(
+        &axum::body::to_bytes(elena_tenant_res.into_body(), usize::MAX)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let expected_unit = elena_tenant_json["unit_number"].as_str().unwrap();
+
+    let elena_for_admin = admin_events
+        .iter()
+        .find(|e| e["id"].as_str() == Some(elena_session_id.as_str()))
+        .expect("Expected Elena's slot on admin calendar");
+    assert_eq!(elena_for_admin["scheduled_by_name"], "Elena Rostova");
+    assert_eq!(elena_for_admin["unit_number"].as_str(), Some(expected_unit));
+    assert_eq!(elena_for_admin["attendees_count"], 5);
+    assert_eq!(elena_for_admin["notes"], "Secret birthday surprise");
+
+    // 8. Cleanup test reservations
+    for sid in [elena_session_id, marcus_session_id] {
+        let cancel_res = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/amenity-sessions/{}/cancel", sid))
+                    .header(header::COOKIE, &admin_cookie)
+                    .header("x-csrf-token", &admin_csrf)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cancel_res.status(), StatusCode::NO_CONTENT);
+    }
+}

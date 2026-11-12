@@ -139,7 +139,8 @@ impl ReservationRepository for PostgresReservationRepository {
     ) -> DomainResult<Vec<Reservation>> {
         let rows = sqlx::query_as::<_, ReservationRow>(
             r#"
-            SELECT id, amenity_id, user_id,
+            SELECT id, amenity_id,
+                   COALESCE(user_id, '00000000-0000-0000-0000-000000000000'::uuid) as user_id,
                    lower(reservation_period) AT TIME ZONE 'UTC' as start_time,
                    upper(reservation_period) AT TIME ZONE 'UTC' as end_time,
                    total_price_cents, status, notes,
@@ -148,7 +149,7 @@ impl ReservationRepository for PostgresReservationRepository {
             WHERE amenity_id = $1
               AND reservation_period && tsrange($2::timestamp, $3::timestamp, '[)')
               AND deleted_at IS NULL
-              AND status != 'cancelled'
+              AND status NOT IN ('cancelled', 'rejected')
             ORDER BY reservation_period ASC
             "#,
         )

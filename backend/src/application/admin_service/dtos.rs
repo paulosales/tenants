@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -170,6 +171,13 @@ pub struct CreateTenantReservationRequest {
     pub end_time: String,
     pub attendees_count: Option<i32>,
     pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AmenityCalendarQuery {
+    pub amenity_id: Uuid,
+    pub start_date: DateTime<Utc>,
+    pub end_date: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

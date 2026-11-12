@@ -161,6 +161,7 @@ async fn test_high_concurrency_double_booking_prevention() {
     let amenity_id = Uuid::new_v4();
     let amenity = Amenity {
         id: amenity_id,
+        property_id: None,
         name: "Skyline Lounge".into(),
         description: None,
         capacity: 30,

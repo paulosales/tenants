@@ -2,6 +2,7 @@ import type {
   AddPropertyFeatureDto,
   AdminAmenity,
   Amenity,
+  AmenityCalendarEvent,
   AmenitySessionBooking,
   AssignMaintenanceCallStaffDto,
   AssignParkingSpotDto,
@@ -471,6 +472,19 @@ export class ApiClient
     return this.request<AmenitySessionBooking[]>(`/amenity-sessions${query}`);
   }
 
+  async getAmenityCalendar(
+    amenityId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<AmenityCalendarEvent[]> {
+    const params = new URLSearchParams({
+      amenity_id: amenityId,
+      start_date: startDate,
+      end_date: endDate,
+    });
+    return this.request<AmenityCalendarEvent[]>(`/amenity-sessions/calendar?${params}`);
+  }
+
   async bookAmenitySession(dto: CreateAmenitySessionDto): Promise<AmenitySessionBooking> {
     return this.request<AmenitySessionBooking>('/amenity-sessions', {
       method: 'POST',
@@ -678,6 +692,8 @@ export function createSegregatedGateways(client: ApiClient = api): IApiGateways 
     },
     tenantSessions: {
       getTenantAmenitySessions: (tenantId) => client.getTenantAmenitySessions(tenantId),
+      getAmenityCalendar: (amenityId, startDate, endDate) =>
+        client.getAmenityCalendar(amenityId, startDate, endDate),
       bookAmenitySession: (dto) => client.bookAmenitySession(dto),
       cancelAmenitySession: (id) => client.cancelAmenitySession(id),
       reviewAmenitySession: (id, dto) => client.reviewAmenitySession(id, dto),

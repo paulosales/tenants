@@ -364,6 +364,18 @@ impl AdminService {
     ) -> DomainResult<Vec<TenantReservation>> {
         self.reservations.list_tenant_reservations(tenant_id).await
     }
+    pub async fn list_amenity_calendar_for_viewer(
+        &self,
+        actor: &User,
+        amenity_id: Uuid,
+        amenity_property_id: Uuid,
+        start: chrono::DateTime<chrono::Utc>,
+        end: chrono::DateTime<chrono::Utc>,
+    ) -> DomainResult<Vec<AmenityCalendarEvent>> {
+        self.reservations
+            .list_amenity_calendar_for_viewer(actor, amenity_id, amenity_property_id, start, end)
+            .await
+    }
     pub async fn create_tenant_reservation(
         &self,
         req: CreateTenantReservationRequest,

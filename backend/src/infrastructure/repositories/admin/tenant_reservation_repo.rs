@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::PostgresAdminRepository;
 use crate::domain::{
-    admin::{TenantReservation, TenantReservationRepository},
+    admin::{AmenityCalendarSlotRecord, TenantReservation, TenantReservationRepository},
     errors::{DomainError, DomainResult},
 };
 
@@ -101,7 +101,12 @@ impl TenantReservationRepository for PostgresAdminRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| {
-            if e.to_string().contains("no_overlapping_reservations") {
+            let is_overlap = matches!(
+                &e,
+                sqlx::Error::Database(db_err)
+                    if db_err.code() == Some(std::borrow::Cow::Borrowed("23P01"))
+            ) || e.to_string().contains("no_overlapping_reservations");
+            if is_overlap {
                 DomainError::ReservationConflict
             } else {
                 DomainError::Internal(format!("Failed to create tenant reservation: {}", e))
@@ -223,5 +228,60 @@ impl TenantReservationRepository for PostgresAdminRepository {
         self.get_tenant_reservation(updated_id)
             .await?
             .ok_or_else(|| DomainError::NotFound("Updated reservation missing".into()))
+    }
+
+    async fn list_amenity_calendar_slots(
+        &self,
+        amenity_id: Uuid,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> DomainResult<Vec<AmenityCalendarSlotRecord>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT r.id, r.amenity_id, r.tenant_id, r.user_id,
+                   COALESCE(
+                       NULLIF(TRIM(CONCAT(t.first_name, ' ', t.last_name)), ''),
+                       usr.full_name
+                   ) as scheduled_by_name,
+                   COALESCE(u.unit_number, usr.unit_number) as unit_number,
+                   lower(r.reservation_period) AT TIME ZONE 'UTC' as start_time,
+                   upper(r.reservation_period) AT TIME ZONE 'UTC' as end_time,
+                   r.attendees_count, r.status, r.notes
+            FROM reservations r
+            LEFT JOIN tenants t ON t.id = r.tenant_id
+            LEFT JOIN units u ON u.id = t.assigned_unit_id
+            LEFT JOIN users usr ON usr.id = r.user_id
+            WHERE r.amenity_id = $1
+              AND r.deleted_at IS NULL
+              AND r.status NOT IN ('cancelled', 'rejected')
+              AND r.reservation_period && tsrange($2::timestamp, $3::timestamp, '[)')
+            ORDER BY lower(r.reservation_period) ASC
+            "#,
+        )
+        .bind(amenity_id)
+        .bind(start)
+        .bind(end)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| {
+            DomainError::Internal(format!("Failed to list amenity calendar slots: {}", e))
+        })?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| AmenityCalendarSlotRecord {
+                id: r.get("id"),
+                amenity_id: r.get("amenity_id"),
+                tenant_id: r.get("tenant_id"),
+                user_id: r.get("user_id"),
+                scheduled_by_name: r.get("scheduled_by_name"),
+                unit_number: r.get("unit_number"),
+                start_time: r.get("start_time"),
+                end_time: r.get("end_time"),
+                attendees_count: r.get("attendees_count"),
+                status: r.get("status"),
+                notes: r.get("notes"),
+            })
+            .collect())
     }
 }

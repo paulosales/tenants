@@ -290,6 +290,7 @@ export interface SaveParkingLayoutRequest {
 // Legacy reservation & payment types
 export interface Amenity {
   id: string;
+  property_id?: string | null;
   name: string;
   description?: string | null;
   capacity: number;
@@ -477,6 +478,19 @@ export interface CreateAmenitySessionDto {
   end_time: string;
   attendees_count: number;
   notes?: string;
+}
+
+export interface AmenityCalendarEvent {
+  id: string;
+  amenity_id: string;
+  start_time: string;
+  end_time: string;
+  status: AmenityBookingStatus | string;
+  is_own: boolean;
+  scheduled_by_name?: string | null;
+  unit_number?: string | null;
+  attendees_count?: number | null;
+  notes?: string | null;
 }
 
 // ==========================================

@@ -23,7 +23,8 @@ impl AmenityRepository for PostgresAmenityRepository {
     async fn list_all(&self) -> DomainResult<Vec<Amenity>> {
         let amenities = sqlx::query_as::<_, Amenity>(
             r#"
-            SELECT id, name, description, capacity, hourly_rate_cents,
+            SELECT id, property_id, name, description, capacity,
+                   COALESCE(NULLIF(hourly_rate_cents, 0), fee_cents) as hourly_rate_cents,
                    min_duration_minutes, max_duration_minutes,
                    open_time_minutes, close_time_minutes,
                    is_active, created_at, updated_at, deleted_at
@@ -42,7 +43,8 @@ impl AmenityRepository for PostgresAmenityRepository {
     async fn find_by_id(&self, id: Uuid) -> DomainResult<Option<Amenity>> {
         let amenity = sqlx::query_as::<_, Amenity>(
             r#"
-            SELECT id, name, description, capacity, hourly_rate_cents,
+            SELECT id, property_id, name, description, capacity,
+                   COALESCE(NULLIF(hourly_rate_cents, 0), fee_cents) as hourly_rate_cents,
                    min_duration_minutes, max_duration_minutes,
                    open_time_minutes, close_time_minutes,
                    is_active, created_at, updated_at, deleted_at

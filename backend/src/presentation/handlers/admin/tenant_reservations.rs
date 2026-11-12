@@ -8,7 +8,9 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    application::admin_service::{CreateTenantReservationRequest, ReviewTenantReservationRequest},
+    application::admin_service::{
+        AmenityCalendarQuery, CreateTenantReservationRequest, ReviewTenantReservationRequest,
+    },
     domain::{
         errors::{DomainError, DomainResult},
         user::Role,
@@ -19,6 +21,37 @@ use crate::{
 #[derive(Debug, Deserialize)]
 pub struct TenantReservationQuery {
     pub tenant_id: Option<Uuid>,
+}
+
+pub async fn list_amenity_calendar(
+    State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
+    Query(q): Query<AmenityCalendarQuery>,
+) -> DomainResult<Response> {
+    if !matches!(
+        user.role,
+        Role::Tenant | Role::PropertyManager | Role::SuperAdmin
+    ) {
+        return Err(DomainError::Forbidden);
+    }
+
+    let amenity = state
+        .admin_service
+        .amenities
+        .get_amenity(q.amenity_id)
+        .await?;
+
+    let events = state
+        .admin_service
+        .list_amenity_calendar_for_viewer(
+            &user,
+            q.amenity_id,
+            amenity.property_id,
+            q.start_date,
+            q.end_date,
+        )
+        .await?;
+    Ok(Json(events).into_response())
 }
 
 pub async fn list_tenant_reservations(
@@ -72,6 +105,19 @@ pub async fn create_tenant_reservation(
         .await?;
     if !user.has_property_access(amenity.property_id) {
         return Err(DomainError::Forbidden);
+    }
+    if !amenity.is_active {
+        return Err(DomainError::ValidationError(
+            "This amenity is currently unavailable".into(),
+        ));
+    }
+    if let Some(count) = req.attendees_count {
+        if count < 1 || count > amenity.capacity {
+            return Err(DomainError::ValidationError(format!(
+                "Attendees count must be between 1 and {} guests",
+                amenity.capacity
+            )));
+        }
     }
 
     if user.role == Role::Tenant {

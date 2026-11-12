@@ -383,6 +383,39 @@ pub struct TenantReservation {
     pub created_at: DateTime<Utc>,
 }
 
+/// Internal repository projection carrying full session ownership fields prior to RBAC redaction.
+#[derive(Debug, Clone)]
+pub struct AmenityCalendarSlotRecord {
+    pub id: Uuid,
+    pub amenity_id: Uuid,
+    pub tenant_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub scheduled_by_name: Option<String>,
+    pub unit_number: Option<String>,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+    pub attendees_count: i32,
+    pub status: String,
+    pub notes: Option<String>,
+}
+
+/// Privacy-safe amenity calendar event returned to clients.
+/// Non-admin viewers only see slot occupancy (`status`, `start_time`, `end_time`, `is_own`);
+/// scheduler PII (`scheduled_by_name`, `unit_number`, etc.) is withheld from non-admins.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AmenityCalendarEvent {
+    pub id: Uuid,
+    pub amenity_id: Uuid,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+    pub status: String,
+    pub is_own: bool,
+    pub scheduled_by_name: Option<String>,
+    pub unit_number: Option<String>,
+    pub attendees_count: Option<i32>,
+    pub notes: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicUnitSummary {
     pub id: Uuid,

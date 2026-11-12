@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   TenantView,
@@ -8,8 +8,15 @@ import {
   formatLocalSessionTimeWindow,
   formatUtcTimeWindow,
 } from '../components/TenantView';
+import { formatLocalYyyyMmDd, getTomorrowLocalStr } from '../utils/dateTime';
 import { api } from '../api/client';
-import type { PropertyWithStats, AmenitySessionBooking, MaintenanceCall } from '@tenants/shared-types';
+import type {
+  AmenityCalendarEvent,
+  AmenitySessionBooking,
+  MaintenanceCall,
+  PropertyWithStats,
+  UserSummary,
+} from '@tenants/shared-types';
 
 const mockProperties: PropertyWithStats[] = [
   {
@@ -39,6 +46,7 @@ describe('TenantView Component', () => {
     vi.clearAllMocks();
     vi.spyOn(api, 'getTenants').mockResolvedValue([]);
     vi.spyOn(api, 'getAmenities').mockResolvedValue([]);
+    vi.spyOn(api, 'getAmenityCalendar').mockResolvedValue([]);
     vi.spyOn(api, 'getTenantAmenitySessions').mockResolvedValue([]);
     vi.spyOn(api, 'getMaintenanceCalls').mockResolvedValue([]);
   });
@@ -74,11 +82,15 @@ describe('TenantView Component', () => {
       expect(tennisCard).toBeInTheDocument();
       fireEvent.click(tennisCard!);
 
-      // Verify scheduling wizard reflects selected amenity
+      // Verify calendar subtitle reflects selected amenity
       expect(screen.getByText(/Configuring reservation for/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Week' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Day' })).toBeInTheDocument();
     });
 
-    it('submits an amenity session booking and displays it in My Booked Sessions', async () => {
+    it('creates an amenity session by clicking a vacant calendar spot and displays confirmation', async () => {
+      const tomorrowStr = getTomorrowLocalStr();
       const mockSession: AmenitySessionBooking = {
         id: 'sess-test-123',
         amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -87,9 +99,9 @@ describe('TenantView Component', () => {
         tenant_name: 'Marcus Vance',
         property_id: 'prop-1',
         unit_number: '101',
-        booking_date: '2026-11-20',
-        start_time: '14:00',
-        end_time: '16:00',
+        booking_date: tomorrowStr,
+        start_time: new Date(`${tomorrowStr}T14:00:00`).toISOString(),
+        end_time: new Date(`${tomorrowStr}T16:00:00`).toISOString(),
         attendees_count: 4,
         total_fee_cents: 10000,
         status: 'confirmed',
@@ -102,16 +114,24 @@ describe('TenantView Component', () => {
 
       renderWithQuery(<TenantView properties={mockProperties} selectedPropertyId="prop-1" />);
 
-      // Fill in booking date
+      // Switch to Day view for tomorrow if needed or click tomorrow's 14:00 vacant calendar slot directly
+      const slotBtn = screen.queryByTestId(`calendar-slot-${tomorrowStr}-14:00`);
+      if (!slotBtn) {
+        fireEvent.click(screen.getByLabelText('Next period'));
+      }
+      const vacantSpot = screen.getByTestId(`calendar-slot-${tomorrowStr}-14:00`);
+      expect(vacantSpot).not.toBeDisabled();
+      fireEvent.click(vacantSpot);
+
+      // Verify Google-Calendar-style modal opened prefilled with clicked slot
       const dateInput = document.getElementById('amenity-booking-date') as HTMLInputElement;
       expect(dateInput).toBeInTheDocument();
-      fireEvent.change(dateInput, { target: { value: '2026-11-20' } });
+      expect(dateInput.value).toBe(tomorrowStr);
 
-      // Fill in attendees
+      // Fill in attendees & notes
       const attendeesInput = document.getElementById('amenity-attendees-count') as HTMLInputElement;
       fireEvent.change(attendeesInput, { target: { value: '4' } });
 
-      // Fill notes
       const notesInput = document.getElementById('amenity-notes') as HTMLTextAreaElement;
       fireEvent.change(notesInput, { target: { value: 'Team celebration gathering' } });
 
@@ -120,12 +140,130 @@ describe('TenantView Component', () => {
       fireEvent.click(submitBtn);
 
       await waitFor(() => {
-        expect(bookSpy).toHaveBeenCalled();
+        expect(bookSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            booking_date: tomorrowStr,
+            attendees_count: 4,
+            notes: 'Team celebration gathering',
+          })
+        );
       });
 
       // Verify success message appears
       await waitFor(() => {
         expect(screen.getByText(/Session successfully scheduled/i)).toBeInTheDocument();
+      });
+    });
+
+    it('renders vacancy and busy blocks on calendar, hiding other scheduler identity from tenants while showing it to admin', async () => {
+      const tomorrowStr = getTomorrowLocalStr();
+      const occupiedStart = new Date(`${tomorrowStr}T12:00:00`).toISOString();
+      const occupiedEnd = new Date(`${tomorrowStr}T14:00:00`).toISOString();
+      const ownStart = new Date(`${tomorrowStr}T18:00:00`).toISOString();
+      const ownEnd = new Date(`${tomorrowStr}T20:00:00`).toISOString();
+
+      const tenantCalendarEvents: AmenityCalendarEvent[] = [
+        {
+          id: 'ev-other-tenant',
+          amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          start_time: occupiedStart,
+          end_time: occupiedEnd,
+          status: 'confirmed',
+          is_own: false,
+          scheduled_by_name: null,
+          unit_number: null,
+          attendees_count: null,
+          notes: null,
+        },
+        {
+          id: 'ev-own-tenant',
+          amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          start_time: ownStart,
+          end_time: ownEnd,
+          status: 'pending',
+          is_own: true,
+          scheduled_by_name: null,
+          unit_number: null,
+          attendees_count: 2,
+          notes: 'Quiet sunset study',
+        },
+      ];
+
+      vi.spyOn(api, 'getAmenityCalendar').mockResolvedValue(tenantCalendarEvents);
+
+      const tenantUser: UserSummary = {
+        id: 'u-tenant-1',
+        email: 'tenant@property.local',
+        full_name: 'Marcus Vance',
+        role: 'tenant',
+        property_id: 'prop-1',
+        tenant_id: 't-marcus',
+        unit_number: '101',
+      };
+
+      const { unmount } = renderWithQuery(
+        <TenantView properties={mockProperties} selectedPropertyId="prop-1" currentUser={tenantUser} />
+      );
+
+      if (!screen.queryByTestId(`calendar-slot-${tomorrowStr}-14:00`)) {
+        fireEvent.click(screen.getByLabelText('Next period'));
+      }
+
+      await waitFor(() => {
+        expect(screen.getByTestId('calendar-event-ev-other-tenant')).toBeInTheDocument();
+      });
+
+      // Tenant sees Reserved (not scheduler identity), sees own session, and occupied slot cannot be double-booked
+      expect(within(screen.getByTestId('calendar-event-ev-other-tenant')).getByText('Reserved')).toBeInTheDocument();
+      expect(within(screen.getByTestId('calendar-event-ev-own-tenant')).getByText('Your Session')).toBeInTheDocument();
+      expect(screen.queryByText(/Elena/i)).not.toBeInTheDocument();
+      expect(screen.getByTestId(`calendar-slot-${tomorrowStr}-12:00`)).toBeDisabled();
+      expect(screen.getByTestId(`calendar-slot-${tomorrowStr}-16:00`)).not.toBeDisabled();
+
+      unmount();
+
+      // Now verify Super Admin sees who scheduled the session on the same calendar
+      const adminCalendarEvents: AmenityCalendarEvent[] = [
+        {
+          id: 'ev-other-admin-view',
+          amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          start_time: occupiedStart,
+          end_time: occupiedEnd,
+          status: 'confirmed',
+          is_own: false,
+          scheduled_by_name: 'Elena Rostova',
+          unit_number: '102',
+          attendees_count: 5,
+          notes: 'Birthday cake setup',
+        },
+      ];
+      vi.spyOn(api, 'getAmenityCalendar').mockResolvedValue(adminCalendarEvents);
+
+      const adminUser: UserSummary = {
+        id: 'u-admin-1',
+        email: 'admin@property.local',
+        full_name: 'Chief Operations Admin',
+        role: 'super_admin',
+      };
+
+      renderWithQuery(
+        <TenantView properties={mockProperties} selectedPropertyId="prop-1" currentUser={adminUser} />
+      );
+
+      if (!screen.queryByTestId(`calendar-slot-${tomorrowStr}-14:00`)) {
+        fireEvent.click(screen.getByLabelText('Next period'));
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Elena Rostova · Unit 102')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByTestId('calendar-event-ev-other-admin-view'));
+      await waitFor(() => {
+        expect(screen.getByText('Scheduled By (Admin Only)')).toBeInTheDocument();
+        expect(screen.getByText('5 Guests')).toBeInTheDocument();
+        expect(screen.getByText('“Birthday cake setup”')).toBeInTheDocument();
       });
     });
 
@@ -203,6 +341,7 @@ describe('TenantView Component', () => {
     });
 
     it('converts user selected local date and time to UTC ISO strings on submission', async () => {
+      const tomorrowStr = formatLocalYyyyMmDd(new Date(Date.now() + 24 * 60 * 60 * 1000));
       const bookSpy = vi.spyOn(api, 'bookAmenitySession').mockResolvedValue({
         id: 'sess-new-utc',
         amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -210,9 +349,9 @@ describe('TenantView Component', () => {
         tenant_id: '33333333-1111-1111-1111-111111111001',
         property_id: 'prop-1',
         unit_number: '101',
-        booking_date: '2026-11-25',
-        start_time: '2026-11-25T14:00:00Z',
-        end_time: '2026-11-25T16:00:00Z',
+        booking_date: tomorrowStr,
+        start_time: new Date(`${tomorrowStr}T14:00:00`).toISOString(),
+        end_time: new Date(`${tomorrowStr}T16:00:00`).toISOString(),
         attendees_count: 2,
         total_fee_cents: 10000,
         status: 'confirmed',
@@ -221,6 +360,8 @@ describe('TenantView Component', () => {
       vi.spyOn(api, 'getTenantAmenitySessions').mockResolvedValue([]);
 
       renderWithQuery(<TenantView properties={mockProperties} selectedPropertyId="prop-1" />);
+
+      fireEvent.click(document.getElementById('calendar-create-btn')!);
 
       const dateInput = document.getElementById('amenity-booking-date') as HTMLInputElement;
       fireEvent.change(dateInput, { target: { value: '2026-11-25' } });

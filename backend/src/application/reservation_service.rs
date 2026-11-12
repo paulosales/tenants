@@ -45,14 +45,15 @@ impl ReservationService {
             .await
     }
 
-    /// Returns availability slots with other tenants' PII (`user_id`, `notes`) redacted.
+    /// Returns availability slots with scheduler PII (`user_id`, `notes`) redacted
+    /// for all non-admin viewers; only Super Admins see other residents' identities.
     pub async fn check_availability_for_viewer(
         &self,
         actor: &User,
         query: CheckAvailabilityQuery,
     ) -> DomainResult<Vec<Reservation>> {
         let mut list = self.check_availability(query).await?;
-        if !actor.role.can_manage_properties() {
+        if !actor.role.is_admin() {
             for res in &mut list {
                 if res.user_id != actor.id {
                     res.user_id = Uuid::nil();

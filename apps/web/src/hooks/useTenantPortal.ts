@@ -12,10 +12,13 @@ import {
   type MaintenanceCallFormData,
 } from '../components/tenant/tenantPortalConstants';
 import {
+  addDaysLocal,
   formatLocalSessionDate,
   formatLocalSessionTimeWindow,
   getTodayLocalStr,
   getTomorrowLocalStr,
+  parseLocalYyyyMmDd,
+  startOfWeekLocal,
 } from '../utils/dateTime';
 import type {
   CreateAmenitySessionDto,
@@ -46,11 +49,17 @@ export function useTenantPortal({
   const maintenanceGateway = useMaintenanceGateway();
 
   const isLockedResident = currentUser?.role === 'tenant';
+  const isAdmin = currentUser?.role === 'super_admin';
 
   const [activeFeature, setActiveFeature] = useState<'amenities' | 'maintenance'>('amenities');
   const [amenitySubTab, setAmenitySubTab] = useState<'schedule' | 'my-sessions'>('schedule');
   const [maintenanceSubTab, setMaintenanceSubTab] = useState<'tracker' | 'new-call'>('tracker');
   const [selectedAmenityId, setSelectedAmenityId] = useState<string>(DEFAULT_AMENITIES[0].id);
+
+  const todayLocalStr = useMemo(() => getTodayLocalStr(), []);
+  const tomorrowStr = useMemo(() => getTomorrowLocalStr(), []);
+  const [calendarAnchorDate, setCalendarAnchorDate] = useState<string>(() => getTodayLocalStr());
+  const [calendarViewMode, setCalendarViewMode] = useState<'week' | 'day'>('week');
 
   const [sessionSuccessMsg, setSessionSuccessMsg] = useState<string | null>(null);
   const [maintenanceSuccessMsg, setMaintenanceSuccessMsg] = useState<string | null>(null);
@@ -59,9 +68,6 @@ export function useTenantPortal({
   const [activeTenantId, setActiveTenantId] = useState<string>(
     currentUser?.tenant_id || initialTenantId || '33333333-1111-1111-1111-111111111001'
   );
-
-  const todayLocalStr = useMemo(() => getTodayLocalStr(), []);
-  const tomorrowStr = useMemo(() => getTomorrowLocalStr(), []);
 
   const { data: tenantsList = [] } = useQuery({
     queryKey: ['tenants-for-resident-view', selectedPropertyId],
@@ -120,8 +126,37 @@ export function useTenantPortal({
     queryFn: () => amenitiesGateway.getAmenities(),
   });
 
-  const amenities = backendAmenities.length > 0 ? backendAmenities : DEFAULT_AMENITIES;
+  const scopedBackendAmenities = useMemo(() => {
+    if (backendAmenities.length === 0) return [];
+    const propId = activeTenant.property_id;
+    if (!propId) return backendAmenities;
+    const matched = backendAmenities.filter((a) => !a.property_id || a.property_id === propId);
+    return matched.length > 0 ? matched : backendAmenities;
+  }, [backendAmenities, activeTenant.property_id]);
+
+  const amenities = scopedBackendAmenities.length > 0 ? scopedBackendAmenities : DEFAULT_AMENITIES;
   const currentAmenity = amenities.find((a) => a.id === selectedAmenityId) || amenities[0];
+
+  const { calendarStartIso, calendarEndIso } = useMemo(() => {
+    const anchor = parseLocalYyyyMmDd(calendarAnchorDate);
+    const rangeStart = calendarViewMode === 'week' ? startOfWeekLocal(anchor) : anchor;
+    const rangeEnd = addDaysLocal(rangeStart, calendarViewMode === 'week' ? 7 : 1);
+    return {
+      calendarStartIso: rangeStart.toISOString(),
+      calendarEndIso: rangeEnd.toISOString(),
+    };
+  }, [calendarAnchorDate, calendarViewMode]);
+
+  const {
+    data: calendarEvents = [],
+    isLoading: isCalendarLoading,
+    refetch: refetchCalendar,
+  } = useQuery({
+    queryKey: ['amenity-calendar', currentAmenity.id, calendarStartIso, calendarEndIso],
+    queryFn: () =>
+      sessionsGateway.getAmenityCalendar(currentAmenity.id, calendarStartIso, calendarEndIso),
+    enabled: Boolean(currentAmenity?.id),
+  });
 
   const { data: amenitySessions = [], refetch: refetchSessions } = useQuery({
     queryKey: ['tenant-amenity-sessions', activeTenant.id],
@@ -137,7 +172,10 @@ export function useTenantPortal({
     mutationFn: (dto: CreateAmenitySessionDto) => sessionsGateway.bookAmenitySession(dto),
     onSuccess: (newSession) => {
       queryClient.invalidateQueries({ queryKey: ['tenant-amenity-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['amenity-calendar'] });
+      queryClient.invalidateQueries({ queryKey: ['manager-amenity-sessions'] });
       refetchSessions();
+      refetchCalendar();
       const localDate = formatLocalSessionDate(newSession.start_time, newSession.booking_date);
       const localWindow = formatLocalSessionTimeWindow(
         newSession.start_time,
@@ -148,9 +186,10 @@ export function useTenantPortal({
         `Session successfully scheduled for ${newSession.amenity_name} on ${localDate} (${localWindow})!`
       );
       setActionError(null);
-      setAmenitySubTab('my-sessions');
     },
     onError: (err: Error) => {
+      queryClient.invalidateQueries({ queryKey: ['amenity-calendar'] });
+      refetchCalendar();
       setActionError(err.message || 'Failed to schedule amenity session.');
       setSessionSuccessMsg(null);
     },
@@ -160,7 +199,10 @@ export function useTenantPortal({
     mutationFn: (sessionId: string) => sessionsGateway.cancelAmenitySession(sessionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-amenity-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['amenity-calendar'] });
+      queryClient.invalidateQueries({ queryKey: ['manager-amenity-sessions'] });
       refetchSessions();
+      refetchCalendar();
     },
   });
 
@@ -234,14 +276,21 @@ export function useTenantPortal({
   ).length;
 
   return {
+    isAdmin,
     activeFeature,
     setActiveFeature,
     amenitySubTab,
     setAmenitySubTab,
     maintenanceSubTab,
     setMaintenanceSubTab,
-    selectedAmenityId,
+    selectedAmenityId: currentAmenity.id,
     setSelectedAmenityId,
+    calendarAnchorDate,
+    setCalendarAnchorDate,
+    calendarViewMode,
+    setCalendarViewMode,
+    calendarEvents,
+    isCalendarLoading,
     activeTenantId,
     setActiveTenantId,
     tenantsList,

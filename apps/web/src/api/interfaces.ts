@@ -2,6 +2,7 @@ import type {
   AddPropertyFeatureDto,
   AdminAmenity,
   Amenity,
+  AmenityCalendarEvent,
   AmenitySessionBooking,
   AssignMaintenanceCallStaffDto,
   AssignParkingSpotDto,
@@ -148,6 +149,11 @@ export interface IStaffGateway {
 
 export interface ITenantSessionGateway {
   getTenantAmenitySessions(tenantId?: string): Promise<AmenitySessionBooking[]>;
+  getAmenityCalendar(
+    amenityId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<AmenityCalendarEvent[]>;
   bookAmenitySession(dto: CreateAmenitySessionDto): Promise<AmenitySessionBooking>;
   cancelAmenitySession(id: string): Promise<void>;
   reviewAmenitySession(id: string, dto: ReviewAmenitySessionDto): Promise<AmenitySessionBooking>;

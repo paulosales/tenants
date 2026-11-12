@@ -12,15 +12,25 @@ use crate::presentation::middleware::auth::{AppState, AuthenticatedUser};
 
 pub async fn list_amenities(
     State(state): State<AppState>,
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
 ) -> DomainResult<Json<Vec<Amenity>>> {
-    let list = state.amenity_repo.list_all().await?;
+    let list = state
+        .amenity_repo
+        .list_all()
+        .await?
+        .into_iter()
+        .filter(|a| {
+            a.property_id
+                .map(|p| user.has_property_access(p))
+                .unwrap_or(true)
+        })
+        .collect();
     Ok(Json(list))
 }
 
 pub async fn get_amenity(
     State(state): State<AppState>,
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<Uuid>,
 ) -> DomainResult<Json<Amenity>> {
     let amenity = state
@@ -28,6 +38,12 @@ pub async fn get_amenity(
         .find_by_id(id)
         .await?
         .ok_or_else(|| DomainError::NotFound("Amenity not found".into()))?;
+
+    if let Some(pid) = amenity.property_id {
+        if !user.has_property_access(pid) {
+            return Err(DomainError::Forbidden);
+        }
+    }
 
     Ok(Json(amenity))
 }
@@ -37,6 +53,17 @@ pub async fn check_availability(
     AuthenticatedUser(user): AuthenticatedUser,
     Query(query): Query<CheckAvailabilityQuery>,
 ) -> DomainResult<Json<Vec<Reservation>>> {
+    let amenity = state
+        .amenity_repo
+        .find_by_id(query.amenity_id)
+        .await?
+        .ok_or_else(|| DomainError::NotFound("Amenity not found".into()))?;
+    if let Some(pid) = amenity.property_id {
+        if !user.has_property_access(pid) {
+            return Err(DomainError::Forbidden);
+        }
+    }
+
     let reservations = state
         .reservation_service
         .check_availability_for_viewer(&user, query)

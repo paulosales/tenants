@@ -131,6 +131,12 @@ pub trait TenantReservationRepository: Send + Sync {
         status: &str,
         notes: Option<String>,
     ) -> DomainResult<TenantReservation>;
+    async fn list_amenity_calendar_slots(
+        &self,
+        amenity_id: Uuid,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> DomainResult<Vec<AmenityCalendarSlotRecord>>;
 }
 
 #[async_trait]

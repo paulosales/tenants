@@ -21,12 +21,13 @@ use crate::presentation::{
             delete_admin_user, delete_amenity, delete_property, delete_property_feature,
             delete_property_photo, delete_property_staff, delete_tenant, delete_unit,
             get_admin_user, get_maintenance_call, get_parking_layout, get_property,
-            get_property_staff, get_tenant, list_admin_users, list_maintenance_calls,
-            list_properties, list_property_amenities, list_property_features, list_property_photos,
-            list_property_staff, list_roles, list_staff_messages, list_tenancy_applications,
-            list_tenant_reservations, list_tenants, list_units, mark_staff_message_read,
-            review_tenancy_application, review_tenant_reservation, save_parking_layout,
-            send_staff_message, set_cover_property_photo, update_admin_user, update_amenity,
+            get_property_staff, get_tenant, list_admin_users, list_amenity_calendar,
+            list_maintenance_calls, list_properties, list_property_amenities,
+            list_property_features, list_property_photos, list_property_staff, list_roles,
+            list_staff_messages, list_tenancy_applications, list_tenant_reservations, list_tenants,
+            list_units, mark_staff_message_read, review_tenancy_application,
+            review_tenant_reservation, save_parking_layout, send_staff_message,
+            set_cover_property_photo, update_admin_user, update_amenity,
             update_maintenance_call_status, update_property, update_property_staff, update_tenant,
             update_unit, upload_property_photo,
         },
@@ -200,6 +201,7 @@ pub fn build_router(state: AppState, allowed_origins: &[String]) -> Router {
             "/amenity-sessions",
             get(list_tenant_reservations).post(create_tenant_reservation),
         )
+        .route("/amenity-sessions/calendar", get(list_amenity_calendar))
         .route("/amenity-sessions/my", get(list_tenant_reservations))
         .route(
             "/amenity-sessions/:id/cancel",

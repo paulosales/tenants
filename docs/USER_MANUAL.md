@@ -169,8 +169,10 @@ Signing in as `staff@property.local` (e.g., cleaner or security personnel) provi
 
 Signing in as `tenant@property.local` restricts the session **strictly to the Resident Tenant View** (zero access to admin dashboards, staff chats, or other tenants' data):
 
-1. **Amenities Session Scheduling**:
-   - Browse property amenities, choose a date and duration, and inspect live **Local Time Window** previews (`America/New_York`, `America/Los_Angeles`, etc. — converted cleanly to UTC on storage).
+1. **Amenities Session Scheduling (Google-Calendar-Style)**:
+   - Select any building amenity to inspect its interactive **Week / Day** availability calendar in local time (`Today`, `< Prev` / `Next >` navigation, operating hours, vacant vs already scheduled blocks).
+   - Click (or click-and-drag across vacant hours on) any open calendar slot to launch the event modal pre-filled with that date and time window (`UTC` stored automatically).
+   - **Privacy-by-Design**: Residents only see occupancy status (`Reserved`) for slots booked by other residents — scheduler identity, unit numbers, and private notes are withheld by the backend and visible **only to Super Admins**.
    - View booking status (`PENDING`, `CONFIRMED`, `REJECTED`, `CANCELLED`) under **My Booked Sessions** and cancel upcoming bookings if needed.
 2. **Maintenance Call & Dispatch**:
    - Submit maintenance requests with category (`plumbing`, `hvac`, `electrical`, etc.), priority (`routine`, `urgent`, `emergency`), entry permission, and callback phone.
@@ -234,6 +236,7 @@ Base URL: `/api/v1`
 | **Messaging** | `GET/POST /staff-messages`, `PATCH /staff-messages/:id/read` | Admin, Manager, Maintainer, Staff | Property team & 1-on-1 Manager ↔ Staff chat |
 | **Parking** | `GET/PUT /properties/:id/parking-layout` | Read: Auth, Write: Admin/Manager | Interactive SVG garage layout builder |
 | **Parking** | `POST /parking-spots/:id/assign` | Admin, Manager | Assign or unassign a parking spot to a tenant |
+| **Amenities** | `GET /amenity-sessions/calendar` | Tenant/Manager (redacted), Super Admin (full) | Live amenity calendar availability; scheduler PII exposed strictly to Super Admin |
 | **Amenities** | `GET/POST /amenity-sessions`, `POST /amenity-sessions/:id/cancel` | Tenant (own), Admin/Manager | Schedule/view/cancel amenity sessions |
 | **Amenities** | `PATCH /amenity-sessions/:id/review` | Admin, Manager | Accept (`confirmed`) or reject (`rejected`) scheduled session |
 | **Maintenance** | `GET/POST /maintenance-calls`, `POST .../assign-staff` | Tenant (own), Maintainer, Manager, Admin | Report, assign, and track maintenance calls |

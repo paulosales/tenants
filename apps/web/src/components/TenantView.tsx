@@ -91,17 +91,26 @@ export const TenantView: React.FC<TenantViewProps> = ({
               activeTenant={portal.activeTenant}
               todayLocalStr={portal.todayLocalStr}
               tomorrowStr={portal.tomorrowStr}
+              isAdmin={portal.isAdmin}
+              calendarEvents={portal.calendarEvents}
+              isCalendarLoading={portal.isCalendarLoading}
+              calendarAnchorDate={portal.calendarAnchorDate}
+              calendarViewMode={portal.calendarViewMode}
               isSubmittingBooking={portal.scheduleAmenityMutation.isPending}
+              isCancelling={portal.cancelSessionMutation.isPending}
               onSelectAmenity={(id) => {
                 portal.setSelectedAmenityId(id);
                 portal.setSessionSuccessMsg(null);
                 portal.setActionError(null);
               }}
+              onChangeCalendarAnchorDate={portal.setCalendarAnchorDate}
+              onChangeCalendarViewMode={portal.setCalendarViewMode}
               onSubmitBooking={(data, onReset) => {
                 portal.scheduleAmenityMutation.mutate(portal.buildAmenitySessionDto(data), {
                   onSuccess: () => onReset(),
                 });
               }}
+              onCancelSession={(id) => portal.cancelSessionMutation.mutate(id)}
             />
           ) : (
             <BookedSessionsList
