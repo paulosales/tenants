@@ -9,6 +9,27 @@ use crate::domain::{
     errors::{DomainError, DomainResult},
 };
 
+fn map_tenant_reservation_row(r: &sqlx::postgres::PgRow) -> TenantReservation {
+    let start_time: DateTime<Utc> = r.get("start_time");
+    TenantReservation {
+        id: r.get("id"),
+        amenity_id: r.get("amenity_id"),
+        amenity_name: r.get("amenity_name"),
+        tenant_id: r.get("tenant_id"),
+        tenant_name: r.get("tenant_name"),
+        property_id: r.get("property_id"),
+        unit_number: r.get("unit_number"),
+        booking_date: Some(start_time.format("%Y-%m-%d").to_string()),
+        start_time,
+        end_time: r.get("end_time"),
+        attendees_count: r.get("attendees_count"),
+        total_price_cents: r.get("total_price_cents"),
+        status: r.get("status"),
+        notes: r.get("notes"),
+        created_at: r.get("created_at"),
+    }
+}
+
 #[async_trait]
 impl TenantReservationRepository for PostgresAdminRepository {
     async fn list_tenant_reservations(
@@ -44,29 +65,7 @@ impl TenantReservationRepository for PostgresAdminRepository {
             DomainError::Internal(format!("Failed to list tenant reservations: {}", e))
         })?;
 
-        Ok(rows
-            .into_iter()
-            .map(|r| {
-                let start_time: DateTime<Utc> = r.get("start_time");
-                TenantReservation {
-                    id: r.get("id"),
-                    amenity_id: r.get("amenity_id"),
-                    amenity_name: r.get("amenity_name"),
-                    tenant_id: r.get("tenant_id"),
-                    tenant_name: r.get("tenant_name"),
-                    property_id: r.get("property_id"),
-                    unit_number: r.get("unit_number"),
-                    booking_date: Some(start_time.format("%Y-%m-%d").to_string()),
-                    start_time,
-                    end_time: r.get("end_time"),
-                    attendees_count: r.get("attendees_count"),
-                    total_price_cents: r.get("total_price_cents"),
-                    status: r.get("status"),
-                    notes: r.get("notes"),
-                    created_at: r.get("created_at"),
-                }
-            })
-            .collect())
+        Ok(rows.iter().map(map_tenant_reservation_row).collect())
     }
 
     async fn create_tenant_reservation(
@@ -176,26 +175,7 @@ impl TenantReservationRepository for PostgresAdminRepository {
         .await
         .map_err(|e| DomainError::Internal(format!("Failed to fetch tenant reservation: {}", e)))?;
 
-        Ok(row.map(|r| {
-            let start_time: DateTime<Utc> = r.get("start_time");
-            TenantReservation {
-                id: r.get("id"),
-                amenity_id: r.get("amenity_id"),
-                amenity_name: r.get("amenity_name"),
-                tenant_id: r.get("tenant_id"),
-                tenant_name: r.get("tenant_name"),
-                property_id: r.get("property_id"),
-                unit_number: r.get("unit_number"),
-                booking_date: Some(start_time.format("%Y-%m-%d").to_string()),
-                start_time,
-                end_time: r.get("end_time"),
-                attendees_count: r.get("attendees_count"),
-                total_price_cents: r.get("total_price_cents"),
-                status: r.get("status"),
-                notes: r.get("notes"),
-                created_at: r.get("created_at"),
-            }
-        }))
+        Ok(row.as_ref().map(map_tenant_reservation_row))
     }
 
     async fn review_tenant_reservation(

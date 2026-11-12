@@ -151,7 +151,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         reservation_service,
         parking_service,
         payment_service,
-        amenity_repo,
         audit_repo,
         admin_service,
         rate_limiter,

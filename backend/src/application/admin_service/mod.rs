@@ -86,10 +86,10 @@ impl AdminService {
             ),
             units: UnitService::new(unit_repo.clone(), property_repo.clone()),
             tenants: TenantService::new(tenant_repo.clone(), unit_repo.clone()),
-            amenities: AdminAmenityService::new(amenity_repo, property_repo.clone()),
+            amenities: AdminAmenityService::new(amenity_repo.clone(), property_repo.clone()),
             parking_layouts: ParkingLayoutService::new(parking_layout_repo, property_repo.clone()),
             maintenance: MaintenanceService::new(maintenance_repo, staff_repo.clone()),
-            reservations: TenantReservationService::new(reservation_repo),
+            reservations: TenantReservationService::new(reservation_repo, amenity_repo),
             staff: PropertyStaffService::new(staff_repo.clone(), property_repo.clone()),
             public_portal: PublicPortalService::new(
                 portal_repo.clone(),
@@ -367,13 +367,10 @@ impl AdminService {
     pub async fn list_amenity_calendar_for_viewer(
         &self,
         actor: &User,
-        amenity_id: Uuid,
-        amenity_property_id: Uuid,
-        start: chrono::DateTime<chrono::Utc>,
-        end: chrono::DateTime<chrono::Utc>,
+        query: AmenityCalendarQuery,
     ) -> DomainResult<Vec<AmenityCalendarEvent>> {
         self.reservations
-            .list_amenity_calendar_for_viewer(actor, amenity_id, amenity_property_id, start, end)
+            .list_calendar_for_viewer(actor, query)
             .await
     }
     pub async fn create_tenant_reservation(

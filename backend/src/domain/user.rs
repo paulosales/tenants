@@ -194,6 +194,19 @@ impl User {
         }
     }
 
+    /// Returns `Ok(())` when `target_property_id` is within the user's authorized property scope,
+    /// or `DomainError::Forbidden` otherwise.
+    pub fn ensure_property_access(
+        &self,
+        target_property_id: Uuid,
+    ) -> Result<(), crate::domain::errors::DomainError> {
+        if self.has_property_access(target_property_id) {
+            Ok(())
+        } else {
+            Err(crate::domain::errors::DomainError::Forbidden)
+        }
+    }
+
     /// Resolves and authorizes an optional query/body `property_id` filter against the caller's scope.
     pub fn enforce_property_scope(
         &self,

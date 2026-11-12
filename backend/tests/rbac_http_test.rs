@@ -108,7 +108,6 @@ async fn build_test_router() -> (axum::Router, PgPool) {
         reservation_service,
         parking_service,
         payment_service,
-        amenity_repo,
         audit_repo,
         admin_service,
         rate_limiter,

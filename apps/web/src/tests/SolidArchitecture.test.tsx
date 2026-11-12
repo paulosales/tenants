@@ -5,7 +5,14 @@ import { ApiProvider } from '../context/ApiContext';
 import { createSegregatedGateways, api } from '../api/client';
 import type { IApiGateways } from '../api/interfaces';
 import { StaffView } from '../components/StaffView';
-import type { PropertyStaff, PropertyWithStats } from '@tenants/shared-types';
+import { TenantView } from '../components/TenantView';
+import { getCalendarEventPresentation } from '../components/tenant/calendarEventStrategies';
+import type {
+  AmenityCalendarEvent,
+  PropertyStaff,
+  PropertyWithStats,
+  UserSummary,
+} from '@tenants/shared-types';
 
 const mockProperty: PropertyWithStats = {
   id: 'prop-solid-1',
@@ -81,5 +88,83 @@ describe('Frontend SOLID Architecture (ISP + DIP + LSP)', () => {
       property_id: 'prop-solid-1',
     });
     expect(singletonSpy).not.toHaveBeenCalled();
+  });
+
+  it('injects segregated tenantSessions & amenities gateways into TenantView (DIP) and enforces Open/Closed calendar privacy strategy', async () => {
+    const singletonCalendarSpy = vi.spyOn(api, 'getAmenityCalendar');
+    const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const sampleOtherEvent: AmenityCalendarEvent = {
+      id: 'ev-solid-1',
+      amenity_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      start_time: `${tomorrowStr}T15:00:00Z`,
+      end_time: `${tomorrowStr}T17:00:00Z`,
+      status: 'confirmed',
+      is_own: false,
+      scheduled_by_name: 'Elena Rostova',
+      unit_number: '102',
+      attendees_count: 4,
+      notes: 'Confidential',
+    };
+
+    const tenantView = getCalendarEventPresentation(sampleOtherEvent, false);
+    expect(tenantView.isPrivateMasked).toBe(true);
+    expect(tenantView.interactive).toBe(false);
+    expect(tenantView.title).toBe('Reserved');
+
+    const adminView = getCalendarEventPresentation(sampleOtherEvent, true);
+    expect(adminView.isPrivateMasked).toBe(false);
+    expect(adminView.interactive).toBe(true);
+    expect(adminView.title).toBe('Elena Rostova · Unit 102');
+
+    const baseGateways = createSegregatedGateways();
+    const fakeCalendarFn = vi.fn().mockResolvedValue([sampleOtherEvent]);
+    const fakeGateways: IApiGateways = {
+      ...baseGateways,
+      amenities: {
+        ...baseGateways.amenities,
+        getAmenities: vi.fn().mockResolvedValue([]),
+      },
+      tenantSessions: {
+        ...baseGateways.tenantSessions,
+        getTenantAmenitySessions: vi.fn().mockResolvedValue([]),
+        getAmenityCalendar: fakeCalendarFn,
+      },
+      maintenance: {
+        ...baseGateways.maintenance,
+        getMaintenanceCalls: vi.fn().mockResolvedValue([]),
+      },
+    };
+
+    const tenantActor: UserSummary = {
+      id: 'u-solid-tenant',
+      email: 'solid@example.com',
+      full_name: 'Solid Resident',
+      role: 'tenant',
+      tenant_id: 't-solid-1',
+      property_id: 'prop-solid-1',
+      unit_number: '101',
+    };
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ApiProvider gateways={fakeGateways}>
+          <TenantView
+            properties={[mockProperty]}
+            selectedPropertyId="prop-solid-1"
+            currentUser={tenantActor}
+          />
+        </ApiProvider>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(fakeCalendarFn).toHaveBeenCalled();
+    });
+    expect(singletonCalendarSpy).not.toHaveBeenCalled();
   });
 });

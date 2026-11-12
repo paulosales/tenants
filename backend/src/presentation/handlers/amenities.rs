@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::application::dtos::CheckAvailabilityQuery;
 use crate::domain::amenity::Amenity;
-use crate::domain::errors::{DomainError, DomainResult};
+use crate::domain::errors::DomainResult;
 use crate::domain::reservation::Reservation;
 use crate::presentation::middleware::auth::{AppState, AuthenticatedUser};
 
@@ -15,16 +15,9 @@ pub async fn list_amenities(
     AuthenticatedUser(user): AuthenticatedUser,
 ) -> DomainResult<Json<Vec<Amenity>>> {
     let list = state
-        .amenity_repo
-        .list_all()
-        .await?
-        .into_iter()
-        .filter(|a| {
-            a.property_id
-                .map(|p| user.has_property_access(p))
-                .unwrap_or(true)
-        })
-        .collect();
+        .reservation_service
+        .list_amenities_for_viewer(&user)
+        .await?;
     Ok(Json(list))
 }
 
@@ -34,17 +27,9 @@ pub async fn get_amenity(
     Path(id): Path<Uuid>,
 ) -> DomainResult<Json<Amenity>> {
     let amenity = state
-        .amenity_repo
-        .find_by_id(id)
-        .await?
-        .ok_or_else(|| DomainError::NotFound("Amenity not found".into()))?;
-
-    if let Some(pid) = amenity.property_id {
-        if !user.has_property_access(pid) {
-            return Err(DomainError::Forbidden);
-        }
-    }
-
+        .reservation_service
+        .get_amenity_for_viewer(&user, id)
+        .await?;
     Ok(Json(amenity))
 }
 
@@ -53,17 +38,6 @@ pub async fn check_availability(
     AuthenticatedUser(user): AuthenticatedUser,
     Query(query): Query<CheckAvailabilityQuery>,
 ) -> DomainResult<Json<Vec<Reservation>>> {
-    let amenity = state
-        .amenity_repo
-        .find_by_id(query.amenity_id)
-        .await?
-        .ok_or_else(|| DomainError::NotFound("Amenity not found".into()))?;
-    if let Some(pid) = amenity.property_id {
-        if !user.has_property_access(pid) {
-            return Err(DomainError::Forbidden);
-        }
-    }
-
     let reservations = state
         .reservation_service
         .check_availability_for_viewer(&user, query)

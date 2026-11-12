@@ -1,15 +1,63 @@
+use async_trait::async_trait;
 use chrono::Utc;
 use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::dtos::{CheckAvailabilityQuery, CreateReservationRequest};
 use crate::domain::{
+    amenity::Amenity,
     audit::AuditLog,
     errors::{DomainError, DomainResult},
     repository::{AmenityRepository, AuditRepository, ReservationRepository},
     reservation::{Reservation, ReservationStatus, ReservationWithDetails},
     user::User,
 };
+
+/// Segregated query/read port for amenity availability workflows (ISP + DIP).
+#[async_trait]
+pub trait AmenityAvailabilityUseCases: Send + Sync {
+    async fn list_amenities_for_viewer(&self, actor: &User) -> DomainResult<Vec<Amenity>>;
+    async fn get_amenity_for_viewer(&self, actor: &User, id: Uuid) -> DomainResult<Amenity>;
+    async fn check_availability_for_viewer(
+        &self,
+        actor: &User,
+        query: CheckAvailabilityQuery,
+    ) -> DomainResult<Vec<Reservation>>;
+}
+
+/// Segregated command/user-history port for amenity reservations (ISP + DIP).
+#[async_trait]
+pub trait ReservationCommandUseCases: Send + Sync {
+    async fn create_reservation(
+        &self,
+        actor: &User,
+        req: CreateReservationRequest,
+        client_ip: Option<String>,
+        user_agent: Option<String>,
+    ) -> DomainResult<Reservation>;
+    async fn list_user_reservations(
+        &self,
+        user_id: Uuid,
+    ) -> DomainResult<Vec<ReservationWithDetails>>;
+    async fn cancel_reservation(
+        &self,
+        actor: &User,
+        reservation_id: Uuid,
+        client_ip: Option<String>,
+        user_agent: Option<String>,
+    ) -> DomainResult<()>;
+}
+
+/// Combined trait object exposed to presentation state so handlers never depend on concrete types (DIP).
+pub trait ReservationFacade:
+    AmenityAvailabilityUseCases + ReservationCommandUseCases + Send + Sync
+{
+}
+
+impl<T> ReservationFacade for T where
+    T: AmenityAvailabilityUseCases + ReservationCommandUseCases + Send + Sync
+{
+}
 
 pub struct ReservationService {
     reservation_repo: Arc<dyn ReservationRepository>,
@@ -45,13 +93,38 @@ impl ReservationService {
             .await
     }
 
-    /// Returns availability slots with scheduler PII (`user_id`, `notes`) redacted
-    /// for all non-admin viewers; only Super Admins see other residents' identities.
+    pub async fn list_amenities_for_viewer(&self, actor: &User) -> DomainResult<Vec<Amenity>> {
+        let list = self.amenity_repo.list_all().await?;
+        Ok(list
+            .into_iter()
+            .filter(|a| {
+                a.property_id
+                    .map(|p| actor.has_property_access(p))
+                    .unwrap_or(true)
+            })
+            .collect())
+    }
+
+    pub async fn get_amenity_for_viewer(&self, actor: &User, id: Uuid) -> DomainResult<Amenity> {
+        let amenity = self
+            .amenity_repo
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound("Amenity not found".into()))?;
+        if let Some(pid) = amenity.property_id {
+            actor.ensure_property_access(pid)?;
+        }
+        Ok(amenity)
+    }
+
+    /// Returns availability slots scoped to the caller's property access, with
+    /// scheduler PII (`user_id`, `notes`) redacted for non-admin viewers.
     pub async fn check_availability_for_viewer(
         &self,
         actor: &User,
         query: CheckAvailabilityQuery,
     ) -> DomainResult<Vec<Reservation>> {
+        let _amenity = self.get_amenity_for_viewer(actor, query.amenity_id).await?;
         let mut list = self.check_availability(query).await?;
         if !actor.role.is_admin() {
             for res in &mut list {
@@ -190,5 +263,55 @@ impl ReservationService {
             .await;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl AmenityAvailabilityUseCases for ReservationService {
+    async fn list_amenities_for_viewer(&self, actor: &User) -> DomainResult<Vec<Amenity>> {
+        ReservationService::list_amenities_for_viewer(self, actor).await
+    }
+
+    async fn get_amenity_for_viewer(&self, actor: &User, id: Uuid) -> DomainResult<Amenity> {
+        ReservationService::get_amenity_for_viewer(self, actor, id).await
+    }
+
+    async fn check_availability_for_viewer(
+        &self,
+        actor: &User,
+        query: CheckAvailabilityQuery,
+    ) -> DomainResult<Vec<Reservation>> {
+        ReservationService::check_availability_for_viewer(self, actor, query).await
+    }
+}
+
+#[async_trait]
+impl ReservationCommandUseCases for ReservationService {
+    async fn create_reservation(
+        &self,
+        actor: &User,
+        req: CreateReservationRequest,
+        client_ip: Option<String>,
+        user_agent: Option<String>,
+    ) -> DomainResult<Reservation> {
+        ReservationService::create_reservation(self, actor, req, client_ip, user_agent).await
+    }
+
+    async fn list_user_reservations(
+        &self,
+        user_id: Uuid,
+    ) -> DomainResult<Vec<ReservationWithDetails>> {
+        ReservationService::list_user_reservations(self, user_id).await
+    }
+
+    async fn cancel_reservation(
+        &self,
+        actor: &User,
+        reservation_id: Uuid,
+        client_ip: Option<String>,
+        user_agent: Option<String>,
+    ) -> DomainResult<()> {
+        ReservationService::cancel_reservation(self, actor, reservation_id, client_ip, user_agent)
+            .await
     }
 }

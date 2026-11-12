@@ -2,65 +2,37 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use super::dtos::{CreateTenantReservationRequest, ReviewTenantReservationRequest};
+use super::dtos::{
+    AmenityCalendarQuery, CreateTenantReservationRequest, ReviewTenantReservationRequest,
+};
 use crate::domain::{
     admin::{
-        AmenityCalendarEvent, AmenityCalendarSlotRecord, TenantReservation,
+        AdminAmenityRepository, AmenityCalendarEvent, AmenityCalendarSlotRecord, TenantReservation,
         TenantReservationRepository,
     },
     errors::{DomainError, DomainResult},
-    user::User,
+    user::{Role, User},
 };
 
 const MAX_CALENDAR_RANGE_DAYS: i64 = 62;
 
-pub struct TenantReservationService {
-    repo: Arc<dyn TenantReservationRepository>,
+/// Open/Closed policy abstraction governing how raw amenity schedule records
+/// are projected for a specific authenticated viewer (OCP + DIP).
+pub trait CalendarVisibilityPolicy: Send + Sync {
+    fn project_event(
+        &self,
+        actor: &User,
+        record: AmenityCalendarSlotRecord,
+    ) -> AmenityCalendarEvent;
 }
 
-impl TenantReservationService {
-    pub fn new(repo: Arc<dyn TenantReservationRepository>) -> Self {
-        Self { repo }
-    }
+/// Default RBAC privacy policy: only `SuperAdmin` viewers receive scheduler PII
+/// for other residents' bookings; tenants only receive occupancy and their own slot details.
+pub struct RoleBasedCalendarVisibilityPolicy;
 
-    fn parse_utc_timestamp(
-        field_label: &str,
-        raw_time: &str,
-        booking_date: Option<&str>,
-    ) -> DomainResult<DateTime<Utc>> {
-        if let Ok(dt) = DateTime::parse_from_rfc3339(raw_time) {
-            return Ok(dt.with_timezone(&Utc));
-        }
-
-        let date_prefix = booking_date.unwrap_or("");
-        let clean_time = if raw_time.len() == 5 {
-            format!("{}:00", raw_time)
-        } else {
-            raw_time.to_string()
-        };
-        let rfc3339_candidate = if clean_time.ends_with('Z') {
-            format!("{}T{}", date_prefix, clean_time)
-        } else {
-            format!("{}T{}Z", date_prefix, clean_time)
-        };
-
-        DateTime::parse_from_rfc3339(&rfc3339_candidate)
-            .map(|dt| dt.with_timezone(&Utc))
-            .map_err(|e| {
-                DomainError::ValidationError(format!("Invalid {} format: {}", field_label, e))
-            })
-    }
-
-    pub async fn list_tenant_reservations(
+impl CalendarVisibilityPolicy for RoleBasedCalendarVisibilityPolicy {
+    fn project_event(
         &self,
-        tenant_id: Option<Uuid>,
-    ) -> DomainResult<Vec<TenantReservation>> {
-        self.repo.list_tenant_reservations(tenant_id).await
-    }
-
-    /// Projects raw calendar slot records into privacy-safe events:
-    /// only `SuperAdmin` viewers receive scheduler names, units, or non-own details.
-    pub fn redact_calendar_slot(
         actor: &User,
         record: AmenityCalendarSlotRecord,
     ) -> AmenityCalendarEvent {
@@ -110,24 +82,137 @@ impl TenantReservationService {
             notes: None,
         }
     }
+}
 
-    pub async fn list_amenity_calendar_for_viewer(
+pub struct TenantReservationService {
+    repo: Arc<dyn TenantReservationRepository>,
+    amenity_repo: Arc<dyn AdminAmenityRepository>,
+    visibility_policy: Arc<dyn CalendarVisibilityPolicy>,
+}
+
+impl TenantReservationService {
+    pub fn new(
+        repo: Arc<dyn TenantReservationRepository>,
+        amenity_repo: Arc<dyn AdminAmenityRepository>,
+    ) -> Self {
+        Self::with_policy(
+            repo,
+            amenity_repo,
+            Arc::new(RoleBasedCalendarVisibilityPolicy),
+        )
+    }
+
+    pub fn with_policy(
+        repo: Arc<dyn TenantReservationRepository>,
+        amenity_repo: Arc<dyn AdminAmenityRepository>,
+        visibility_policy: Arc<dyn CalendarVisibilityPolicy>,
+    ) -> Self {
+        Self {
+            repo,
+            amenity_repo,
+            visibility_policy,
+        }
+    }
+
+    fn parse_utc_timestamp(
+        field_label: &str,
+        raw_time: &str,
+        booking_date: Option<&str>,
+    ) -> DomainResult<DateTime<Utc>> {
+        if let Ok(dt) = DateTime::parse_from_rfc3339(raw_time) {
+            return Ok(dt.with_timezone(&Utc));
+        }
+
+        let date_prefix = booking_date.unwrap_or("");
+        let clean_time = if raw_time.len() == 5 {
+            format!("{}:00", raw_time)
+        } else {
+            raw_time.to_string()
+        };
+        let rfc3339_candidate = if clean_time.ends_with('Z') {
+            format!("{}T{}", date_prefix, clean_time)
+        } else {
+            format!("{}T{}Z", date_prefix, clean_time)
+        };
+
+        DateTime::parse_from_rfc3339(&rfc3339_candidate)
+            .map(|dt| dt.with_timezone(&Utc))
+            .map_err(|e| {
+                DomainError::ValidationError(format!("Invalid {} format: {}", field_label, e))
+            })
+    }
+
+    pub async fn list_tenant_reservations(
+        &self,
+        tenant_id: Option<Uuid>,
+    ) -> DomainResult<Vec<TenantReservation>> {
+        self.repo.list_tenant_reservations(tenant_id).await
+    }
+
+    /// Projects raw calendar slot records through the default RBAC policy (retained for direct helpers/tests).
+    pub fn redact_calendar_slot(
+        actor: &User,
+        record: AmenityCalendarSlotRecord,
+    ) -> AmenityCalendarEvent {
+        RoleBasedCalendarVisibilityPolicy.project_event(actor, record)
+    }
+
+    pub async fn list_for_viewer(
         &self,
         actor: &User,
-        amenity_id: Uuid,
-        amenity_property_id: Uuid,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        requested_tenant_id: Option<Uuid>,
+    ) -> DomainResult<Vec<TenantReservation>> {
+        let scoped_tenant_id = if actor.role == Role::Tenant {
+            Some(actor.tenant_id.ok_or(DomainError::Forbidden)?)
+        } else if actor.role.can_manage_properties() {
+            requested_tenant_id
+        } else {
+            return Err(DomainError::Forbidden);
+        };
+
+        let list = self.repo.list_tenant_reservations(scoped_tenant_id).await?;
+        if actor.role == Role::Tenant {
+            return Ok(list);
+        }
+
+        Ok(list
+            .into_iter()
+            .filter(|r| {
+                r.property_id
+                    .map(|p| actor.has_property_access(p))
+                    .unwrap_or(true)
+            })
+            .collect())
+    }
+
+    pub async fn list_calendar_for_viewer(
+        &self,
+        actor: &User,
+        query: AmenityCalendarQuery,
     ) -> DomainResult<Vec<AmenityCalendarEvent>> {
-        if !actor.has_property_access(amenity_property_id) {
+        if !matches!(
+            actor.role,
+            Role::Tenant | Role::PropertyManager | Role::SuperAdmin
+        ) {
             return Err(DomainError::Forbidden);
         }
-        if end <= start {
+
+        let amenity = self
+            .amenity_repo
+            .get_amenity(query.amenity_id)
+            .await?
+            .ok_or_else(|| {
+                DomainError::NotFound(format!("Amenity {} not found", query.amenity_id))
+            })?;
+
+        actor.ensure_property_access(amenity.property_id)?;
+
+        if query.end_date <= query.start_date {
             return Err(DomainError::ValidationError(
                 "Calendar end date must be after start date".into(),
             ));
         }
-        if (end - start).num_days() > MAX_CALENDAR_RANGE_DAYS {
+        if (query.end_date - query.start_date).num_days() > MAX_CALENDAR_RANGE_DAYS {
             return Err(DomainError::ValidationError(format!(
                 "Calendar range cannot exceed {} days",
                 MAX_CALENDAR_RANGE_DAYS
@@ -136,13 +221,92 @@ impl TenantReservationService {
 
         let records = self
             .repo
-            .list_amenity_calendar_slots(amenity_id, start, end)
+            .list_amenity_calendar_slots(query.amenity_id, query.start_date, query.end_date)
             .await?;
 
         Ok(records
             .into_iter()
-            .map(|r| Self::redact_calendar_slot(actor, r))
+            .map(|r| self.visibility_policy.project_event(actor, r))
             .collect())
+    }
+
+    pub async fn create_for_viewer(
+        &self,
+        actor: &User,
+        mut req: CreateTenantReservationRequest,
+    ) -> DomainResult<TenantReservation> {
+        if !matches!(
+            actor.role,
+            Role::Tenant | Role::PropertyManager | Role::SuperAdmin
+        ) {
+            return Err(DomainError::Forbidden);
+        }
+
+        let amenity = self
+            .amenity_repo
+            .get_amenity(req.amenity_id)
+            .await?
+            .ok_or_else(|| {
+                DomainError::NotFound(format!("Amenity {} not found", req.amenity_id))
+            })?;
+
+        actor.ensure_property_access(amenity.property_id)?;
+        if !amenity.is_active {
+            return Err(DomainError::ValidationError(
+                "This amenity is currently unavailable".into(),
+            ));
+        }
+
+        let attendees_count = req.attendees_count.unwrap_or(1);
+        if attendees_count < 1 || attendees_count > amenity.capacity {
+            return Err(DomainError::ValidationError(format!(
+                "Attendees count must be between 1 and {} guests",
+                amenity.capacity
+            )));
+        }
+
+        if actor.role == Role::Tenant {
+            req.tenant_id = Some(actor.tenant_id.ok_or(DomainError::Forbidden)?);
+        } else if req.tenant_id.is_none() {
+            return Err(DomainError::ValidationError("tenant_id is required".into()));
+        }
+
+        self.create_tenant_reservation(req).await
+    }
+
+    pub async fn cancel_for_viewer(&self, actor: &User, id: Uuid) -> DomainResult<()> {
+        let existing = self.get_tenant_reservation(id).await?;
+        if actor.role == Role::Tenant {
+            if Some(existing.tenant_id) != actor.tenant_id {
+                return Err(DomainError::Forbidden);
+            }
+        } else if !actor.role.can_manage_properties()
+            || existing
+                .property_id
+                .map(|p| !actor.has_property_access(p))
+                .unwrap_or(false)
+        {
+            return Err(DomainError::Forbidden);
+        }
+
+        self.cancel_tenant_reservation(id).await
+    }
+
+    pub async fn review_for_viewer(
+        &self,
+        actor: &User,
+        id: Uuid,
+        req: ReviewTenantReservationRequest,
+    ) -> DomainResult<TenantReservation> {
+        if !actor.role.can_manage_properties() {
+            return Err(DomainError::Forbidden);
+        }
+        let existing = self.get_tenant_reservation(id).await?;
+        if let Some(pid) = existing.property_id {
+            actor.ensure_property_access(pid)?;
+        }
+
+        self.review_tenant_reservation(id, req).await
     }
 
     pub async fn create_tenant_reservation(
