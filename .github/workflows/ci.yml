@@ -91,7 +91,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres_dev_secret_change_in_prod@localhost:5432/tenants_db
         run: |
-          cargo install sqlx-cli --no-default-features --features native-tls,postgres --locked
+          cargo install sqlx-cli --version 0.8.6 --no-default-features --features native-tls,postgres --locked
           sqlx migrate run --source backend/migrations
 
       - name: Run Rust Unit & Integration Tests
