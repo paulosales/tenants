@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UnitsView } from '../components/UnitsView';
 import { api } from '../api/client';
@@ -177,6 +177,27 @@ describe('UnitsView Component - Multi-Tenant Assignment', () => {
     // Assigned tenants chips should be rendered in the modal
     await waitFor(() => {
       expect(screen.getByText('2 selected')).toBeInTheDocument();
+    });
+
+    // Modal card should have overflow-visible so dropdown options aren't clipped
+    const modalHeading = screen.getByText('Edit Unit 101');
+    const modalContainer = modalHeading.closest('.rounded-2xl') as HTMLElement;
+    expect(modalContainer).toHaveClass('overflow-visible');
+    expect(modalContainer).not.toHaveClass('overflow-hidden');
+
+    // Click status dropdown trigger to open options within the modal
+    const modalScope = within(modalContainer);
+    const statusTrigger = modalScope.getByRole('button', { name: /occupied/i });
+    fireEvent.click(statusTrigger);
+
+    // Dropdown options should be visible
+    expect(modalScope.getByRole('option', { name: /vacant/i })).toBeInTheDocument();
+    expect(modalScope.getByRole('option', { name: /maintenance/i })).toBeInTheDocument();
+
+    // Select Maintenance
+    fireEvent.click(modalScope.getByRole('option', { name: /maintenance/i }));
+    await waitFor(() => {
+      expect(modalScope.getByRole('button', { name: /maintenance/i })).toBeInTheDocument();
     });
   });
 });

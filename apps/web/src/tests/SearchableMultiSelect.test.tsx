@@ -111,4 +111,38 @@ describe('SearchableMultiSelect Component', () => {
 
     expect(handleChange).toHaveBeenCalledWith([]);
   });
+
+  it('supports top placement when placement="top" is passed', () => {
+    const { container } = render(
+      <SearchableMultiSelect
+        options={sampleTenantOptions}
+        value={[]}
+        onChange={vi.fn()}
+        placeholder="Select tenants..."
+        placement="top"
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('multi-select-trigger'));
+    const menu = container.querySelector('[data-placement="top"]');
+    expect(menu).toBeInTheDocument();
+    expect(menu).toHaveClass('bottom-full');
+  });
+
+  it('supports bottom placement when placement="bottom" is passed', () => {
+    const { container } = render(
+      <SearchableMultiSelect
+        options={sampleTenantOptions}
+        value={[]}
+        onChange={vi.fn()}
+        placeholder="Select tenants..."
+        placement="bottom"
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('multi-select-trigger'));
+    const menu = container.querySelector('[data-placement="bottom"]');
+    expect(menu).toBeInTheDocument();
+    expect(menu).toHaveClass('top-full');
+  });
 });

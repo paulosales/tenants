@@ -135,4 +135,42 @@ describe('SearchableSelect Component', () => {
     fireEvent.keyDown(trigger, { key: 'Escape' });
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
+
+  it('supports top placement when placement="top" is passed', () => {
+    const { container } = render(
+      <SearchableSelect
+        options={sampleOptions}
+        value=""
+        onChange={vi.fn()}
+        placeholder="Select a unit..."
+        placement="top"
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: /select a unit/i });
+    fireEvent.click(trigger);
+
+    const popover = container.querySelector('[data-placement="top"]');
+    expect(popover).toBeInTheDocument();
+    expect(popover).toHaveClass('bottom-full');
+  });
+
+  it('supports bottom placement when placement="bottom" is passed', () => {
+    const { container } = render(
+      <SearchableSelect
+        options={sampleOptions}
+        value=""
+        onChange={vi.fn()}
+        placeholder="Select a unit..."
+        placement="bottom"
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: /select a unit/i });
+    fireEvent.click(trigger);
+
+    const popover = container.querySelector('[data-placement="bottom"]');
+    expect(popover).toBeInTheDocument();
+    expect(popover).toHaveClass('top-full');
+  });
 });

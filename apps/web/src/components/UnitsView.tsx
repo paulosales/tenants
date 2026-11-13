@@ -649,9 +649,9 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
 
       {/* Create / Edit Unit Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-visible animate-in fade-in zoom-in-95 duration-150 my-auto">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-2xl">
               <h3 className="text-lg font-bold text-slate-900">
                 {editingUnit ? `Edit Unit ${editingUnit.unit_number}` : 'Add Unit'}
               </h3>
@@ -660,7 +660,7 @@ export const UnitsView: React.FC<UnitsViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4 rounded-b-2xl">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Unit # *</label>

@@ -26,6 +26,7 @@ export interface SearchableSelectProps {
   allowClear?: boolean;
   clearLabel?: string;
   clearValue?: string;
+  placement?: 'bottom' | 'top' | 'auto';
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -43,10 +44,14 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   allowClear = false,
   clearLabel = '-- None --',
   clearValue = '',
+  placement = 'auto',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [actualPlacement, setActualPlacement] = useState<'bottom' | 'top'>(
+    placement === 'top' ? 'top' : 'bottom'
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -85,16 +90,31 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     };
   }, [isOpen]);
 
-  // Focus search input when dropdown opens
+  // Focus search input when dropdown opens and adjust placement if needed
   useEffect(() => {
     if (isOpen) {
+      if (placement === 'top') {
+        setActualPlacement('top');
+      } else if (placement === 'bottom') {
+        setActualPlacement('bottom');
+      } else if (containerRef.current && typeof window !== 'undefined') {
+        const rect = containerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+          setActualPlacement('top');
+        } else {
+          setActualPlacement('bottom');
+        }
+      }
+
       setSearchQuery('');
       setHighlightedIndex(0);
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
     }
-  }, [isOpen]);
+  }, [isOpen, placement]);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -154,7 +174,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-block w-full text-left ${className}`}
+      className={`relative inline-block w-full text-left ${isOpen ? 'z-30' : ''} ${className}`}
       onKeyDown={handleKeyDown}
     >
       {/* Trigger Button */}
@@ -234,7 +254,12 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
       {/* Dropdown Popover */}
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 z-50 mt-1.5 rounded-xl border shadow-xl backdrop-blur-md overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 ${
+          data-placement={actualPlacement}
+          className={`absolute left-0 right-0 z-50 ${
+            actualPlacement === 'top'
+              ? 'bottom-full mb-1.5 origin-bottom'
+              : 'top-full mt-1.5 origin-top'
+          } rounded-xl border shadow-xl backdrop-blur-md overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 ${
             isDark
               ? 'bg-slate-900 border-slate-700 text-slate-100'
               : 'bg-white border-slate-200 text-slate-900'

@@ -13,6 +13,7 @@ export interface SearchableMultiSelectProps {
   emptyMessage?: string;
   disabled?: boolean;
   className?: string;
+  placement?: 'bottom' | 'top' | 'auto';
 }
 
 export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
@@ -25,10 +26,14 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
   emptyMessage = 'No matching tenants found',
   disabled = false,
   className = '',
+  placement = 'auto',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [actualPlacement, setActualPlacement] = useState<'bottom' | 'top'>(
+    placement === 'top' ? 'top' : 'bottom'
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -69,16 +74,31 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
     };
   }, [isOpen]);
 
-  // Focus search input when dropdown opens
+  // Focus search input when dropdown opens and adjust placement if needed
   useEffect(() => {
     if (isOpen) {
+      if (placement === 'top') {
+        setActualPlacement('top');
+      } else if (placement === 'bottom') {
+        setActualPlacement('bottom');
+      } else if (containerRef.current && typeof window !== 'undefined') {
+        const rect = containerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        if (spaceBelow < 260 && spaceAbove > spaceBelow) {
+          setActualPlacement('top');
+        } else {
+          setActualPlacement('bottom');
+        }
+      }
+
       setSearchQuery('');
       setHighlightedIndex(0);
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
     }
-  }, [isOpen]);
+  }, [isOpen, placement]);
 
   const toggleOption = (optionValue: string) => {
     if (value.includes(optionValue)) {
@@ -135,7 +155,7 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full ${className}`}
+      className={`relative w-full ${isOpen ? 'z-30' : ''} ${className}`}
       onKeyDown={handleKeyDown}
     >
       {/* Trigger Area */}
@@ -202,7 +222,14 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+        <div
+          data-placement={actualPlacement}
+          className={`absolute z-50 left-0 right-0 ${
+            actualPlacement === 'top'
+              ? 'bottom-full mb-1.5 origin-bottom'
+              : 'top-full mt-1.5 origin-top'
+          } bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100`}
+        >
           {/* Search Box Header */}
           <div className="p-2.5 border-b border-slate-100 bg-slate-50/60">
             <div className="relative flex items-center">
