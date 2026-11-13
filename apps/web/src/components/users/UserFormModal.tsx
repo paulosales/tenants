@@ -195,7 +195,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                 id="user-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+                className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
               >
                 {roles.map((r) => (
                   <option key={r.role} value={r.role}>
@@ -237,7 +237,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                 id="user-property"
                 value={propertyId}
                 onChange={(e) => setPropertyId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+                className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
               >
                 <option value="">Portfolio-Wide / Unassigned</option>
                 {properties.map((p) => (
@@ -284,7 +284,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                 id="user-staff-link"
                 value={staffId}
                 onChange={(e) => setStaffId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+                className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
               >
                 <option value="">-- No linked staff profile --</option>
                 {staffList.map((s) => (
@@ -305,7 +305,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                 id="user-tenant-link"
                 value={tenantId}
                 onChange={(e) => setTenantId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+                className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
               >
                 <option value="">-- No linked tenant profile --</option>
                 {tenantsList.map((t) => (

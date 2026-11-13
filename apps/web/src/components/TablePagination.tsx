@@ -62,7 +62,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               onPageSizeChange(newSize);
               onPageChange(1);
             }}
-            className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer shadow-2xs"
+            className="bg-white border border-slate-300 rounded-lg pl-2.5 pr-7 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer shadow-2xs"
           >
             {pageSizeOptions.map((opt) => (
               <option key={opt} value={opt}>

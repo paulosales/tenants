@@ -134,7 +134,7 @@ export const RentalFilterBar: React.FC<RentalFilterBarProps> = ({
               aria-label="Filter by city"
               value={filters.city}
               onChange={(e) => updateField('city', e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer"
+              className="w-full pl-9 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none cursor-pointer"
             >
               <option value="all">All Cities ({availableCities.length})</option>
               {availableCities.map((city) => (
@@ -292,7 +292,7 @@ export const RentalFilterBar: React.FC<RentalFilterBarProps> = ({
             aria-label="Sort rental listings"
             value={filters.sortBy}
             onChange={(e) => updateField('sortBy', e.target.value as SortOption)}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 cursor-pointer"
+            className="pl-3 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 cursor-pointer"
           >
             <option value="recommended">Sort: Recommended</option>
             <option value="price_asc">Rent: Low to High</option>

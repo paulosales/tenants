@@ -95,7 +95,7 @@ export const TenancyApplicationModal: React.FC<TenancyApplicationModalProps> = (
                 id="app-preferred-unit"
                 value={preferredUnitId}
                 onChange={(e) => setPreferredUnitId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+                className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
               >
                 <option value="">Any Available Unit</option>
                 {property.vacant_units.map((u) => (
@@ -194,7 +194,7 @@ export const TenancyApplicationModal: React.FC<TenancyApplicationModalProps> = (
                 id="app-employment"
                 value={employmentStatus}
                 onChange={(e) => setEmploymentStatus(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+                className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
               >
                 <option value="full_time">Full-Time</option>
                 <option value="part_time">Part-Time</option>

@@ -102,7 +102,7 @@ export const TableColumnFilterSelect: React.FC<TableColumnFilterSelectProps> = (
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-normal text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs cursor-pointer"
+        className="w-full pl-2 pr-7 py-1 bg-white border border-slate-200 rounded-lg text-xs font-normal text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs cursor-pointer"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>

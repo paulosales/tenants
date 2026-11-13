@@ -197,7 +197,7 @@ export const MaintenanceCallForm: React.FC<MaintenanceCallFormProps> = ({
             <select
               id="maintenance-time-window"
               {...register('preferred_time_window')}
-              className="w-full px-3.5 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-3.5 pr-10 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="Morning (08:00 - 12:00)">Morning (08:00 - 12:00)</option>
               <option value="Afternoon (12:00 - 16:00)">Afternoon (12:00 - 16:00)</option>

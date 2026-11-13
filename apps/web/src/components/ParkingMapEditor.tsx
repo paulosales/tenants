@@ -223,7 +223,7 @@ export const ParkingMapEditor: React.FC<ParkingMapEditorProps> = ({
                 <select
                   value={selectedSpot.spot_type}
                   onChange={(e) => handleUpdateSelected({ spot_type: e.target.value as SpotType })}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 capitalize"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 capitalize"
                 >
                   <option value="standard">Standard</option>
                   <option value="compact">Compact</option>

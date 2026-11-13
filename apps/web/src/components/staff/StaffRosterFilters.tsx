@@ -108,7 +108,7 @@ export const StaffRosterFilters: React.FC<StaffRosterFiltersProps> = ({
             id="staff-status-filter"
             value={statusFilter}
             onChange={(e) => onChangeStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
             <option value="all">All Statuses</option>
             <option value="active">Active Onsite</option>

@@ -53,7 +53,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({
           aria-label="Filter users by role"
           value={roleFilter}
           onChange={(e) => onRoleFilterChange(e.target.value as Role | 'all')}
-          className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white"
+          className="pl-3 pr-8 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white"
         >
           <option value="all">All Roles</option>
           {roles.map((r) => (
@@ -108,7 +108,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                         disabled={isSelf || isUpdating}
                         value={u.role}
                         onChange={(e) => onQuickRoleChange(u.id, e.target.value as Role)}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer disabled:opacity-70 ${badgeStyle}`}
+                        className={`pl-2.5 pr-7 py-1.5 rounded-xl text-xs font-bold border cursor-pointer disabled:opacity-70 ${badgeStyle}`}
                       >
                         {roles.map((r) => (
                           <option key={r.role} value={r.role}>

@@ -213,7 +213,7 @@ export const AmenityReservationCalendar: React.FC<AmenityCalendarProps> = ({
               <select
                 value={durationHours}
                 onChange={(e) => setDurationHours(Number(e.target.value))}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
               >
                 <option value={1}>1 Hour</option>
                 <option value={2}>2 Hours</option>

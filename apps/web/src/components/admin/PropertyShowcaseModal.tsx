@@ -460,7 +460,7 @@ export const PropertyShowcaseModal: React.FC<PropertyShowcaseModalProps> = ({
                 aria-label="Feature category"
                 value={newFeatureCategory}
                 onChange={(e) => setNewFeatureCategory(e.target.value)}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none cursor-pointer"
+                className="pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none cursor-pointer"
               >
                 {FEATURE_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>

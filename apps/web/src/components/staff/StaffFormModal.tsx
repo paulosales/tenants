@@ -119,7 +119,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
               <select
                 id="staff-form-property"
                 {...register('property_id')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               >
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -137,7 +137,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
               <select
                 id="staff-form-role"
                 {...register('role')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="maintainer">Technical Maintainer</option>
                 <option value="manager">Property Manager</option>
@@ -156,7 +156,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
                 type="text"
                 placeholder="e.g. Lead Plumber, Chief of Security"
                 {...register('title')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               />
               {errors.title && <span className="text-[11px] text-red-500">{errors.title.message}</span>}
             </div>
@@ -169,7 +169,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
                 id="staff-form-first-name"
                 type="text"
                 {...register('first_name')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               />
               {errors.first_name && <span className="text-[11px] text-red-500">{errors.first_name.message}</span>}
             </div>
@@ -182,7 +182,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
                 id="staff-form-last-name"
                 type="text"
                 {...register('last_name')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               />
               {errors.last_name && <span className="text-[11px] text-red-500">{errors.last_name.message}</span>}
             </div>
@@ -196,7 +196,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
                 type="email"
                 placeholder="staff@property.example.com"
                 {...register('email')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               />
               {errors.email && <span className="text-[11px] text-red-500">{errors.email.message}</span>}
             </div>
@@ -210,7 +210,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
                 type="text"
                 placeholder="+1 (555) 000-0000"
                 {...register('phone')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               />
               {errors.phone && <span className="text-[11px] text-red-500">{errors.phone.message}</span>}
             </div>
@@ -224,7 +224,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
                 type="text"
                 placeholder={SPECIALIZATION_PLACEHOLDERS[selectedFormRole] || SPECIALIZATION_PLACEHOLDERS.other}
                 {...register('specialization')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -235,7 +235,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
               <select
                 id="staff-form-shift"
                 {...register('shift')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="Morning (06:00 - 14:30)">Morning (06:00 - 14:30)</option>
                 <option value="Day (08:00 - 16:30)">Day (08:00 - 16:30)</option>
@@ -252,7 +252,7 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
               <select
                 id="staff-form-status"
                 {...register('status')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="active">Active Onsite</option>
                 <option value="on_leave">On Leave</option>

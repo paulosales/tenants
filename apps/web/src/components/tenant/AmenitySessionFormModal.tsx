@@ -133,7 +133,7 @@ export const AmenitySessionFormModal: React.FC<AmenitySessionFormModalProps> = (
             <select
               id="amenity-start-time"
               {...register('start_time')}
-              className="w-full px-3 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-3.5 pr-10 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {startOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -156,7 +156,7 @@ export const AmenitySessionFormModal: React.FC<AmenitySessionFormModalProps> = (
             <select
               id="amenity-end-time"
               {...register('end_time')}
-              className="w-full px-3 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-3.5 pr-10 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {endOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -184,7 +184,7 @@ export const AmenitySessionFormModal: React.FC<AmenitySessionFormModalProps> = (
               min="1"
               max={amenity.capacity}
               {...register('attendees_count')}
-              className="w-full px-3 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-3.5 pr-10 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <p className="text-[11px] text-slate-400 mt-1">
               Max capacity: {amenity.capacity} guests
