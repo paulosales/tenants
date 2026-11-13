@@ -326,7 +326,7 @@ export const PropertyPriceMap: React.FC<PropertyPriceMapProps> = ({
             </span>
             <span className="text-[11px] text-slate-500">
               OpenStreetMap · {visibleMappedProperties.length} mapped communit
-              {visibleMappedProperties.length === 1 ? 'y' : 'ies'} (No API Key)
+              {visibleMappedProperties.length === 1 ? 'y' : 'ies'}
             </span>
           </div>
         </div>
@@ -337,9 +337,8 @@ export const PropertyPriceMap: React.FC<PropertyPriceMapProps> = ({
               <button
                 type="button"
                 onClick={() => setFocusedCity('all')}
-                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  focusedCity === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
-                }`}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${focusedCity === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
+                  }`}
               >
                 All Regions
               </button>
@@ -348,9 +347,8 @@ export const PropertyPriceMap: React.FC<PropertyPriceMapProps> = ({
                   key={c}
                   type="button"
                   onClick={() => setFocusedCity(c)}
-                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                    focusedCity === c ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600'
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${focusedCity === c ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600'
+                    }`}
                 >
                   {c}
                 </button>
